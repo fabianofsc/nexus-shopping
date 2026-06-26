@@ -1,0 +1,8 @@
+.gradle/
+.gradle-local/
+build/
+out/
+*.iml
+.idea/
+.DS_Store
+jmeter.log
