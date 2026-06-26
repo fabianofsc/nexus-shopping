@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: nexus-shopping
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/nexus_shopping}
+    username: ${DB_USERNAME:nexus}
+    password: ${DB_PASSWORD:nexus}
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: true
+    placeholders:
+      productSeedCount: ${PRODUCT_SEED_COUNT:10000000}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+
+management:
+  health:
+    db:
+      enabled: true
+  endpoint:
+    health:
+      show-details: always
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+logging:
+  level:
+    org.flywaydb: INFO
