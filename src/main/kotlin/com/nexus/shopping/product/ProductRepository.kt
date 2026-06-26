@@ -14,10 +14,24 @@ class ProductRepository(
             resultSet.toProduct()
         }, categoryId)
 
-    fun findByName(name: String): List<Product> =
-        jdbcTemplate.query("SELECT * FROM products WHERE name LIKE ?", { resultSet, _ ->
+    fun findByName(name: String): List<Product> {
+        val upperBound = nextLexicographicValue(name)
+
+        return jdbcTemplate.query("SELECT * FROM products WHERE name >= ? AND name < ? AND name LIKE ?", { resultSet, _ ->
             resultSet.toProduct()
-        }, "$name%")
+        }, name, upperBound, "$name%")
+    }
+
+    private fun nextLexicographicValue(value: String): String {
+        val chars = value.toCharArray()
+        for (index in chars.indices.reversed()) {
+            if (chars[index] != Char.MAX_VALUE) {
+                chars[index] = (chars[index].code + 1).toChar()
+                return chars.concatToString(endIndex = index + 1)
+            }
+        }
+        return value
+    }
 
     private fun ResultSet.toProduct(): Product =
         Product(

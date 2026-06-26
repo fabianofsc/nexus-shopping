@@ -50,7 +50,7 @@ class HealthEndpointTest {
     }
 
     @Test
-    fun `should expose products by category using the illustrative unindexed query`() {
+    fun `should expose products by category using the indexed read query`() {
         val port = environment.getRequiredProperty("local.server.port")
         val request = HttpRequest.newBuilder()
             .uri(URI.create("http://localhost:$port/products?categoryId=1"))
@@ -66,7 +66,7 @@ class HealthEndpointTest {
     }
 
     @Test
-    fun `should expose products by name using the illustrative unindexed like query`() {
+    fun `should expose products by name using the indexed prefix like query`() {
         val port = environment.getRequiredProperty("local.server.port")
         val request = HttpRequest.newBuilder()
             .uri(URI.create("http://localhost:$port/products?name=Product%201"))
