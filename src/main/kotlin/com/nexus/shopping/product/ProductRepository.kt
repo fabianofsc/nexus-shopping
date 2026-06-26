@@ -17,7 +17,7 @@ class ProductRepository(
     fun findByName(name: String): List<Product> =
         jdbcTemplate.query("SELECT * FROM products WHERE name LIKE ?", { resultSet, _ ->
             resultSet.toProduct()
-        }, "%$name%")
+        }, "$name%")
 
     private fun ResultSet.toProduct(): Product =
         Product(

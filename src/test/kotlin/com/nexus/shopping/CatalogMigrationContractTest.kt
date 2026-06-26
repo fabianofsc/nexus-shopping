@@ -16,17 +16,13 @@ class CatalogMigrationContractTest {
     private val applicationConfig = Path.of("src/main/resources/application.yml")
 
     @Test
-    fun `catalog migrations should not create read performance indexes`() {
+    fun `catalog migrations should keep portable relational SQL`() {
         val sql = readAllMigrations()
         val normalizedSql = sql.uppercase()
 
         assertFalse(
-            Regex("\\bCREATE\\s+INDEX\\b").containsMatchIn(normalizedSql),
-            "Do not create secondary indexes in this illustrative schema.",
-        )
-        assertFalse(
             Regex("\\bUNIQUE\\b").containsMatchIn(normalizedSql),
-            "Do not add constraints that create implicit indexes in this illustrative schema.",
+            "Do not add constraints that create implicit indexes outside the explicit index example.",
         )
         assertFalse(
             Regex("\\bCREATE\\s+EXTENSION\\b").containsMatchIn(normalizedSql),
@@ -35,6 +31,19 @@ class CatalogMigrationContractTest {
         assertFalse(
             Regex("\\bUUID\\b|\\bTIMESTAMPTZ\\b|\\bGEN_RANDOM_UUID\\b").containsMatchIn(normalizedSql),
             "Keep the migration free from PostgreSQL-only column types and functions.",
+        )
+    }
+
+    @Test
+    fun `catalog index migration should include targeted read indexes`() {
+        val indexMigration = Files.readString(migrationDirectory.resolve("V3__add_product_read_indexes.sql"))
+        val normalizedSql = indexMigration.uppercase()
+
+        assertTrue(normalizedSql.contains("CREATE INDEX IDX_PRODUCTS_CATEGORY_ID ON PRODUCTS (CATEGORY_ID)"))
+        assertTrue(normalizedSql.contains("CREATE INDEX IDX_PRODUCTS_NAME ON PRODUCTS (NAME)"))
+        assertFalse(
+            Regex("\\bUNIQUE\\b").containsMatchIn(normalizedSql),
+            "The performance example should use non-unique read indexes.",
         )
     }
 
@@ -66,7 +75,7 @@ class CatalogMigrationContractTest {
             .load()
             .migrate()
 
-        assertTrue(result.migrationsExecuted >= 2)
+        assertTrue(result.migrationsExecuted >= 3)
     }
 
     @Test
