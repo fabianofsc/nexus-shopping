@@ -79,7 +79,7 @@ The repository intentionally executes:
 
 ```sql
 SELECT * FROM products WHERE category_id = ?
-SELECT * FROM products WHERE name LIKE ?
+SELECT * FROM products WHERE name >= ? AND name < ? AND name LIKE ?
 ```
 
 There are no secondary indexes on `products.category_id` or `products.name`, so these endpoints are useful for demonstrating the read performance cost of filtering a large relational table without an index.

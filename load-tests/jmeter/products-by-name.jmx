@@ -2,7 +2,7 @@
 <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
   <hashTree>
     <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Nexus Shopping Products by Name" enabled="true">
-      <stringProp name="TestPlan.comments">Load test for GET /products?name={name}. This endpoint intentionally runs SELECT * FROM products WHERE name LIKE ? without secondary indexes.</stringProp>
+      <stringProp name="TestPlan.comments">Load test for GET /products?name={name}. Compare this prefix LIKE endpoint before and after idx_products_name.</stringProp>
       <boolProp name="TestPlan.functional_mode">false</boolProp>
       <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>
       <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
