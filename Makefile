@@ -27,7 +27,7 @@ RUN_ID ?= $(shell date +%Y%m%d-%H%M%S)
 
 JMETER_RESULTS_DIR := build/jmeter-results
 JMETER_REPORT_DIR := build/jmeter-report
-JMETER_HEAP ?= -Xms512m -Xmx2g -Djava.awt.headless=true -Dlog4j2.statusLoggerLevel=ERROR
+JMETER_HEAP ?= -Xms512m -Xmx2g -Djava.awt.headless=true -Dlog4j2.status=OFF
 
 .PHONY: help
 help:
@@ -151,7 +151,7 @@ jmeter-dirs:
 	rtk mkdir -p $(JMETER_RESULTS_DIR) $(JMETER_REPORT_DIR)
 
 jmeter-category: jmeter-dirs
-	rtk env JVM_ARGS="$(JMETER_HEAP)" jmeter -n \
+	rtk env JVM_ARGS="$(JMETER_HEAP)" scripts/jmeter.sh -n \
 	  -t load-tests/jmeter/products-by-category.jmx \
 	  -l $(JMETER_RESULTS_DIR)/products-by-category-$(SCENARIO)-$(RUN_ID).jtl \
 	  -e -o $(JMETER_REPORT_DIR)/products-by-category-$(SCENARIO)-$(RUN_ID) \
@@ -166,7 +166,7 @@ jmeter-category: jmeter-dirs
 	  -Jsummariser.interval=10
 
 jmeter-name: jmeter-dirs
-	rtk env JVM_ARGS="$(JMETER_HEAP)" jmeter -n \
+	rtk env JVM_ARGS="$(JMETER_HEAP)" scripts/jmeter.sh -n \
 	  -t load-tests/jmeter/products-by-name.jmx \
 	  -l $(JMETER_RESULTS_DIR)/products-by-name-$(SCENARIO)-$(RUN_ID).jtl \
 	  -e -o $(JMETER_REPORT_DIR)/products-by-name-$(SCENARIO)-$(RUN_ID) \
