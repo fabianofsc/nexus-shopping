@@ -54,8 +54,4 @@ tasks.withType<Test>().configureEach {
 
 tasks.named<BootBuildImage>("bootBuildImage") {
     imageName.set(providers.gradleProperty("imageName").orElse("nexus-shopping:local"))
-    val platforms = providers.gradleProperty("imagePlatforms")
-    if (platforms.isPresent) {
-        imagePlatforms.set(platforms.get().split(","))
-    }
 }
