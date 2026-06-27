@@ -1,6 +1,6 @@
 # Roteiro de Teste de Carga com JMeter
 
-Este roteiro guia a execucao comparativa dos tres cenarios de performance do projeto e ensina a interpretar os resultados.
+Este roteiro guia a execucao comparativa dos tres cenarios de performance do projeto e ensina a interpretar os resultados. Voce nao precisa conhecer o codigo para executar os testes.
 
 ## O que este projeto demonstra
 
@@ -21,43 +21,105 @@ Cada cenario representa uma evolucao do codigo, disponivel como imagem publica n
 
 ## Pre-requisitos
 
-- Docker e Docker Compose
-- Apache JMeter
+Voce precisa de tres ferramentas instaladas: **Docker**, **JMeter** e **Make**. Nao e necessario ter Java, Gradle nem entender o codigo-fonte.
+
+### macOS
 
 ```bash
-brew install jmeter   # macOS
+brew install --cask docker
+brew install jmeter
 ```
 
-Nao e necessario ter Java, Gradle ou clonar branches diferentes. As imagens estao prontas no Docker Hub.
+O `make` ja vem instalado no macOS com as ferramentas de linha de comando do Xcode. Se nao tiver:
 
-## Como o banco funciona entre os cenarios
+```bash
+xcode-select --install
+```
 
-O banco e criado apenas uma vez, no cenario baseline. Os cenarios seguintes aproveitam o mesmo volume do Postgres e o Flyway aplica apenas as migrations novas:
+Apos instalar o Docker, abra o aplicativo Docker Desktop pelo Launchpad para inicializar o servico antes de continuar.
 
-- **Baseline**: cria tabelas e semeia 10 milhoes de produtos. Pode demorar varios minutos.
-- **Indices**: aplica somente `CREATE INDEX idx_products_category_id` e `CREATE INDEX idx_products_name`. Rapido.
-- **Paginacao**: sem migrations novas. Apenas o codigo da aplicacao muda. Instantaneo.
+### Linux (Ubuntu/Debian)
 
-Nunca derrube o volume entre os cenarios baseline → indexes → pagination. O volume so e recriado ao iniciar o baseline.
+```bash
+# Docker
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+  https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
-## Executar os tres cenarios em sequencia
+# Permitir Docker sem sudo
+sudo usermod -aG docker $USER
+newgrp docker
+
+# JMeter
+sudo apt-get install -y default-jre
+wget https://downloads.apache.org/jmeter/binaries/apache-jmeter-5.6.3.tgz
+tar -xzf apache-jmeter-5.6.3.tgz
+sudo mv apache-jmeter-5.6.3 /opt/jmeter
+echo 'export PATH=$PATH:/opt/jmeter/bin' >> ~/.bashrc
+source ~/.bashrc
+
+# Make
+sudo apt-get install -y make
+```
+
+> Essas instrucoes valem tambem para Windows com WSL 2 (Windows Subsystem for Linux). Ative o WSL 2, instale o Ubuntu pela Microsoft Store e siga os passos do Linux acima dentro do terminal Ubuntu.
+
+### Verificar instalacao
+
+```bash
+docker --version
+docker compose version
+jmeter --version
+make --version
+```
+
+Todos os comandos devem retornar uma versao sem erro.
+
+## Inicio rapido
+
+Clone o repositorio uma unica vez:
+
+```bash
+git clone https://github.com/fabianofsc/nexus-shopping.git
+cd nexus-shopping
+```
+
+O roteiro completo usa dois comandos por cenario: um para preparar o ambiente e outro para executar os testes.
 
 ### Cenario 1: Baseline
 
-Reseta o banco, sobe a stack e executa os dois planos JMeter:
+Baixa a imagem, recria o banco do zero, popula 10 milhoes de produtos e aguarda a aplicacao ficar pronta:
 
 ```bash
-make load-hub-baseline
+make start-baseline
 ```
 
-Aguarde a conclusao. O seed de 10 milhoes de produtos ocorre nesta etapa e leva alguns minutos. O `wait-health` aguarda automaticamente a aplicacao ficar pronta.
+Quando o terminal exibir `health OK`, execute os testes:
+
+```bash
+make jmeter-all SCENARIO=baseline
+```
+
+O seed de 10 milhoes de produtos ocorre nesta etapa e leva alguns minutos. Os demais cenarios aproveitam o banco ja criado.
 
 ### Cenario 2: Indices
 
-Troca apenas a imagem da aplicacao, sem tocar no banco. O Flyway aplica os dois indices:
+Troca a imagem da aplicacao. O Flyway aplica os dois indices no banco existente e a aplicacao fica pronta:
 
 ```bash
-make load-hub-indexes
+make start-indexes
+```
+
+Execute os testes:
+
+```bash
+make jmeter-all SCENARIO=indexes
 ```
 
 ### Cenario 3: Paginacao
@@ -65,8 +127,36 @@ make load-hub-indexes
 Troca a imagem novamente. Nenhuma migration nova e aplicada:
 
 ```bash
+make start-pagination
+```
+
+Execute os testes:
+
+```bash
+make jmeter-all SCENARIO=pagination
+```
+
+Os relatorios HTML ficam em `build/jmeter-report/`. Abra o `index.html` de cada pasta para comparar os resultados.
+
+### Atalho: executar tudo em sequencia
+
+Se preferir rodar ambiente e testes de uma vez:
+
+```bash
+make load-hub-baseline
+make load-hub-indexes
 make load-hub-pagination
 ```
+
+## Como o banco funciona entre os cenarios
+
+O banco e criado apenas uma vez, no cenario baseline. Os cenarios seguintes aproveitam o mesmo volume do Postgres:
+
+- **Baseline**: cria tabelas e semeia 10 milhoes de produtos. Leva alguns minutos.
+- **Indices**: aplica somente dois `CREATE INDEX` no banco existente. Rapido.
+- **Paginacao**: nenhuma migration nova. Apenas o codigo da aplicacao muda. Instantaneo.
+
+Nunca derrube o volume entre os cenarios baseline → indexes → pagination. Se quiser comecar do zero em qualquer ponto, use os comandos de reset descritos na secao de comandos uteis.
 
 ## Metricas a observar no relatorio JMeter
 
@@ -134,28 +224,28 @@ A busca por nome tem ganho pequeno, porque ela ja retornava poucos resultados.
 
 ## Comandos uteis
 
-Subir apenas a stack sem rodar JMeter (banco preservado):
+Iniciar um cenario (baixa imagem + sobe stack + aguarda health):
 
 ```bash
-make hub-baseline    # troca para baseline, banco preservado
-make hub-indexes     # troca para indexes, banco preservado
-make hub-pagination  # troca para pagination, banco preservado
+make start-baseline    # reseta banco, popula 10M produtos
+make start-indexes     # troca imagem, banco preservado
+make start-pagination  # troca imagem, banco preservado
 ```
 
-Resetar o banco explicitamente antes de subir:
+Executar os testes contra o app ja no ar:
 
 ```bash
-make hub-reset-baseline    # derruba volume e sobe baseline
-make hub-reset-indexes     # derruba volume e sobe indexes
-make hub-reset-pagination  # derruba volume e sobe pagination
+make jmeter-all SCENARIO=baseline    # roda os dois planos
+make jmeter-category SCENARIO=baseline
+make jmeter-name SCENARIO=baseline
 ```
 
-Rodar JMeter contra a stack ja no ar:
+Resetar o banco de qualquer cenario quando necessario:
 
 ```bash
-make jmeter-all
-make jmeter-category
-make jmeter-name
+make hub-reset-baseline
+make hub-reset-indexes
+make hub-reset-pagination
 ```
 
 Verificar saude da aplicacao:
