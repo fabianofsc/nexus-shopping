@@ -102,6 +102,43 @@ SELECT * FROM products WHERE name >= ? AND name < ? AND name LIKE ? ORDER BY nam
 
 The endpoint returns a slice response with `content`, `page`, `size`, `count`, and `hasNext`. It intentionally avoids `COUNT(*)` so each request performs only the page read. The name lookup still uses `LIKE`, but it is written as a prefix range so the portable B-tree index on `products.name` can be used. The branch `missing-index-performance-baseline` preserves the version without secondary indexes.
 
+## Docker Image
+
+The project uses Spring Boot's native Gradle task for OCI image generation through Cloud Native Buildpacks. There is no Dockerfile.
+
+Build the local image:
+
+```bash
+./gradlew bootBuildImage --imageName nexus-shopping:local
+```
+
+Run PostgreSQL and the app with Docker Compose:
+
+```bash
+APP_IMAGE=nexus-shopping:local docker compose up -d postgres app
+```
+
+The app service uses the internal Compose hostname `postgres`:
+
+```bash
+DB_URL=jdbc:postgresql://postgres:5432/nexus_shopping
+```
+
+To switch to one of the didactic branches, build the image, and run the full stack:
+
+```bash
+scripts/run-stack.sh baseline --reset-db
+scripts/run-stack.sh indexes --reset-db
+scripts/run-stack.sh pagination --reset-db
+```
+
+The script maps:
+
+- `baseline` to `missing-index-performance-baseline`
+- `indexes` to `add-product-query-indexes`
+- `pagination` to `add-products-pagination`
+- `main` to `main`
+
 ## Test
 
 ```bash
