@@ -1,176 +1,180 @@
-# Guia de Testes com JMeter
+# Roteiro de Teste de Carga com JMeter
 
-## Smoke Test ou Load Test?
+Este roteiro guia a execucao comparativa dos tres cenarios de performance do projeto e ensina a interpretar os resultados.
 
-Este guia deve ser chamado de guia de teste de carga com JMeter, nao de smoke test.
+## O que este projeto demonstra
 
-Smoke test e uma checagem rapida para confirmar que a aplicacao subiu e responde. Neste projeto, o smoke test e:
+O banco de dados e populado com 10 milhoes de produtos, 1.000 marcas e 500 categorias. Dois endpoints sao testados repetidamente sob carga concorrente:
+
+```
+GET /products?categoryId=1&page=0&size=50
+GET /products?name=Product%209999999&page=0&size=50
+```
+
+Cada cenario representa uma evolucao do codigo, disponivel como imagem publica no Docker Hub:
+
+| Cenario | Imagem Docker Hub | O que muda |
+| --- | --- | --- |
+| Baseline | `fabianofsc/nexus-shopping:baseline` | Sem indices secundarios |
+| Indices | `fabianofsc/nexus-shopping:indexes` | Adiciona indices em `category_id` e `name` |
+| Paginacao | `fabianofsc/nexus-shopping:pagination` | Limita a 50 registros por resposta |
+
+## Pre-requisitos
+
+- Docker e Docker Compose
+- Apache JMeter
+
+```bash
+brew install jmeter   # macOS
+```
+
+Nao e necessario ter Java, Gradle ou clonar branches diferentes. As imagens estao prontas no Docker Hub.
+
+## Como o banco funciona entre os cenarios
+
+O banco e criado apenas uma vez, no cenario baseline. Os cenarios seguintes aproveitam o mesmo volume do Postgres e o Flyway aplica apenas as migrations novas:
+
+- **Baseline**: cria tabelas e semeia 10 milhoes de produtos. Pode demorar varios minutos.
+- **Indices**: aplica somente `CREATE INDEX idx_products_category_id` e `CREATE INDEX idx_products_name`. Rapido.
+- **Paginacao**: sem migrations novas. Apenas o codigo da aplicacao muda. Instantaneo.
+
+Nunca derrube o volume entre os cenarios baseline → indexes → pagination. O volume so e recriado ao iniciar o baseline.
+
+## Executar os tres cenarios em sequencia
+
+### Cenario 1: Baseline
+
+Reseta o banco, sobe a stack e executa os dois planos JMeter:
+
+```bash
+make load-hub-baseline
+```
+
+Aguarde a conclusao. O seed de 10 milhoes de produtos ocorre nesta etapa e leva alguns minutos. O `wait-health` aguarda automaticamente a aplicacao ficar pronta.
+
+### Cenario 2: Indices
+
+Troca apenas a imagem da aplicacao, sem tocar no banco. O Flyway aplica os dois indices:
+
+```bash
+make load-hub-indexes
+```
+
+### Cenario 3: Paginacao
+
+Troca a imagem novamente. Nenhuma migration nova e aplicada:
+
+```bash
+make load-hub-pagination
+```
+
+## Metricas a observar no relatorio JMeter
+
+Cada execucao gera um relatorio HTML em `build/jmeter-report/`. As metricas mais importantes para comparar os cenarios:
+
+| Metrica | O que revela |
+| --- | --- |
+| Vazao (req/s) | Quantas requisicoes o sistema atende por segundo |
+| Tempo medio | Latencia media sob 50 usuarios concorrentes |
+| P95 | 95% das requisicoes respondem em ate este tempo |
+| P99 | 99% das requisicoes respondem em ate este tempo |
+| Erros (%) | Deve ser zero em todos os cenarios |
+
+## O que esperar em cada cenario
+
+### Baseline: sem indices
+
+A busca por categoria percorre a tabela inteira para cada requisicao. Cada categoria tem cerca de 20.000 produtos, entao o endpoint combina varredura total com payload grande.
+
+A busca por nome retorna poucos resultados mas tambem percorre a tabela inteira.
+
+| Metrica | Categoria | Nome |
+| --- | ---: | ---: |
+| Vazao | ~12 req/s | ~11 req/s |
+| Tempo medio | ~3.800 ms | ~4.200 ms |
+| P95 | ~4.800 ms | ~5.400 ms |
+
+**Como interpretar**: os dois endpoints ficam limitados a 11-12 req/s com P95 acima de 5 segundos. A busca por nome e o caso mais revelador: retorna quase nada, mas ainda e lenta porque o banco nao tem como localizar as linhas sem varrer tudo.
+
+### Indices: localizacao sem varredura
+
+A busca por nome melhora de forma dramatica, porque combina um indice eficiente com um resultado pequeno.
+
+A busca por categoria melhora cerca de 5x, mas ainda retorna 20.000 produtos por requisicao. O gargalo passa a ser materializacao e serializacao do payload.
+
+| Metrica | Categoria (baseline) | Categoria (indices) | Nome (baseline) | Nome (indices) |
+| --- | ---: | ---: | ---: | ---: |
+| Vazao | ~12 req/s | ~61 req/s | ~11 req/s | ~26.000 req/s |
+| Tempo medio | ~3.800 ms | ~750 ms | ~4.200 ms | ~2 ms |
+| P95 | ~4.800 ms | ~917 ms | ~5.400 ms | ~5 ms |
+
+**Como interpretar**: indice nao e otimizacao opcional em tabelas grandes. Para a busca por nome, o ganho e de mais de 2.000x em vazao. A busca por categoria melhorou 5x, mas ainda tem gargalo diferente: o volume de linhas retornadas.
+
+### Paginacao: limitar o retorno de linhas
+
+A busca por categoria tem ganho expressivo. Com `size=50`, a aplicacao materializa e serializa apenas 50 produtos em vez de 20.000.
+
+A busca por nome tem ganho pequeno, porque ela ja retornava poucos resultados.
+
+| Metrica | Categoria (indices) | Categoria (paginada) | Nome (indices) | Nome (paginado) |
+| --- | ---: | ---: | ---: | ---: |
+| Vazao | ~61 req/s | ~2.960 req/s | ~26.000 req/s | ~28.000 req/s |
+| Tempo medio | ~750 ms | ~16 ms | ~2 ms | ~2 ms |
+| P95 | ~917 ms | ~26 ms | ~5 ms | ~4 ms |
+
+**Como interpretar**: indices e paginacao resolvem problemas diferentes. Indices reduzem o custo de **localizar** linhas. Paginacao reduz o custo de **retornar** linhas. Para a categoria, os dois juntos foram necessarios para atingir P95 de 26 ms e quase 3.000 req/s.
+
+## Resumo da progressao
+
+| Cenario | Vazao (categoria) | P95 (categoria) | Vazao (nome) | P95 (nome) |
+| --- | ---: | ---: | ---: | ---: |
+| Sem indice | ~12 req/s | ~4.800 ms | ~11 req/s | ~5.400 ms |
+| Com indice | ~61 req/s | ~917 ms | ~26.000 req/s | ~5 ms |
+| Com paginacao | ~2.960 req/s | ~26 ms | ~28.000 req/s | ~4 ms |
+
+## Comandos uteis
+
+Subir apenas a stack sem rodar JMeter (banco preservado):
+
+```bash
+make hub-baseline    # troca para baseline, banco preservado
+make hub-indexes     # troca para indexes, banco preservado
+make hub-pagination  # troca para pagination, banco preservado
+```
+
+Resetar o banco explicitamente antes de subir:
+
+```bash
+make hub-reset-baseline    # derruba volume e sobe baseline
+make hub-reset-indexes     # derruba volume e sobe indexes
+make hub-reset-pagination  # derruba volume e sobe pagination
+```
+
+Rodar JMeter contra a stack ja no ar:
+
+```bash
+make jmeter-all
+make jmeter-category
+make jmeter-name
+```
+
+Verificar saude da aplicacao:
 
 ```bash
 make health
 ```
 
-ou diretamente:
-
-```bash
-curl http://localhost:8080/actuator/health
-```
-
-Os testes com JMeter deste projeto exercitam concorrencia, latencia, vazao e tamanho de resposta. Portanto, eles sao testes de carga comparativos.
-
-## Cenarios
-
-O projeto possui tres branches didaticas:
-
-| Cenario | Branch | Objetivo |
-| --- | --- | --- |
-| Baseline | `missing-index-performance-baseline` | Medir o comportamento sem indices secundarios. |
-| Indexes | `add-product-query-indexes` | Medir o impacto dos indices de leitura. |
-| Pagination | `add-products-pagination` | Medir o impacto da paginacao depois dos indices. |
-
-A versao mais nova do projeto e a versao paginada. A `main` deve representar essa ultima versao.
-
-## Imagem Docker
-
-A imagem da ultima versao deve ser gerada a partir da branch `main`, que representa a versao paginada consolidada, e publicada localmente como:
+## Onde ficam os relatorios
 
 ```text
-nexus-shopping:latest
+build/jmeter-results/   # arquivos .jtl com dados brutos
+build/jmeter-report/    # relatorios HTML
 ```
 
-Use:
+Esses arquivos sao artefatos locais e nao devem ser commitados.
 
-```bash
-make image-latest
-```
+## Documentacao dos resultados reais
 
-Esse alvo troca para a branch `main` e executa o task nativo do Spring Boot:
-
-```bash
-./gradlew bootBuildImage --imageName nexus-shopping:latest
-```
-
-Nao existe Dockerfile neste projeto. A imagem e criada pela opcao nativa do Spring Boot com Cloud Native Buildpacks.
-
-## Executar Cada Cenario
-
-Cada alvo abaixo faz o fluxo completo:
-
-1. troca para a branch correta;
-2. gera a imagem Docker da aplicacao;
-3. recria o banco com `docker compose down -v`;
-4. sobe `postgres` e `app`;
-5. espera `/actuator/health`;
-6. executa os dois testes JMeter;
-7. gera `.jtl` e relatorio HTML.
-
-Baseline sem indices:
-
-```bash
-make load-baseline
-```
-
-Indices:
-
-```bash
-make load-indexes
-```
-
-Paginacao:
-
-```bash
-make load-pagination
-```
-
-Ultima versao, usando a imagem `nexus-shopping:latest`:
-
-```bash
-make load-latest
-```
-
-## Executar Apenas a Stack
-
-Para subir um cenario sem rodar JMeter:
-
-```bash
-make stack-baseline
-make stack-indexes
-make stack-pagination
-```
-
-Para resetar o banco antes de subir:
-
-```bash
-make stack-reset-baseline
-make stack-reset-indexes
-make stack-reset-pagination
-```
-
-Para subir a ultima versao com a imagem `nexus-shopping:latest`:
-
-```bash
-make stack-latest
-```
-
-## Executar JMeter Contra a Aplicacao Atual
-
-Depois de subir a aplicacao, rode:
-
-```bash
-make jmeter-category
-make jmeter-name
-make jmeter-all
-```
-
-Variaveis uteis:
-
-```bash
-make jmeter-all THREADS=50 RAMP_UP=20 DURATION=120
-make jmeter-category CATEGORY_ID=1
-make jmeter-name NAME='Product 9999999'
-make jmeter-all SCENARIO=manual RUN_ID=experimento-01
-```
-
-Na branch de paginacao, tambem e possivel controlar:
-
-```bash
-make jmeter-all PAGE=0 SIZE=50
-```
-
-Nas branches baseline e indexes, `PAGE` e `SIZE` sao enviados para o JMeter, mas os planos daquelas branches nao usam esses parametros.
-
-## Saida dos Relatorios
-
-Os resultados sao gravados em:
-
-```text
-build/jmeter-results/
-build/jmeter-report/
-```
-
-Exemplo:
-
-```text
-build/jmeter-results/products-by-category-baseline-20260627-173237.jtl
-build/jmeter-report/products-by-category-baseline-20260627-173237/index.html
-```
-
-Os arquivos dentro de `build/` sao artefatos locais e nao devem ser commitados.
-
-## Comparacao Esperada
-
-Ordem recomendada:
-
-```bash
-make load-baseline
-make load-indexes
-make load-pagination
-```
-
-Leitura esperada:
-
-- Baseline mostra o custo de consultar tabela grande sem indices.
-- Indexes mostram o ganho ao localizar linhas por indice.
-- Pagination mostra o ganho ao limitar o volume de linhas retornadas e serializadas.
-
-O cenario de categoria e o melhor para observar o ganho da paginacao, porque sem pagina ela retorna muitos produtos por requisicao.
+- `docs/load-test-results-20260626.md` - baseline sem indices
+- `docs/load-test-index-results-20260626.md` - com indices
+- `docs/load-test-pagination-results-20260627.md` - com paginacao
