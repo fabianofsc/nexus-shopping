@@ -1,9 +1,9 @@
-name: Publish pagination image
+name: Publish latest image
 
 on:
   push:
     branches:
-      - add-products-pagination
+      - main
 
 jobs:
   publish:
@@ -25,8 +25,8 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push pagination image
-        run: ./gradlew bootBuildImage --imageName fabianofsc/nexus-shopping:pagination
+      - name: Build and push latest image
+        run: ./gradlew bootBuildImage --imageName fabianofsc/nexus-shopping:latest
 
       - name: Push image
-        run: docker push fabianofsc/nexus-shopping:pagination
+        run: docker push fabianofsc/nexus-shopping:latest
