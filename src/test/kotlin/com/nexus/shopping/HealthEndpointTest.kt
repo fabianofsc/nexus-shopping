@@ -53,31 +53,35 @@ class HealthEndpointTest {
     fun `should expose products by category using the indexed read query`() {
         val port = environment.getRequiredProperty("local.server.port")
         val request = HttpRequest.newBuilder()
-            .uri(URI.create("http://localhost:$port/products?categoryId=1"))
+            .uri(URI.create("http://localhost:$port/products?categoryId=1&page=0&size=1"))
             .GET()
             .build()
 
         val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString())
 
         assertEquals(200, response.statusCode())
-        val products = JsonMapper.builder().build().readTree(response.body())
-        assertEquals(1, products.size())
-        assertEquals("SKU-1", products.first()["sku"].asText())
+        val page = JsonMapper.builder().build().readTree(response.body())
+        assertEquals(0, page["page"].asInt())
+        assertEquals(1, page["size"].asInt())
+        assertEquals(1, page["count"].asInt())
+        assertEquals("SKU-1", page["content"].first()["sku"].asText())
     }
 
     @Test
     fun `should expose products by name using the indexed prefix like query`() {
         val port = environment.getRequiredProperty("local.server.port")
         val request = HttpRequest.newBuilder()
-            .uri(URI.create("http://localhost:$port/products?name=Product%201"))
+            .uri(URI.create("http://localhost:$port/products?name=Product%201&page=0&size=1"))
             .GET()
             .build()
 
         val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString())
 
         assertEquals(200, response.statusCode())
-        val products = JsonMapper.builder().build().readTree(response.body())
-        assertEquals(1, products.size())
-        assertEquals("Product 1", products.first()["name"].asText())
+        val page = JsonMapper.builder().build().readTree(response.body())
+        assertEquals(0, page["page"].asInt())
+        assertEquals(1, page["size"].asInt())
+        assertEquals(1, page["count"].asInt())
+        assertEquals("Product 1", page["content"].first()["name"].asText())
     }
 }

@@ -17,17 +17,27 @@ class ProductController(
     fun search(
         @RequestParam(required = false) categoryId: Long?,
         @RequestParam(required = false) name: String?,
-    ): List<Product> {
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "50") size: Int,
+    ): ProductPage {
         if (categoryId != null && !name.isNullOrBlank()) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Use either categoryId or name, not both.")
         }
 
+        if (page < 0) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Query parameter page must be greater than or equal to 0.")
+        }
+
+        if (size !in 1..500) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Query parameter size must be between 1 and 500.")
+        }
+
         if (categoryId != null) {
-            return productService.findByCategoryId(categoryId)
+            return productService.findByCategoryId(categoryId, page, size)
         }
 
         if (!name.isNullOrBlank()) {
-            return productService.findByName(name)
+            return productService.findByName(name, page, size)
         }
 
         throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Query parameter categoryId or name is required.")

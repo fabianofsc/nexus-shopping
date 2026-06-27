@@ -2,7 +2,7 @@
 <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
   <hashTree>
     <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Nexus Shopping Products by Name" enabled="true">
-      <stringProp name="TestPlan.comments">Load test for GET /products?name={name}. Compare this prefix LIKE endpoint before and after idx_products_name.</stringProp>
+      <stringProp name="TestPlan.comments">Load test for paginated GET /products?name={name}. Compare this endpoint before and after pagination.</stringProp>
       <boolProp name="TestPlan.functional_mode">false</boolProp>
       <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>
       <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
@@ -26,6 +26,16 @@
           <elementProp name="name" elementType="Argument">
             <stringProp name="Argument.name">name</stringProp>
             <stringProp name="Argument.value">${__P(name,Product 2999999)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="page" elementType="Argument">
+            <stringProp name="Argument.name">page</stringProp>
+            <stringProp name="Argument.value">${__P(page,0)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="size" elementType="Argument">
+            <stringProp name="Argument.name">size</stringProp>
+            <stringProp name="Argument.value">${__P(size,50)}</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
         </collectionProp>
@@ -70,6 +80,20 @@
                 <boolProp name="HTTPArgument.always_encode">true</boolProp>
                 <stringProp name="Argument.name">name</stringProp>
                 <stringProp name="Argument.value">${name}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+                <boolProp name="HTTPArgument.use_equals">true</boolProp>
+              </elementProp>
+              <elementProp name="page" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">true</boolProp>
+                <stringProp name="Argument.name">page</stringProp>
+                <stringProp name="Argument.value">${page}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+                <boolProp name="HTTPArgument.use_equals">true</boolProp>
+              </elementProp>
+              <elementProp name="size" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">true</boolProp>
+                <stringProp name="Argument.name">size</stringProp>
+                <stringProp name="Argument.value">${size}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
                 <boolProp name="HTTPArgument.use_equals">true</boolProp>
               </elementProp>

@@ -9,18 +9,52 @@ class ProductRepository(
     private val jdbcTemplate: JdbcTemplate,
 ) {
 
-    fun findByCategoryId(categoryId: Long): List<Product> =
-        jdbcTemplate.query("SELECT * FROM products WHERE category_id = ?", { resultSet, _ ->
-            resultSet.toProduct()
-        }, categoryId)
+    fun findByCategoryId(categoryId: Long, page: Int, size: Int): ProductPage {
+        val products = jdbcTemplate.query(
+            "SELECT * FROM products WHERE category_id = ? ORDER BY id LIMIT ? OFFSET ?",
+            { resultSet, _ ->
+                resultSet.toProduct()
+            },
+            categoryId,
+            size + 1,
+            page.toOffset(size),
+        )
 
-    fun findByName(name: String): List<Product> {
+        return products.toPage(page, size)
+    }
+
+    fun findByName(name: String, page: Int, size: Int): ProductPage {
         val upperBound = nextLexicographicValue(name)
 
-        return jdbcTemplate.query("SELECT * FROM products WHERE name >= ? AND name < ? AND name LIKE ?", { resultSet, _ ->
-            resultSet.toProduct()
-        }, name, upperBound, "$name%")
+        val products = jdbcTemplate.query(
+            "SELECT * FROM products WHERE name >= ? AND name < ? AND name LIKE ? ORDER BY name LIMIT ? OFFSET ?",
+            { resultSet, _ ->
+                resultSet.toProduct()
+            },
+            name,
+            upperBound,
+            "$name%",
+            size + 1,
+            page.toOffset(size),
+        )
+
+        return products.toPage(page, size)
     }
+
+    private fun List<Product>.toPage(page: Int, size: Int): ProductPage {
+        val hasNext = this.size > size
+        val content = if (hasNext) take(size) else this
+
+        return ProductPage(
+            content = content,
+            page = page,
+            size = size,
+            count = content.size,
+            hasNext = hasNext,
+        )
+    }
+
+    private fun Int.toOffset(size: Int): Long = this.toLong() * size.toLong()
 
     private fun nextLexicographicValue(value: String): String {
         val chars = value.toCharArray()
