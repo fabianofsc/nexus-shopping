@@ -7,9 +7,9 @@ class ProductService(
     private val productRepository: ProductRepository,
 ) {
 
-    fun findByCategoryId(categoryId: Long): List<Product> =
-        productRepository.findByCategoryId(categoryId)
+    fun findByCategoryId(categoryId: Long, page: Int, size: Int): ProductPage =
+        productRepository.findByCategoryId(categoryId, page, size)
 
-    fun findByName(name: String): List<Product> =
-        productRepository.findByName(name)
+    fun findByName(name: String, page: Int, size: Int): ProductPage =
+        productRepository.findByName(name, page, size)
 }

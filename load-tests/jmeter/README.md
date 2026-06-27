@@ -22,7 +22,7 @@ docker compose up -d postgres
 ./gradlew bootRun
 ```
 
-By default the Flyway seed creates 10,000,000 products, 1,000 brands, and 500 categories. Each category receives about 20,000 products.
+By default the Flyway seed creates 10,000,000 products, 1,000 brands, and 500 categories. Each category receives about 20,000 products. The current endpoint is paginated with `page` and `size`.
 
 ## Run the Category Test
 
@@ -37,7 +37,9 @@ jmeter -n \
   -Jduration=60 \
   -Jhost=localhost \
   -Jport=8080 \
-  -JcategoryId=1
+  -JcategoryId=1 \
+  -Jpage=0 \
+  -Jsize=50
 ```
 
 Open the HTML report:
@@ -59,7 +61,9 @@ jmeter -n \
   -Jduration=60 \
   -Jhost=localhost \
   -Jport=8080 \
-  -Jname='Product 2999999'
+  -Jname='Product 2999999' \
+  -Jpage=0 \
+  -Jsize=50
 ```
 
 Open the HTML report:
@@ -71,15 +75,15 @@ open build/jmeter-report/products-by-name/index.html
 ## Endpoints Under Test
 
 ```http
-GET /products?categoryId=1
-GET /products?name=Product%202999999
+GET /products?categoryId=1&page=0&size=50
+GET /products?name=Product%202999999&page=0&size=50
 ```
 
-The repository intentionally executes:
+The repository intentionally executes paginated reads:
 
 ```sql
-SELECT * FROM products WHERE category_id = ?
-SELECT * FROM products WHERE name >= ? AND name < ? AND name LIKE ?
+SELECT * FROM products WHERE category_id = ? ORDER BY id LIMIT ? OFFSET ?
+SELECT * FROM products WHERE name >= ? AND name < ? AND name LIKE ? ORDER BY name LIMIT ? OFFSET ?
 ```
 
-There are no secondary indexes on `products.category_id` or `products.name`, so these endpoints are useful for demonstrating the read performance cost of filtering a large relational table without an index.
+The category test is useful for demonstrating why indexes alone are not enough when an endpoint returns a very large payload. Pagination limits the number of rows materialized and serialized per request.
