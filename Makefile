@@ -60,15 +60,18 @@ help:
 	@printf '%s\n' '  push-indexes       Build e push fabianofsc/nexus-shopping:indexes'
 	@printf '%s\n' '  push-pagination    Build e push fabianofsc/nexus-shopping:pagination'
 	@printf '%s\n' '  push-all           Build e push as tres imagens'
-	@printf '%s\n' '  hub-baseline       Troca para baseline sem resetar banco'
-	@printf '%s\n' '  hub-indexes        Troca para indexes sem resetar banco'
-	@printf '%s\n' '  hub-pagination     Troca para pagination sem resetar banco'
-	@printf '%s\n' '  hub-reset-baseline Reseta banco e sobe baseline'
-	@printf '%s\n' '  hub-reset-indexes  Reseta banco e sobe indexes'
-	@printf '%s\n' '  hub-reset-pagination Reseta banco e sobe pagination'
-	@printf '%s\n' '  load-hub-baseline  hub-baseline + JMeter'
-	@printf '%s\n' '  load-hub-indexes   hub-indexes + JMeter'
-	@printf '%s\n' '  load-hub-pagination hub-pagination + JMeter'
+	@printf '%s\n' '  start-baseline     Reseta banco, sobe baseline do Hub e aguarda health'
+	@printf '%s\n' '  start-indexes      Troca para indexes, aguarda health (banco preservado)'
+	@printf '%s\n' '  start-pagination   Troca para pagination, aguarda health (banco preservado)'
+	@printf '%s\n' '  jmeter-all         Executa os dois planos JMeter contra o app no ar'
+	@printf '%s\n' '  jmeter-category    Executa apenas o plano de categoria'
+	@printf '%s\n' '  jmeter-name        Executa apenas o plano de nome'
+	@printf '%s\n' '  load-hub-baseline  start-baseline + jmeter-all'
+	@printf '%s\n' '  load-hub-indexes   start-indexes + jmeter-all'
+	@printf '%s\n' '  load-hub-pagination start-pagination + jmeter-all'
+	@printf '%s\n' '  hub-reset-baseline Reseta banco sem aguardar health (uso avancado)'
+	@printf '%s\n' '  hub-reset-indexes  Reseta banco sem aguardar health (uso avancado)'
+	@printf '%s\n' '  hub-reset-pagination Reseta banco sem aguardar health (uso avancado)'
 
 .PHONY: gradle-build gradle-test boot-run boot-jar image
 gradle-build:
@@ -227,22 +230,27 @@ push-pagination:
 
 push-all: push-baseline push-indexes push-pagination
 
-# --- Docker Hub: rodar cenarios sem build local ---
+# --- Docker Hub: iniciar cenarios ---
+# start-* = baixa imagem + sobe stack + aguarda health. Pronto para rodar jmeter-all.
 # O banco e criado apenas no baseline. Indexes e pagination aproveitam o volume existente.
 
-.PHONY: hub-baseline hub-indexes hub-pagination
-hub-baseline:
-	rtk docker compose stop app
-	rtk env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose up -d app
+.PHONY: start-baseline start-indexes start-pagination
+start-baseline:
+	rtk env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose down -v
+	rtk env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose up -d postgres app
+	rtk make wait-health HOST=$(HOST) PORT=$(PORT)
 
-hub-indexes:
+start-indexes:
 	rtk docker compose stop app
 	rtk env APP_IMAGE=$(HUB_INDEXES_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose up -d app
+	rtk make wait-health HOST=$(HOST) PORT=$(PORT)
 
-hub-pagination:
+start-pagination:
 	rtk docker compose stop app
 	rtk env APP_IMAGE=$(HUB_PAGINATION_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose up -d app
+	rtk make wait-health HOST=$(HOST) PORT=$(PORT)
 
+# hub-reset-* = reseta banco sem aguardar health (uso avancado)
 .PHONY: hub-reset-baseline hub-reset-indexes hub-reset-pagination
 hub-reset-baseline:
 	rtk env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose down -v
@@ -256,18 +264,16 @@ hub-reset-pagination:
 	rtk env APP_IMAGE=$(HUB_PAGINATION_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose down -v
 	rtk env APP_IMAGE=$(HUB_PAGINATION_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose up -d postgres app
 
+# load-hub-* = start-* + jmeter-all (atalho para rodar tudo em sequencia)
 .PHONY: load-hub-baseline load-hub-indexes load-hub-pagination
 load-hub-baseline:
-	rtk make hub-baseline
-	rtk make wait-health HOST=$(HOST) PORT=$(PORT)
+	rtk make start-baseline HOST=$(HOST) PORT=$(PORT)
 	rtk make jmeter-all SCENARIO=baseline
 
 load-hub-indexes:
-	rtk make hub-indexes
-	rtk make wait-health HOST=$(HOST) PORT=$(PORT)
+	rtk make start-indexes HOST=$(HOST) PORT=$(PORT)
 	rtk make jmeter-all SCENARIO=indexes
 
 load-hub-pagination:
-	rtk make hub-pagination
-	rtk make wait-health HOST=$(HOST) PORT=$(PORT)
+	rtk make start-pagination HOST=$(HOST) PORT=$(PORT)
 	rtk make jmeter-all SCENARIO=pagination
