@@ -158,9 +158,65 @@ O banco e criado apenas uma vez, no cenario baseline. Os cenarios seguintes apro
 
 Nunca derrube o volume entre os cenarios baseline → indexes → pagination. Se quiser comecar do zero em qualquer ponto, use os comandos de reset descritos na secao de comandos uteis.
 
-## Metricas a observar no relatorio JMeter
+## Como ler o relatorio JMeter
 
-Cada execucao gera um relatorio HTML em `build/jmeter-report/`. As metricas mais importantes para comparar os cenarios:
+Cada execucao gera um relatorio HTML em `build/jmeter-report/`. Abra o `index.html` da pasta correspondente para ver o relatorio completo.
+
+### Exemplo real: baseline por nome
+
+Este e o resultado do cenario baseline para a busca por nome (`GET /products?name=Product%209999999`).
+
+![Relatorio JMeter - baseline por nome](assets/load-tests/jmeter-report-baseline-name.png)
+
+O relatorio tem tres blocos principais:
+
+**APDEX** mede satisfacao do usuario em uma escala de 0 a 1. O threshold de satisfacao e 500 ms. O valor **0.041** significa que praticamente nenhuma requisicao foi satisfatoria. O sistema opera em nivel de frustracao quase total do ponto de vista do usuario.
+
+**Requests Summary** mostra 100% PASS — o sistema nao quebrou. Mas nao confunda ausencia de erros HTTP com boa performance. O sistema respondeu, so que devagar.
+
+**Statistics** e onde ficam os numeros comparaveis entre cenarios:
+
+| Metrica | Valor | O que significa |
+| --- | ---: | --- |
+| Samples | 1.435 | Total de requisicoes no teste de 120 segundos |
+| Error % | 0,00% | Nenhum erro HTTP |
+| Average | 3.915 ms | Cada requisicao demorou quase 4 segundos em media |
+| Median | 4.043 ms | Metade das requisicoes demorou mais de 4 segundos |
+| 95th pct | 5.020 ms | 95% das requisicoes responderam em ate 5 segundos |
+| 99th pct | 5.207 ms | 99% das requisicoes responderam em ate 5,2 segundos |
+| Throughput | 11,56 req/s | O sistema atendeu apenas ~12 requisicoes por segundo |
+
+O ponto mais importante: a busca por nome retorna poucos dados. Mesmo assim o P95 esta em 5 segundos. Isso isola o problema no banco de dados — o custo nao e a transferencia de dados, e a varredura de 10 milhoes de linhas sem indice para encontrar o produto.
+
+### Exemplo real: baseline por categoria
+
+Este e o resultado do cenario baseline para a busca por categoria (`GET /products?categoryId=1`).
+
+![Relatorio JMeter - baseline por categoria](assets/load-tests/jmeter-report-baseline-category.png)
+
+| Metrica | Valor | O que significa |
+| --- | ---: | --- |
+| Samples | 1.457 | Total de requisicoes no teste de 120 segundos |
+| Error % | 0,00% | Nenhum erro HTTP |
+| Average | 3.853 ms | Cada requisicao demorou quase 4 segundos em media |
+| Median | 3.929 ms | Metade das requisicoes demorou mais de 3,9 segundos |
+| 95th pct | 4.844 ms | 95% das requisicoes responderam em ate 4,8 segundos |
+| 99th pct | 5.102 ms | 99% das requisicoes responderam em ate 5,1 segundos |
+| Throughput | 11,77 req/s | O sistema atendeu apenas ~12 requisicoes por segundo |
+| Received | ~85 MB/s | Volume de dados transferidos por segundo |
+
+O throughput e semelhante ao da busca por nome (~12 req/s), mas o volume de dados e completamente diferente: **85 MB/s** contra **6 KB/s**. Cada requisicao por categoria retorna cerca de 20.000 produtos em JSON.
+
+Isso revela dois problemas distintos neste cenario:
+
+1. **Varredura sem indice**: o banco percorre as 10 milhoes de linhas para encontrar os produtos da categoria, mesmo que sejam apenas 20.000.
+2. **Payload gigante**: mesmo que o indice resolvesse o primeiro problema, a API ainda teria que materializar, serializar e transferir 20.000 produtos a cada requisicao.
+
+Por isso a busca por categoria precisa de duas melhorias em sequencia — indice e paginacao — enquanto a busca por nome melhora drasticamente so com o indice.
+
+## Metricas a observar em cada cenario
+
+As metricas mais importantes para comparar os tres cenarios:
 
 | Metrica | O que revela |
 | --- | --- |
