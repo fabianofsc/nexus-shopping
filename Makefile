@@ -8,6 +8,11 @@ LATEST_BRANCH ?= main
 LATEST_IMAGE ?= nexus-shopping:latest
 PRODUCT_SEED_COUNT ?= 10000000
 
+DOCKER_HUB_REPO ?= fabianofsc/nexus-shopping
+HUB_BASELINE_IMAGE ?= $(DOCKER_HUB_REPO):baseline
+HUB_INDEXES_IMAGE  ?= $(DOCKER_HUB_REPO):indexes
+HUB_PAGINATION_IMAGE ?= $(DOCKER_HUB_REPO):pagination
+
 HOST ?= localhost
 PORT ?= 8080
 THREADS ?= 50
@@ -48,6 +53,21 @@ help:
 	@printf '%s\n' '  jmeter-category    Run category JMeter test against current app'
 	@printf '%s\n' '  jmeter-name        Run name JMeter test against current app'
 	@printf '%s\n' '  jmeter-all         Run category and name JMeter tests'
+	@printf '%s\n' ''
+	@printf '%s\n' 'Docker Hub (imagens publicas, sem build local):'
+	@printf '%s\n' '  push-baseline      Build e push fabianofsc/nexus-shopping:baseline'
+	@printf '%s\n' '  push-indexes       Build e push fabianofsc/nexus-shopping:indexes'
+	@printf '%s\n' '  push-pagination    Build e push fabianofsc/nexus-shopping:pagination'
+	@printf '%s\n' '  push-all           Build e push as tres imagens'
+	@printf '%s\n' '  hub-baseline       Troca para baseline sem resetar banco'
+	@printf '%s\n' '  hub-indexes        Troca para indexes sem resetar banco'
+	@printf '%s\n' '  hub-pagination     Troca para pagination sem resetar banco'
+	@printf '%s\n' '  hub-reset-baseline Reseta banco e sobe baseline'
+	@printf '%s\n' '  hub-reset-indexes  Reseta banco e sobe indexes'
+	@printf '%s\n' '  hub-reset-pagination Reseta banco e sobe pagination'
+	@printf '%s\n' '  load-hub-baseline  hub-baseline + JMeter'
+	@printf '%s\n' '  load-hub-indexes   hub-indexes + JMeter'
+	@printf '%s\n' '  load-hub-pagination hub-pagination + JMeter'
 
 .PHONY: gradle-build gradle-test boot-run boot-jar image
 gradle-build:
@@ -179,3 +199,72 @@ load-latest:
 	rtk make stack-reset-latest
 	rtk make wait-health
 	rtk make jmeter-all SCENARIO=latest
+
+# --- Docker Hub: build e push ---
+
+.PHONY: push-baseline push-indexes push-pagination push-all
+push-baseline:
+	rtk bash -lc 'if [[ -n "$$(git status --porcelain)" ]]; then git status --short; exit 1; fi'
+	rtk git switch missing-index-performance-baseline
+	rtk env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew bootBuildImage --imageName $(HUB_BASELINE_IMAGE)
+	rtk docker push $(HUB_BASELINE_IMAGE)
+	rtk git switch main
+
+push-indexes:
+	rtk bash -lc 'if [[ -n "$$(git status --porcelain)" ]]; then git status --short; exit 1; fi'
+	rtk git switch add-product-query-indexes
+	rtk env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew bootBuildImage --imageName $(HUB_INDEXES_IMAGE)
+	rtk docker push $(HUB_INDEXES_IMAGE)
+	rtk git switch main
+
+push-pagination:
+	rtk bash -lc 'if [[ -n "$$(git status --porcelain)" ]]; then git status --short; exit 1; fi'
+	rtk env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew bootBuildImage --imageName $(HUB_PAGINATION_IMAGE)
+	rtk docker push $(HUB_PAGINATION_IMAGE)
+
+push-all: push-baseline push-indexes push-pagination
+
+# --- Docker Hub: rodar cenarios sem build local ---
+# O banco e criado apenas no baseline. Indexes e pagination aproveitam o volume existente.
+
+.PHONY: hub-baseline hub-indexes hub-pagination
+hub-baseline:
+	rtk docker compose stop app
+	rtk env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose up -d app
+
+hub-indexes:
+	rtk docker compose stop app
+	rtk env APP_IMAGE=$(HUB_INDEXES_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose up -d app
+
+hub-pagination:
+	rtk docker compose stop app
+	rtk env APP_IMAGE=$(HUB_PAGINATION_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose up -d app
+
+.PHONY: hub-reset-baseline hub-reset-indexes hub-reset-pagination
+hub-reset-baseline:
+	rtk env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose down -v
+	rtk env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose up -d postgres app
+
+hub-reset-indexes:
+	rtk env APP_IMAGE=$(HUB_INDEXES_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose down -v
+	rtk env APP_IMAGE=$(HUB_INDEXES_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose up -d postgres app
+
+hub-reset-pagination:
+	rtk env APP_IMAGE=$(HUB_PAGINATION_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose down -v
+	rtk env APP_IMAGE=$(HUB_PAGINATION_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose up -d postgres app
+
+.PHONY: load-hub-baseline load-hub-indexes load-hub-pagination
+load-hub-baseline:
+	rtk make hub-baseline
+	rtk make wait-health HOST=$(HOST) PORT=$(PORT)
+	rtk make jmeter-all SCENARIO=baseline
+
+load-hub-indexes:
+	rtk make hub-indexes
+	rtk make wait-health HOST=$(HOST) PORT=$(PORT)
+	rtk make jmeter-all SCENARIO=indexes
+
+load-hub-pagination:
+	rtk make hub-pagination
+	rtk make wait-health HOST=$(HOST) PORT=$(PORT)
+	rtk make jmeter-all SCENARIO=pagination
