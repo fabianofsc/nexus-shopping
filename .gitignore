@@ -6,3 +6,6 @@ out/
 .idea/
 .DS_Store
 jmeter.log
+*.hprof
+*.hprof
+docs/assets/*.html
