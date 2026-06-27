@@ -1,6 +1,6 @@
 services:
   app:
-    image: ${APP_IMAGE:-nexus-shopping:local}
+    image: ${APP_IMAGE:-fabianofsc/nexus-shopping:baseline}
     container_name: nexus-shopping-app
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/nexus_shopping
