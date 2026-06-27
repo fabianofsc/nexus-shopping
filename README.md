@@ -2,7 +2,7 @@
 
 Backend REST API built with Kotlin, Gradle, Java 21, Spring Boot 4, Actuator, Flyway, PostgreSQL, and JPA/JDBC.
 
-The project is intentionally shaped as a performance demonstration: it creates a large relational product catalog, documents the baseline without secondary indexes, then adds targeted read indexes to compare the impact on high-traffic catalog queries.
+The project is intentionally shaped as a performance demonstration: it creates a large relational product catalog, documents the baseline without secondary indexes, adds targeted read indexes, and then adds pagination to compare the impact on high-traffic catalog queries.
 
 ## Requirements
 
@@ -83,24 +83,24 @@ Product endpoint:
 
 ```bash
 curl -o /dev/null -w '%{time_total}s %{size_download} bytes\n' \
-  'http://localhost:8080/products?categoryId=1'
+  'http://localhost:8080/products?categoryId=1&page=0&size=50'
 ```
 
 Search by product name:
 
 ```bash
 curl -o /dev/null -w '%{time_total}s %{size_download} bytes\n' \
-  'http://localhost:8080/products?name=Product%202999999'
+  'http://localhost:8080/products?name=Product%202999999&page=0&size=50'
 ```
 
 The product repository executes these read queries:
 
 ```sql
-SELECT * FROM products WHERE category_id = ?
-SELECT * FROM products WHERE name >= ? AND name < ? AND name LIKE ?
+SELECT * FROM products WHERE category_id = ? ORDER BY id LIMIT ? OFFSET ?
+SELECT * FROM products WHERE name >= ? AND name < ? AND name LIKE ? ORDER BY name LIMIT ? OFFSET ?
 ```
 
-The name lookup still uses `LIKE`, but it is written as a prefix range so the portable B-tree index on `products.name` can be used. The branch `missing-index-performance-baseline` preserves the version without secondary indexes.
+The endpoint returns a slice response with `content`, `page`, `size`, `count`, and `hasNext`. It intentionally avoids `COUNT(*)` so each request performs only the page read. The name lookup still uses `LIKE`, but it is written as a prefix range so the portable B-tree index on `products.name` can be used. The branch `missing-index-performance-baseline` preserves the version without secondary indexes.
 
 ## Test
 
@@ -146,7 +146,9 @@ jmeter -n \
   -Jduration=60 \
   -Jhost=localhost \
   -Jport=8080 \
-  -JcategoryId=1
+  -JcategoryId=1 \
+  -Jpage=0 \
+  -Jsize=50
 ```
 
 Run the name search load test:
@@ -162,7 +164,9 @@ jmeter -n \
   -Jduration=60 \
   -Jhost=localhost \
   -Jport=8080 \
-  -Jname='Product 2999999'
+  -Jname='Product 2999999' \
+  -Jpage=0 \
+  -Jsize=50
 ```
 
 Open the HTML report:
@@ -184,4 +188,10 @@ The documented comparison run with indexes is available at:
 
 ```bash
 docs/load-test-index-results-20260626.md
+```
+
+The documented comparison run with pagination is available at:
+
+```bash
+docs/load-test-pagination-results-20260627.md
 ```
