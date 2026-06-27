@@ -214,6 +214,47 @@ Isso revela dois problemas distintos neste cenario:
 
 Por isso a busca por categoria precisa de duas melhorias em sequencia — indice e paginacao — enquanto a busca por nome melhora drasticamente so com o indice.
 
+### Exemplo real: indexes por nome
+
+Este e o resultado mais impactante do roteiro. A mesma busca por nome, agora com indice B-tree em `products.name` e consulta reescrita para prefixo.
+
+![Relatorio JMeter - indexes por nome](assets/load-tests/jmeter-report-indexes-name.png)
+
+| Metrica | Baseline | Indexes | Ganho |
+| --- | ---: | ---: | ---: |
+| Samples | 1.435 | 1.747.736 | 1.218x mais |
+| Average | 3.915 ms | 3 ms | 1.305x menor |
+| Median | 4.043 ms | 1 ms | 4.043x menor |
+| 95th pct | 5.020 ms | 3 ms | 1.673x menor |
+| 99th pct | 5.207 ms | 6 ms | 868x menor |
+| Throughput | 11,56 req/s | 14.510 req/s | 1.255x maior |
+| APDEX | 0,041 | **1,000** | maximo possivel |
+
+O APDEX foi de 0,041 para **1,000** — de frustracao total para satisfacao perfeita. O throughput saltou de ~12 req/s para mais de 14.000 req/s. A mediana caiu de 4 segundos para 1 ms.
+
+O que explica um ganho dessa magnitude: sem indice, o banco varria 10 milhoes de linhas para encontrar um unico produto. Com o indice B-tree e a consulta por prefixo (`name >= ? AND name < ? AND name LIKE ?`), o banco localiza as linhas diretamente na arvore B-tree — o custo passa de O(n) para O(log n).
+
+### Exemplo real: indexes por categoria
+
+![Relatorio JMeter - indexes por categoria](assets/load-tests/jmeter-report-indexes-category.png)
+
+| Metrica | Baseline | Indexes | Ganho |
+| --- | ---: | ---: | ---: |
+| Samples | 1.457 | 3.221 | 2,2x mais |
+| Average | 3.853 ms | 1.731 ms | 2,2x menor |
+| Median | 3.929 ms | 1.758 ms | 2,2x menor |
+| 95th pct | 4.844 ms | 2.931 ms | 1,7x menor |
+| 99th pct | 5.102 ms | 3.752 ms | 1,4x menor |
+| Throughput | 11,77 req/s | 26,47 req/s | 2,2x maior |
+| APDEX | 0,041 | 0,205 | melhorou, mas longe do ideal |
+| Received | ~85 MB/s | ~192 MB/s | aumentou — mais requisicoes, mesmo payload |
+
+O indice resolveu o problema de localizacao de linhas: o throughput dobrou e a latencia caiu pela metade. Mas o APDEX ainda e 0,205 — longe de 1,000.
+
+O motivo fica claro no campo **Received**: 192 MB/s de dados recebidos. Cada requisicao ainda retorna cerca de 20.000 produtos em JSON. O banco agora encontra os registros rapidamente, mas a API continua tendo que materializar, serializar e transferir um payload enorme.
+
+O indice resolveu o custo de **localizar** as linhas. O custo de **retornar** as linhas ainda esta intacto. Esse e o problema que a paginacao resolve.
+
 ## Metricas a observar em cada cenario
 
 As metricas mais importantes para comparar os tres cenarios:
