@@ -100,6 +100,43 @@ SELECT * FROM products WHERE name LIKE ?
 
 There are no secondary indexes on `products.category_id` or `products.name`. This is deliberate so the project can demonstrate the read performance cost of filtering a large relational table without an index.
 
+## Docker Image
+
+The project uses Spring Boot's native Gradle task for OCI image generation through Cloud Native Buildpacks. There is no Dockerfile.
+
+Build the local image:
+
+```bash
+./gradlew bootBuildImage --imageName nexus-shopping:local
+```
+
+Run PostgreSQL and the app with Docker Compose:
+
+```bash
+APP_IMAGE=nexus-shopping:local docker compose up -d postgres app
+```
+
+The app service uses the internal Compose hostname `postgres`:
+
+```bash
+DB_URL=jdbc:postgresql://postgres:5432/nexus_shopping
+```
+
+To switch to one of the didactic branches, build the image, and run the full stack:
+
+```bash
+scripts/run-stack.sh baseline --reset-db
+scripts/run-stack.sh indexes --reset-db
+scripts/run-stack.sh pagination --reset-db
+```
+
+The script maps:
+
+- `baseline` to `missing-index-performance-baseline`
+- `indexes` to `add-product-query-indexes`
+- `pagination` to `add-products-pagination`
+- `main` to `main`
+
 ## Test
 
 ```bash

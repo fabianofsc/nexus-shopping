@@ -1,4 +1,18 @@
 services:
+  app:
+    image: ${APP_IMAGE:-nexus-shopping:local}
+    container_name: nexus-shopping-app
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/nexus_shopping
+      DB_USERNAME: nexus
+      DB_PASSWORD: nexus
+      PRODUCT_SEED_COUNT: ${PRODUCT_SEED_COUNT:-10000000}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   postgres:
     image: postgres:16-alpine
     container_name: nexus-shopping-postgres
