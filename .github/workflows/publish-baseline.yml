@@ -32,7 +32,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push baseline image
-        run: ./gradlew bootBuildImage --imageName fabianofsc/nexus-shopping:baseline --imagePlatforms linux/amd64,linux/arm64
+        run: ./gradlew bootBuildImage --imageName fabianofsc/nexus-shopping:baseline -PimagePlatforms=linux/amd64,linux/arm64
 
       - name: Push image
         run: docker push fabianofsc/nexus-shopping:baseline
