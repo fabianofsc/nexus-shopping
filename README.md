@@ -137,6 +137,12 @@ The script maps:
 - `pagination` to `add-products-pagination`
 - `main` to `main`
 
+The local `latest` image should always be built from `main`, which represents the latest paginated version:
+
+```bash
+make image-latest
+```
+
 ## Test
 
 ```bash

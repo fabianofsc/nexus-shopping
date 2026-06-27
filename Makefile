@@ -4,7 +4,7 @@ SHELL := /bin/bash
 
 GRADLE_USER_HOME ?= $(CURDIR)/.gradle-local
 APP_IMAGE ?= nexus-shopping:latest
-LATEST_BRANCH ?= add-products-pagination
+LATEST_BRANCH ?= main
 LATEST_IMAGE ?= nexus-shopping:latest
 PRODUCT_SEED_COUNT ?= 10000000
 

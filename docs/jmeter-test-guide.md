@@ -28,11 +28,11 @@ O projeto possui tres branches didaticas:
 | Indexes | `add-product-query-indexes` | Medir o impacto dos indices de leitura. |
 | Pagination | `add-products-pagination` | Medir o impacto da paginacao depois dos indices. |
 
-A versao mais nova do projeto e a branch de paginacao. A `main` deve representar essa ultima versao.
+A versao mais nova do projeto e a versao paginada. A `main` deve representar essa ultima versao.
 
 ## Imagem Docker
 
-A imagem da ultima versao deve ser gerada a partir da branch `add-products-pagination` e publicada localmente como:
+A imagem da ultima versao deve ser gerada a partir da branch `main`, que representa a versao paginada consolidada, e publicada localmente como:
 
 ```text
 nexus-shopping:latest
@@ -44,7 +44,7 @@ Use:
 make image-latest
 ```
 
-Esse alvo troca para a branch `add-products-pagination` e executa o task nativo do Spring Boot:
+Esse alvo troca para a branch `main` e executa o task nativo do Spring Boot:
 
 ```bash
 ./gradlew bootBuildImage --imageName nexus-shopping:latest
