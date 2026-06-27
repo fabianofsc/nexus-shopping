@@ -27,6 +27,7 @@ RUN_ID ?= $(shell date +%Y%m%d-%H%M%S)
 
 JMETER_RESULTS_DIR := build/jmeter-results
 JMETER_REPORT_DIR := build/jmeter-report
+JMETER_HEAP ?= -Xms512m -Xmx2g -Djava.awt.headless=true
 
 .PHONY: help
 help:
@@ -150,7 +151,7 @@ jmeter-dirs:
 	rtk mkdir -p $(JMETER_RESULTS_DIR) $(JMETER_REPORT_DIR)
 
 jmeter-category: jmeter-dirs
-	rtk jmeter -n \
+	rtk env JVM_ARGS="$(JMETER_HEAP)" jmeter -n \
 	  -t load-tests/jmeter/products-by-category.jmx \
 	  -l $(JMETER_RESULTS_DIR)/products-by-category-$(SCENARIO)-$(RUN_ID).jtl \
 	  -e -o $(JMETER_REPORT_DIR)/products-by-category-$(SCENARIO)-$(RUN_ID) \
@@ -164,7 +165,7 @@ jmeter-category: jmeter-dirs
 	  -Jsize=$(SIZE)
 
 jmeter-name: jmeter-dirs
-	rtk jmeter -n \
+	rtk env JVM_ARGS="$(JMETER_HEAP)" jmeter -n \
 	  -t load-tests/jmeter/products-by-name.jmx \
 	  -l $(JMETER_RESULTS_DIR)/products-by-name-$(SCENARIO)-$(RUN_ID).jtl \
 	  -e -o $(JMETER_REPORT_DIR)/products-by-name-$(SCENARIO)-$(RUN_ID) \
