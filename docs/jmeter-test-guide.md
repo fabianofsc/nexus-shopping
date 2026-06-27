@@ -255,6 +255,42 @@ O motivo fica claro no campo **Received**: 192 MB/s de dados recebidos. Cada req
 
 O indice resolveu o custo de **localizar** as linhas. O custo de **retornar** as linhas ainda esta intacto. Esse e o problema que a paginacao resolve.
 
+### Comparacao: baseline vs indices
+
+**Busca por nome**
+
+| Metrica | Baseline (sem indice) | Indexes | Ganho |
+| --- | ---: | ---: | ---: |
+| APDEX | 0,041 | 1,000 | maximo possivel |
+| Throughput | 11,56 req/s | 14.510 req/s | 1.255x maior |
+| Average | 3.915 ms | 3 ms | 1.305x menor |
+| Median | 4.043 ms | 1 ms | 4.043x menor |
+| P95 | 5.020 ms | 3 ms | 1.673x menor |
+| P99 | 5.207 ms | 6 ms | 868x menor |
+
+A busca por nome e o caso mais revelador porque isola o custo puro do banco. Sem indice, o banco varria 10 milhoes de linhas para encontrar um unico produto. Com indice B-tree e consulta por prefixo, localiza diretamente na arvore. O ganho de mais de 1.000x em throughput e de O(n) para O(log n).
+
+**Busca por categoria**
+
+| Metrica | Baseline (sem indice) | Indexes | Ganho |
+| --- | ---: | ---: | ---: |
+| APDEX | 0,041 | 0,205 | melhorou, ainda insatisfatorio |
+| Throughput | 11,77 req/s | 26,47 req/s | 2,2x maior |
+| Average | 3.853 ms | 1.731 ms | 2,2x menor |
+| Median | 3.929 ms | 1.758 ms | 2,2x menor |
+| P95 | 4.844 ms | 2.931 ms | 1,7x menor |
+| P99 | 5.102 ms | 3.752 ms | 1,4x menor |
+| Received | ~85 MB/s | ~192 MB/s | aumentou — mais requisicoes, mesmo payload |
+
+A busca por categoria melhorou 2,2x, mas permanece longe do ideal. O APDEX subiu apenas para 0,205. O volume de dados recebidos aumentou porque o throughput dobrou enquanto o payload por requisicao continuou sendo ~20.000 produtos. O indice resolveu o custo de localizacao; o custo de retorno permanece.
+
+**Conclusao da comparacao**
+
+O resultado evidencia que os dois endpoints tem problemas diferentes:
+
+- A busca por nome tinha so um problema — localizacao — e o indice o resolveu completamente.
+- A busca por categoria tem dois problemas — localizacao e volume de retorno. O indice resolveu o primeiro. A paginacao e necessaria para o segundo.
+
 ## Metricas a observar em cada cenario
 
 As metricas mais importantes para comparar os tres cenarios:
