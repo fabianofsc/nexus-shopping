@@ -215,6 +215,12 @@ open build/jmeter-report/products-by-name/index.html
 
 JMeter is not an application dependency. It is an external tool used to run load tests and generate demonstrative HTML reports.
 
+The full JMeter workflow guide is available at:
+
+```bash
+docs/jmeter-test-guide.md
+```
+
 The documented baseline run without indexes is available at:
 
 ```bash

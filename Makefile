@@ -3,7 +3,9 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 GRADLE_USER_HOME ?= $(CURDIR)/.gradle-local
-APP_IMAGE ?= nexus-shopping:local
+APP_IMAGE ?= nexus-shopping:latest
+LATEST_BRANCH ?= add-products-pagination
+LATEST_IMAGE ?= nexus-shopping:latest
 PRODUCT_SEED_COUNT ?= 10000000
 
 HOST ?= localhost
@@ -28,6 +30,7 @@ help:
 	@printf '%s\n' '  gradle-test        Run ./gradlew test'
 	@printf '%s\n' '  boot-run           Run the app locally'
 	@printf '%s\n' '  image              Build OCI image with Spring Boot buildpacks'
+	@printf '%s\n' '  image-latest       Build nexus-shopping:latest from the pagination branch'
 	@printf '%s\n' '  compose-up         Start postgres and app with APP_IMAGE'
 	@printf '%s\n' '  compose-down       Stop containers'
 	@printf '%s\n' '  compose-reset      Stop containers and remove volumes'
@@ -37,9 +40,11 @@ help:
 	@printf '%s\n' '  stack-baseline     Switch/build/run baseline branch'
 	@printf '%s\n' '  stack-indexes      Switch/build/run indexes branch'
 	@printf '%s\n' '  stack-pagination   Switch/build/run pagination branch'
+	@printf '%s\n' '  stack-latest       Switch/build/run latest branch as nexus-shopping:latest'
 	@printf '%s\n' '  load-baseline      Reset DB, run baseline stack, run both JMeter tests'
 	@printf '%s\n' '  load-indexes       Reset DB, run indexes stack, run both JMeter tests'
 	@printf '%s\n' '  load-pagination    Reset DB, run pagination stack, run both JMeter tests'
+	@printf '%s\n' '  load-latest        Reset DB, run latest stack, run both JMeter tests'
 	@printf '%s\n' '  jmeter-category    Run category JMeter test against current app'
 	@printf '%s\n' '  jmeter-name        Run name JMeter test against current app'
 	@printf '%s\n' '  jmeter-all         Run category and name JMeter tests'
@@ -60,6 +65,11 @@ boot-jar:
 image:
 	rtk env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew bootBuildImage --imageName $(APP_IMAGE)
 
+image-latest:
+	rtk bash -lc 'if [[ -n "$$(git status --porcelain)" ]]; then git status --short; exit 1; fi'
+	rtk git switch $(LATEST_BRANCH)
+	rtk env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew bootBuildImage --imageName $(LATEST_IMAGE)
+
 .PHONY: compose-up compose-down compose-reset compose-ps compose-logs health
 compose-up:
 	rtk env APP_IMAGE=$(APP_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose up -d postgres app
@@ -79,7 +89,7 @@ compose-logs:
 health:
 	rtk curl -s -o /dev/null -w "%{http_code} %{time_total}\n" http://$(HOST):$(PORT)/actuator/health
 
-.PHONY: stack-baseline stack-indexes stack-pagination stack-main
+.PHONY: stack-baseline stack-indexes stack-pagination stack-latest stack-main
 stack-baseline:
 	rtk env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh baseline
 
@@ -89,10 +99,13 @@ stack-indexes:
 stack-pagination:
 	rtk env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh pagination
 
+stack-latest:
+	rtk env APP_IMAGE=$(LATEST_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh pagination
+
 stack-main:
 	rtk env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh main
 
-.PHONY: stack-reset-baseline stack-reset-indexes stack-reset-pagination stack-reset-main
+.PHONY: stack-reset-baseline stack-reset-indexes stack-reset-pagination stack-reset-latest stack-reset-main
 stack-reset-baseline:
 	rtk env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh baseline --reset-db
 
@@ -101,6 +114,9 @@ stack-reset-indexes:
 
 stack-reset-pagination:
 	rtk env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh pagination --reset-db
+
+stack-reset-latest:
+	rtk env APP_IMAGE=$(LATEST_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh pagination --reset-db
 
 stack-reset-main:
 	rtk env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh main --reset-db
@@ -143,7 +159,7 @@ jmeter-name: jmeter-dirs
 
 jmeter-all: jmeter-category jmeter-name
 
-.PHONY: load-baseline load-indexes load-pagination
+.PHONY: load-baseline load-indexes load-pagination load-latest
 load-baseline:
 	rtk make stack-reset-baseline
 	rtk make wait-health
@@ -158,3 +174,8 @@ load-pagination:
 	rtk make stack-reset-pagination
 	rtk make wait-health
 	rtk make jmeter-all SCENARIO=pagination
+
+load-latest:
+	rtk make stack-reset-latest
+	rtk make wait-health
+	rtk make jmeter-all SCENARIO=latest
