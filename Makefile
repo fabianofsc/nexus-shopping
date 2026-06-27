@@ -27,7 +27,7 @@ RUN_ID ?= $(shell date +%Y%m%d-%H%M%S)
 
 JMETER_RESULTS_DIR := build/jmeter-results
 JMETER_REPORT_DIR := build/jmeter-report
-JMETER_HEAP ?= -Xms512m -Xmx2g -Djava.awt.headless=true
+JMETER_HEAP ?= -Xms512m -Xmx2g -Djava.awt.headless=true -Dlog4j2.statusLoggerLevel=ERROR
 
 .PHONY: help
 help:
@@ -162,7 +162,8 @@ jmeter-category: jmeter-dirs
 	  -Jport=$(PORT) \
 	  -JcategoryId=$(CATEGORY_ID) \
 	  -Jpage=$(PAGE) \
-	  -Jsize=$(SIZE)
+	  -Jsize=$(SIZE) \
+	  -Jsummariser.interval=10
 
 jmeter-name: jmeter-dirs
 	rtk env JVM_ARGS="$(JMETER_HEAP)" jmeter -n \
@@ -176,7 +177,8 @@ jmeter-name: jmeter-dirs
 	  -Jport=$(PORT) \
 	  '-Jname=$(NAME)' \
 	  -Jpage=$(PAGE) \
-	  -Jsize=$(SIZE)
+	  -Jsize=$(SIZE) \
+	  -Jsummariser.interval=10
 
 jmeter-all: jmeter-category jmeter-name
 
