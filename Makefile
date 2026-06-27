@@ -147,7 +147,7 @@ stack-reset-main:
 
 .PHONY: wait-health
 wait-health:
-	rtk bash -lc 'for attempt in {1..120}; do status=$$(curl -s -o /dev/null -w "%{http_code}" http://$(HOST):$(PORT)/actuator/health || true); if [[ "$$status" == "200" ]]; then echo "health OK"; exit 0; fi; sleep 2; done; echo "health check failed"; exit 1'
+	rtk bash -c 'for attempt in {1..120}; do status=$$(curl -s -o /dev/null -w "%{http_code}" http://$(HOST):$(PORT)/actuator/health || true); if [[ "$$status" == "200" ]]; then echo "health OK"; exit 0; fi; sleep 2; done; echo "health check failed"; exit 1'
 
 .PHONY: jmeter-dirs jmeter-category jmeter-name jmeter-all
 jmeter-dirs:
