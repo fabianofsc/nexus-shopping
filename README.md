@@ -2,7 +2,7 @@
 
 Backend REST API built with Kotlin, Gradle, Java 21, Spring Boot 4, Actuator, Flyway, PostgreSQL, and JPA/JDBC.
 
-The project is intentionally shaped as a performance demonstration: it creates a large relational product catalog without secondary indexes, then exposes a read endpoint that filters a frequently accessed column.
+The project is intentionally shaped as a performance demonstration: it creates a large relational product catalog, documents the baseline without secondary indexes, then adds targeted read indexes to compare the impact on high-traffic catalog queries.
 
 ## Requirements
 
@@ -50,6 +50,8 @@ Flyway runs automatically on application startup. The migrations create:
 - `10,000,000` seeded products by default
 - `1,000` seeded brands by default
 - `500` seeded categories by default
+- `idx_products_category_id` for category reads
+- `idx_products_name` for name prefix reads
 
 The seed size is configurable:
 
@@ -91,14 +93,14 @@ curl -o /dev/null -w '%{time_total}s %{size_download} bytes\n' \
   'http://localhost:8080/products?name=Product%202999999'
 ```
 
-The product repository intentionally executes these unindexed queries:
+The product repository executes these read queries:
 
 ```sql
 SELECT * FROM products WHERE category_id = ?
-SELECT * FROM products WHERE name LIKE ?
+SELECT * FROM products WHERE name >= ? AND name < ? AND name LIKE ?
 ```
 
-There are no secondary indexes on `products.category_id` or `products.name`. This is deliberate so the project can demonstrate the read performance cost of filtering a large relational table without an index.
+The name lookup still uses `LIKE`, but it is written as a prefix range so the portable B-tree index on `products.name` can be used. The branch `missing-index-performance-baseline` preserves the version without secondary indexes.
 
 ## Test
 
@@ -112,7 +114,7 @@ The automated tests validate:
 - Flyway runs automatically.
 - The product endpoint works with a small test seed.
 - The migrations stay portable between PostgreSQL and H2.
-- No `CREATE INDEX` or `UNIQUE` constraints are introduced.
+- The read indexes are explicitly present and no `UNIQUE` constraints are introduced.
 
 ## Load Test with JMeter
 
@@ -172,8 +174,14 @@ open build/jmeter-report/products-by-name/index.html
 
 JMeter is not an application dependency. It is an external tool used to run load tests and generate demonstrative HTML reports.
 
-The latest documented run with screenshots is available at:
+The documented baseline run without indexes is available at:
 
 ```bash
 docs/load-test-results-20260626.md
+```
+
+The documented comparison run with indexes is available at:
+
+```bash
+docs/load-test-index-results-20260626.md
 ```
