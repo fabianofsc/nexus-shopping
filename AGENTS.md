@@ -3,10 +3,41 @@
 ## Project Snapshot
 
 - Backend REST API for a product catalog performance lab.
-- Stack: Kotlin, Java 21, Gradle Wrapper, Spring Boot 4, Actuator, Flyway, PostgreSQL, JDBC/JPA dependencies.
-- The project is intentionally didactic: it compares missing indexes, read indexes, and pagination under JMeter load.
-- Current main feature branch: `add-products-pagination`.
+- Stack: Kotlin, Java 21, Gradle Wrapper, Spring Boot 4, Actuator, Flyway, PostgreSQL, JdbcTemplate (no JPA/ORM by choice).
+- The project is intentionally didactic: it compares missing indexes, read indexes, and pagination under JMeter load, and also demonstrates hexagonal architecture incrementally.
+- Current main feature branch: `hexagonal-architecture`.
 - Docker Hub repo: `fabianofsc/nexus-shopping` with tags `baseline`, `indexes`, `pagination`, `latest`.
+
+## Architecture
+
+The project follows hexagonal architecture (Ports and Adapters). Dependency direction is always inward: adapters → application → domain.
+
+```
+product/
+  domain/                              # pure business types, no framework imports
+    Product.kt
+    ProductPage.kt
+  application/
+    port/outbound/
+      ProductRepositoryPort.kt         # outbound port (interface)
+    usecase/
+      ProductSearchUseCase.kt          # orchestration + validation
+      ProductCreateUseCase.kt          # orchestration + validation
+      CreateProductCommand.kt          # use-case input
+      ProductValidationException.kt    # typed exception; controller catches only this
+  adapter/
+    inbound/http/
+      ProductController.kt             # translates HTTP → use case → HTTP
+      CreateProductRequest.kt          # HTTP DTO with toCommand()
+    outbound/jdbc/
+      ProductRepository.kt             # implements ProductRepositoryPort via JdbcTemplate
+```
+
+Key design decisions:
+- JPA/ORM rejected to preserve domain purity and didactic JDBC value.
+- `ProductValidationException` is thrown by use cases; the controller catches only this type so real server errors are never masked as HTTP 400.
+- `SimpleJdbcInsert` is used for INSERT to avoid KeyHolder verbosity.
+- Validation lives in the use case, not in the controller, so any future adapter (CLI, queue) reuses the same rules.
 
 ## Local Command Rules
 
@@ -32,8 +63,11 @@ rtk docker compose ps
 
 - `missing-index-performance-baseline`: preserves the version without secondary read indexes.
 - `add-product-query-indexes`: adds product read indexes and an indexable prefix lookup.
-- `main`: contains the merged indexed-query improvements.
-- `add-products-pagination`: current branch with paginated product search.
+- `add-products-pagination`: branch with paginated product search.
+- `hexagonal-architecture`: accumulation branch for all architectural changes; merges into `main` when complete.
+  - `feat/hexagonal-refactor` → `hexagonal-architecture` (PR #1): package reorganization, port interface, use cases, ProductValidationException.
+  - `feat/product-create` → `hexagonal-architecture` (PR #2 planned): POST /products create flow.
+- `main`: latest stable version.
 - Branch names must be in English.
 - Keep commits grouped by context: code, migrations, tests, load-test docs, generated report assets.
 
@@ -71,6 +105,26 @@ GET /products?name=Product%209999999&page=0&size=50
 
 - Do not add `COUNT(*)` to the request path unless the task explicitly asks for total counts.
 - The slice strategy reads `size + 1` rows to calculate `hasNext`.
+
+- Product create endpoint (implemented in `feat/product-create` PR):
+
+```http
+POST /products
+Content-Type: application/json
+
+{
+  "brandId": 1,
+  "categoryId": 1,
+  "sku": "SKU-001",
+  "name": "Product Name",
+  "slug": "product-name",
+  "priceAmount": 49.90
+}
+```
+
+- Optional fields with defaults: `description` (null), `status` ("ACTIVE"), `currency` ("BRL"), `inventoryQuantity` (0).
+- Returns `201 Created` with the persisted product including the generated `id`.
+- Validation errors return `400 Bad Request`.
 
 ## Database And Migrations
 
