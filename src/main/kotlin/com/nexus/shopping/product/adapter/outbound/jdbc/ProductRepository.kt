@@ -1,5 +1,8 @@
-package com.nexus.shopping.product
+package com.nexus.shopping.product.adapter.outbound.jdbc
 
+import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
+import com.nexus.shopping.product.domain.Product
+import com.nexus.shopping.product.domain.ProductPage
 import java.sql.ResultSet
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository
@@ -7,9 +10,9 @@ import org.springframework.stereotype.Repository
 @Repository
 class ProductRepository(
     private val jdbcTemplate: JdbcTemplate,
-) {
+) : ProductRepositoryPort {
 
-    fun findByCategoryId(categoryId: Long, page: Int, size: Int): ProductPage {
+    override fun findByCategoryId(categoryId: Long, page: Int, size: Int): ProductPage {
         val products = jdbcTemplate.query(
             "SELECT * FROM products WHERE category_id = ? ORDER BY id LIMIT ? OFFSET ?",
             { resultSet, _ ->
@@ -23,7 +26,7 @@ class ProductRepository(
         return products.toPage(page, size)
     }
 
-    fun findByName(name: String, page: Int, size: Int): ProductPage {
+    override fun findByName(name: String, page: Int, size: Int): ProductPage {
         val upperBound = nextLexicographicValue(name)
 
         val products = jdbcTemplate.query(

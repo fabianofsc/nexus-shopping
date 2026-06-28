@@ -15,6 +15,26 @@ Three branches represent the evolution of the system, each published as a Docker
 | `add-products-pagination` | `fabianofsc/nexus-shopping:pagination` | Limits results to 50 per request |
 | `main` | `fabianofsc/nexus-shopping:latest` | Always the latest version |
 
+## Architecture
+
+The codebase follows hexagonal architecture (Ports and Adapters), applied incrementally. Business logic lives in the `application` layer and is isolated from HTTP and JDBC details via port interfaces.
+
+```
+product/
+  domain/          → pure business types (Product, ProductPage)
+  application/
+    port/outbound/ → ProductRepositoryPort (interface)
+    usecase/       → ProductSearchUseCase, ProductCreateUseCase, typed exceptions
+  adapter/
+    inbound/http/  → ProductController, request DTOs
+    outbound/jdbc/ → ProductRepository (JdbcTemplate)
+```
+
+Key constraints:
+- Domain and use-case layers have no Spring or JDBC imports.
+- `ProductValidationException` is thrown by use cases; the controller catches only this type so server errors are never masked as HTTP 400.
+- Validation lives in the use case so it is reusable by any future adapter (CLI, queue, batch).
+
 ## Load Test Quick Start
 
 To run the comparative load tests, you only need **Docker** and **JMeter**. No Java or Gradle required.
@@ -113,7 +133,7 @@ Health endpoint:
 curl http://localhost:8080/actuator/health
 ```
 
-Product endpoint:
+Search by category:
 
 ```bash
 curl -o /dev/null -w '%{time_total}s %{size_download} bytes\n' \
@@ -125,6 +145,14 @@ Search by product name:
 ```bash
 curl -o /dev/null -w '%{time_total}s %{size_download} bytes\n' \
   'http://localhost:8080/products?name=Product%202999999&page=0&size=50'
+```
+
+Create a product:
+
+```bash
+curl -X POST http://localhost:8080/products \
+  -H 'Content-Type: application/json' \
+  -d '{"brandId":1,"categoryId":1,"sku":"SKU-001","name":"New Product","slug":"new-product","priceAmount":49.90}'
 ```
 
 The product repository executes these read queries:
