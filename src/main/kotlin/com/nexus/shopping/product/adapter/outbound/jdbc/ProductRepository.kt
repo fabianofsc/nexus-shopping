@@ -74,8 +74,17 @@ class ProductRepository(
     }
 
     override fun updatePrice(id: Long, priceAmount: BigDecimal): Product? {
-        // TODO: Implement in Task 3
-        return null
+        val updatedRows = jdbcTemplate.update(
+            "UPDATE products SET price_amount = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            priceAmount,
+            id,
+        )
+
+        if (updatedRows == 0) {
+            return null
+        }
+
+        return jdbcTemplate.queryForObject("SELECT * FROM products WHERE id = ?", { rs, _ -> rs.toProduct() }, id)
     }
 
     private fun List<Product>.toPage(page: Int, size: Int): ProductPage {
