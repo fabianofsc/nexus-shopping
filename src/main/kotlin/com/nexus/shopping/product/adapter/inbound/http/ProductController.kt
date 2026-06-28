@@ -1,6 +1,7 @@
 package com.nexus.shopping.product.adapter.inbound.http
 
 import com.nexus.shopping.product.application.usecase.ProductSearchUseCase
+import com.nexus.shopping.product.application.usecase.ProductValidationException
 import com.nexus.shopping.product.domain.ProductPage
 import org.springframework.http.HttpStatus
 import org.springframework.web.server.ResponseStatusException
@@ -24,7 +25,7 @@ class ProductController(
     ): ProductPage {
         try {
             return productSearchUseCase.search(categoryId, name, page, size)
-        } catch (e: IllegalArgumentException) {
+        } catch (e: ProductValidationException) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, e.message)
         }
     }

@@ -10,20 +10,20 @@ class ProductSearchUseCase(
 ) {
 
     fun search(categoryId: Long?, name: String?, page: Int, size: Int): ProductPage {
-        require(!(categoryId != null && !name.isNullOrBlank())) {
-            "Use either categoryId or name, not both."
+        if (categoryId != null && !name.isNullOrBlank()) {
+            throw ProductValidationException("Use either categoryId or name, not both.")
         }
-        require(page >= 0) {
-            "Query parameter page must be greater than or equal to 0."
+        if (page < 0) {
+            throw ProductValidationException("Query parameter page must be greater than or equal to 0.")
         }
-        require(size in 1..500) {
-            "Query parameter size must be between 1 and 500."
+        if (size !in 1..500) {
+            throw ProductValidationException("Query parameter size must be between 1 and 500.")
         }
 
         return when {
             categoryId != null -> productRepository.findByCategoryId(categoryId, page, size)
             !name.isNullOrBlank() -> productRepository.findByName(name, page, size)
-            else -> throw IllegalArgumentException("Query parameter categoryId or name is required.")
+            else -> throw ProductValidationException("Query parameter categoryId or name is required.")
         }
     }
 }
