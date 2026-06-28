@@ -46,84 +46,84 @@ class ProductCreateUseCaseTest {
 
     @Test
     fun `create with blank sku throws`() {
-        assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<ProductValidationException> {
             useCase.create(validCommand().copy(sku = "  "))
         }
     }
 
     @Test
     fun `create with sku over 120 chars throws`() {
-        assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<ProductValidationException> {
             useCase.create(validCommand().copy(sku = "a".repeat(121)))
         }
     }
 
     @Test
     fun `create with blank name throws`() {
-        assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<ProductValidationException> {
             useCase.create(validCommand().copy(name = ""))
         }
     }
 
     @Test
     fun `create with name over 220 chars throws`() {
-        assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<ProductValidationException> {
             useCase.create(validCommand().copy(name = "a".repeat(221)))
         }
     }
 
     @Test
     fun `create with blank slug throws`() {
-        assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<ProductValidationException> {
             useCase.create(validCommand().copy(slug = ""))
         }
     }
 
     @Test
     fun `create with description over 2000 chars throws`() {
-        assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<ProductValidationException> {
             useCase.create(validCommand().copy(description = "a".repeat(2001)))
         }
     }
 
     @Test
     fun `create with invalid status throws`() {
-        assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<ProductValidationException> {
             useCase.create(validCommand().copy(status = "DELETED"))
         }
     }
 
     @Test
     fun `create with negative priceAmount throws`() {
-        assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<ProductValidationException> {
             useCase.create(validCommand().copy(priceAmount = BigDecimal("-0.01")))
         }
     }
 
     @Test
     fun `create with currency length not 3 throws`() {
-        assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<ProductValidationException> {
             useCase.create(validCommand().copy(currency = "US"))
         }
     }
 
     @Test
     fun `create with negative inventoryQuantity throws`() {
-        assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<ProductValidationException> {
             useCase.create(validCommand().copy(inventoryQuantity = -1))
         }
     }
 
     @Test
     fun `create with zero brandId throws`() {
-        assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<ProductValidationException> {
             useCase.create(validCommand().copy(brandId = 0L))
         }
     }
 
     @Test
     fun `create with zero categoryId throws`() {
-        assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<ProductValidationException> {
             useCase.create(validCommand().copy(categoryId = 0L))
         }
     }

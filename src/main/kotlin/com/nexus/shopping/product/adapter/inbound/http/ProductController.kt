@@ -41,7 +41,7 @@ class ProductController(
     fun create(@RequestBody request: CreateProductRequest): Product {
         try {
             return productCreateUseCase.create(request.toCommand())
-        } catch (e: IllegalArgumentException) {
+        } catch (e: ProductValidationException) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, e.message)
         }
     }

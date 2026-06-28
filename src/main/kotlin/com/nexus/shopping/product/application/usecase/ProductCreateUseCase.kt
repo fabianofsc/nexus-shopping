@@ -12,25 +12,25 @@ class ProductCreateUseCase(
 ) {
 
     fun create(command: CreateProductCommand): Product {
-        require(command.brandId > 0) { "brandId must be greater than 0." }
-        require(command.categoryId > 0) { "categoryId must be greater than 0." }
-        require(command.sku.isNotBlank()) { "sku must not be blank." }
-        require(command.sku.length <= 120) { "sku must be at most 120 characters." }
-        require(command.name.isNotBlank()) { "name must not be blank." }
-        require(command.name.length <= 220) { "name must be at most 220 characters." }
-        require(command.slug.isNotBlank()) { "slug must not be blank." }
-        require(command.slug.length <= 260) { "slug must be at most 260 characters." }
-        require(command.description == null || command.description.length <= 2000) {
-            "description must be at most 2000 characters."
+        if (command.brandId <= 0) throw ProductValidationException("brandId must be greater than 0.")
+        if (command.categoryId <= 0) throw ProductValidationException("categoryId must be greater than 0.")
+        if (command.sku.isBlank()) throw ProductValidationException("sku must not be blank.")
+        if (command.sku.length > 120) throw ProductValidationException("sku must be at most 120 characters.")
+        if (command.name.isBlank()) throw ProductValidationException("name must not be blank.")
+        if (command.name.length > 220) throw ProductValidationException("name must be at most 220 characters.")
+        if (command.slug.isBlank()) throw ProductValidationException("slug must not be blank.")
+        if (command.slug.length > 260) throw ProductValidationException("slug must be at most 260 characters.")
+        if (command.description != null && command.description.length > 2000) {
+            throw ProductValidationException("description must be at most 2000 characters.")
         }
-        require(command.status in VALID_STATUSES) {
-            "status must be one of: ${VALID_STATUSES.joinToString(", ")}."
+        if (command.status !in VALID_STATUSES) {
+            throw ProductValidationException("status must be one of: ${VALID_STATUSES.joinToString(", ")}.")
         }
-        require(command.priceAmount >= java.math.BigDecimal.ZERO) { "priceAmount must be >= 0." }
-        require(command.currency.isNotBlank() && command.currency.length == 3) {
-            "currency must be exactly 3 characters."
+        if (command.priceAmount < java.math.BigDecimal.ZERO) throw ProductValidationException("priceAmount must be >= 0.")
+        if (command.currency.isBlank() || command.currency.length != 3) {
+            throw ProductValidationException("currency must be exactly 3 characters.")
         }
-        require(command.inventoryQuantity >= 0) { "inventoryQuantity must be >= 0." }
+        if (command.inventoryQuantity < 0) throw ProductValidationException("inventoryQuantity must be >= 0.")
 
         return productRepository.save(command)
     }

@@ -1,4 +1,4 @@
-INSERT INTO brands (name, description)
+INSERT INTO brands (id, name, description)
 WITH digits(n) AS (
     SELECT 0 UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
     UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
@@ -10,12 +10,13 @@ numbers(n) AS (
     CROSS JOIN digits hundreds
 )
 SELECT
+    n,
     'Brand ' || CAST(n AS VARCHAR),
     'Illustrative catalog brand ' || CAST(n AS VARCHAR)
 FROM numbers
 WHERE n <= 1000;
 
-INSERT INTO categories (parent_id, name, slug, status)
+INSERT INTO categories (id, parent_id, name, slug, status)
 WITH digits(n) AS (
     SELECT 0 UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
     UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
@@ -26,6 +27,7 @@ numbers(n) AS (
     CROSS JOIN digits tens
 )
 SELECT
+    n,
     NULL,
     'Category ' || CAST(n AS VARCHAR),
     'category-' || CAST(n AS VARCHAR),
@@ -33,7 +35,7 @@ SELECT
 FROM numbers
 WHERE n <= 50;
 
-INSERT INTO categories (parent_id, name, slug, status)
+INSERT INTO categories (id, parent_id, name, slug, status)
 WITH digits(n) AS (
     SELECT 0 UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
     UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
@@ -45,6 +47,7 @@ numbers(n) AS (
     CROSS JOIN digits hundreds
 )
 SELECT
+    n,
     MOD(n - 51, 50) + 1,
     'Category ' || CAST(n AS VARCHAR),
     'category-' || CAST(n AS VARCHAR),
@@ -53,6 +56,7 @@ FROM numbers
 WHERE n <= 500;
 
 INSERT INTO products (
+    id,
     brand_id,
     category_id,
     sku,
@@ -87,6 +91,7 @@ numbers(n) AS (
     CROSS JOIN digits millions
 )
 SELECT
+    n,
     MOD(n - 1, 1000) + 1,
     MOD(n - 1, 500) + 1,
     'SKU-' || CAST(n AS VARCHAR),
