@@ -8,9 +8,6 @@ spring:
     driver-class-name: org.postgresql.Driver
   flyway:
     enabled: true
-    locations:
-      - classpath:db/migration
-      - classpath:db/vendor/{vendor}
     placeholders:
       productSeedCount: ${PRODUCT_SEED_COUNT:10000000}
   jpa:
