@@ -291,6 +291,73 @@ O resultado evidencia que os dois endpoints tem problemas diferentes:
 - A busca por nome tinha so um problema — localizacao — e o indice o resolveu completamente.
 - A busca por categoria tem dois problemas — localizacao e volume de retorno. O indice resolveu o primeiro. A paginacao e necessaria para o segundo.
 
+### Exemplo real: pagination por categoria
+
+Este e o resultado mais expressivo da terceira etapa. A busca por categoria com indice e paginacao (`size=50`).
+
+![Relatorio JMeter - pagination por categoria](assets/load-tests/jmeter-report-pagination-category.png)
+
+| Metrica | Indexes (sem paginacao) | Pagination | Ganho |
+| --- | ---: | ---: | ---: |
+| APDEX | 0,205 | 0,997 | quase perfeito |
+| Throughput | 26,47 req/s | 1.646 req/s | 62x maior |
+| Average | 1.731 ms | 28 ms | 62x menor |
+| Median | 1.758 ms | 14 ms | 126x menor |
+| 95th pct | 2.931 ms | 82 ms | 36x menor |
+| 99th pct | 3.752 ms | 139 ms | 27x menor |
+| Received | ~192 MB/s | ~29 MB/s | 6,6x menor |
+
+O campo **Received** conta a historia mais clara: com indice mas sem paginacao, o sistema recebia 192 MB/s porque cada requisicao retornava ~20.000 produtos. Com paginacao, caiu para 29 MB/s — menos dados por requisicao, mas 62x mais requisicoes atendidas.
+
+O APDEX foi de 0,205 para 0,997. A busca por categoria passou de um endpoint inutilizavel em producao para algo que responde em 28 ms em media e aguenta mais de 1.600 req/s com 50 usuarios concorrentes.
+
+### Exemplo real: pagination por nome
+
+![Relatorio JMeter - pagination por nome](assets/load-tests/jmeter-report-pagination-name.png)
+
+| Metrica | Indexes (sem paginacao) | Pagination | Ganho |
+| --- | ---: | ---: | ---: |
+| APDEX | 1,000 | 1,000 | manteve o maximo |
+| Throughput | 14.510 req/s | 21.170 req/s | 1,46x maior |
+| Average | 3 ms | 2 ms | 1,5x menor |
+| Median | 1 ms | 1 ms | sem mudanca |
+| 95th pct | 3 ms | 4 ms | equivalente |
+| 99th pct | 6 ms | 7 ms | equivalente |
+
+A busca por nome ja era seletiva desde a etapa de indices — retorna poucos registros. A paginacao nao muda muito nesse caso. O throughput subiu modestamente de 14.510 para 21.170 req/s, e a latencia permanece na faixa de 1-4 ms.
+
+O valor da paginacao aqui e de contrato: protege o endpoint caso uma busca por prefixo retorne muitos resultados. O desempenho ja estava otimo.
+
+### Comparacao final: os tres cenarios
+
+**Busca por categoria**
+
+| Metrica | Baseline | Indexes | Pagination | Ganho total |
+| --- | ---: | ---: | ---: | ---: |
+| APDEX | 0,041 | 0,205 | 0,997 | — |
+| Throughput | 11,77 req/s | 26,47 req/s | 1.646 req/s | 140x |
+| Average | 3.853 ms | 1.731 ms | 28 ms | 138x menor |
+| Median | 3.929 ms | 1.758 ms | 14 ms | 281x menor |
+| P95 | 4.844 ms | 2.931 ms | 82 ms | 59x menor |
+| Received | ~85 MB/s | ~192 MB/s | ~29 MB/s | — |
+
+**Busca por nome**
+
+| Metrica | Baseline | Indexes | Pagination | Ganho total |
+| --- | ---: | ---: | ---: | ---: |
+| APDEX | 0,041 | 1,000 | 1,000 | — |
+| Throughput | 11,56 req/s | 14.510 req/s | 21.170 req/s | 1.831x |
+| Average | 3.915 ms | 3 ms | 2 ms | 1.958x menor |
+| Median | 4.043 ms | 1 ms | 1 ms | — |
+| P95 | 5.020 ms | 3 ms | 4 ms | 1.255x menor |
+
+**Licoes do roteiro**
+
+- Sem indice, o banco varre toda a tabela. O custo cresce linearmente com o volume de dados.
+- Indice B-tree reduz o custo de localizacao de O(n) para O(log n). Para a busca por nome, isso foi suficiente para resolver o problema completamente.
+- Paginacao reduz o custo de retorno limitando o numero de linhas materializadas e serializadas por requisicao. Para a busca por categoria, esse era o gargalo restante apos o indice.
+- Os dois problemas sao independentes e precisam de solucoes independentes. Indice sem paginacao deixa a categoria com 2,2x de melhora. Paginacao sem indice deixa a categoria com payload pequeno mas ainda com varredura total. Os dois juntos entregam 140x de melhora no throughput.
+
 ## Metricas a observar em cada cenario
 
 As metricas mais importantes para comparar os tres cenarios:
