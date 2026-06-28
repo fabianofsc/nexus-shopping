@@ -4,6 +4,7 @@ import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPor
 import com.nexus.shopping.product.application.usecase.CreateProductCommand
 import com.nexus.shopping.product.domain.Product
 import com.nexus.shopping.product.domain.ProductPage
+import java.math.BigDecimal
 import java.sql.ResultSet
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert
@@ -70,6 +71,20 @@ class ProductRepository(
             ).toLong()
 
         return jdbcTemplate.queryForObject("SELECT * FROM products WHERE id = ?", { rs, _ -> rs.toProduct() }, id)!!
+    }
+
+    override fun updatePrice(id: Long, priceAmount: BigDecimal): Product? {
+        val updatedRows = jdbcTemplate.update(
+            "UPDATE products SET price_amount = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            priceAmount,
+            id,
+        )
+
+        if (updatedRows == 0) {
+            return null
+        }
+
+        return jdbcTemplate.queryForObject("SELECT * FROM products WHERE id = ?", { rs, _ -> rs.toProduct() }, id)
     }
 
     private fun List<Product>.toPage(page: Int, size: Int): ProductPage {
