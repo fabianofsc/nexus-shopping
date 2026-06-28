@@ -6,6 +6,7 @@
 - Stack: Kotlin, Java 21, Gradle Wrapper, Spring Boot 4, Actuator, Flyway, PostgreSQL, JDBC/JPA dependencies.
 - The project is intentionally didactic: it compares missing indexes, read indexes, and pagination under JMeter load.
 - Current main feature branch: `add-products-pagination`.
+- Docker Hub repo: `fabianofsc/nexus-shopping` with tags `baseline`, `indexes`, `pagination`, `latest`.
 
 ## Local Command Rules
 
@@ -117,42 +118,52 @@ rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local .
   - migrations stay portable.
   - product search returns the paginated slice contract.
 
+## Docker Hub
+
+- Images are published automatically by GitHub Actions on push to each branch.
+- To start a scenario without building locally:
+
+```bash
+rtk make start-baseline     # resets DB, pulls baseline image, waits health
+rtk make start-indexes      # swaps image, keeps DB, waits health
+rtk make start-pagination   # swaps image, keeps DB, waits health
+```
+
+- To reset the DB explicitly for any scenario:
+
+```bash
+rtk make hub-reset-baseline
+rtk make hub-reset-indexes
+rtk make hub-reset-pagination
+```
+
+- To build and push images manually:
+
+```bash
+rtk make push-baseline
+rtk make push-indexes
+rtk make push-pagination
+```
+
 ## JMeter
 
 - JMeter is external tooling, not a Spring dependency.
+- Always invoke JMeter through the wrapper to suppress startup warnings:
+
+```bash
+scripts/jmeter.sh
+```
+
 - Plans live in:
   - `load-tests/jmeter/products-by-category.jmx`
   - `load-tests/jmeter/products-by-name.jmx`
-- Standard high-load comparison profile used in docs:
+- Standard profile: 50 threads, 20s ramp-up, 120s duration.
+- Use Makefile targets instead of invoking JMeter directly:
 
 ```bash
-rtk jmeter -n \
-  -t load-tests/jmeter/products-by-category.jmx \
-  -l build/jmeter-results/products-by-category-paginated.jtl \
-  -e -o build/jmeter-report/products-by-category-paginated \
-  -Jthreads=50 \
-  -JrampUp=20 \
-  -Jduration=120 \
-  -Jhost=localhost \
-  -Jport=8080 \
-  -JcategoryId=1 \
-  -Jpage=0 \
-  -Jsize=50
-```
-
-```bash
-rtk jmeter -n \
-  -t load-tests/jmeter/products-by-name.jmx \
-  -l build/jmeter-results/products-by-name-paginated.jtl \
-  -e -o build/jmeter-report/products-by-name-paginated \
-  -Jthreads=50 \
-  -JrampUp=20 \
-  -Jduration=120 \
-  -Jhost=localhost \
-  -Jport=8080 \
-  '-Jname=Product 9999999' \
-  -Jpage=0 \
-  -Jsize=50
+rtk make jmeter-all SCENARIO=baseline
+rtk make jmeter-category SCENARIO=indexes
+rtk make jmeter-name SCENARIO=pagination
 ```
 
 - If JMeter reports `java.net.SocketException: Operation not permitted`, rerun with elevated permission because local high-concurrency HTTP may be sandbox-blocked.
@@ -165,6 +176,7 @@ rtk jmeter -n \
   - `docs/load-test-index-results-20260626.md`: indexed query comparison.
   - `docs/load-test-pagination-results-20260627.md`: pagination comparison.
 - Store committed chart PNGs under `docs/assets/load-tests/`.
+- Committed JMeter HTML reports live under `docs/jmeter-reports/baseline/`, `indexes/`, `pagination/`.
 - Keep docs concise and in Portuguese for result explanations.
 - Prefer ASCII in new or edited files unless there is a strong reason not to.
 

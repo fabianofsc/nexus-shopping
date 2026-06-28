@@ -4,7 +4,51 @@ Backend REST API built with Kotlin, Gradle, Java 21, Spring Boot 4, Actuator, Fl
 
 The project is intentionally shaped as a performance demonstration: it creates a large relational product catalog, documents the baseline without secondary indexes, adds targeted read indexes, and then adds pagination to compare the impact on high-traffic catalog queries.
 
+## Didactic Scenarios
+
+Three branches represent the evolution of the system, each published as a Docker Hub image:
+
+| Branch | Image | What changes |
+| --- | --- | --- |
+| `missing-index-performance-baseline` | `fabianofsc/nexus-shopping:baseline` | No secondary indexes |
+| `add-product-query-indexes` | `fabianofsc/nexus-shopping:indexes` | Adds indexes on `category_id` and `name` |
+| `add-products-pagination` | `fabianofsc/nexus-shopping:pagination` | Limits results to 50 per request |
+| `main` | `fabianofsc/nexus-shopping:latest` | Always the latest version |
+
+## Load Test Quick Start
+
+To run the comparative load tests, you only need **Docker** and **JMeter**. No Java or Gradle required.
+
+```bash
+git clone https://github.com/fabianofsc/nexus-shopping.git
+cd nexus-shopping
+
+# Step 1: start the scenario (pulls image from Docker Hub)
+make start-baseline    # resets DB, seeds 10M products, waits for health
+
+# Step 2: run JMeter tests
+make jmeter-all SCENARIO=baseline
+
+# Step 3: move to next scenario (reuses the existing database)
+make start-indexes
+make jmeter-all SCENARIO=indexes
+
+make start-pagination
+make jmeter-all SCENARIO=pagination
+```
+
+The database is created only once (at baseline). Each subsequent scenario applies only the new Flyway migrations on top of the existing data.
+
+See `docs/jmeter-test-guide.md` for the full guide, including installation instructions, expected results, and how to interpret JMeter reports.
+
 ## Requirements
+
+For load testing only:
+
+- Docker and Docker Compose
+- Apache JMeter
+
+For local development:
 
 - Java 21
 - Docker and Docker Compose
@@ -16,8 +60,6 @@ Install JMeter on macOS:
 ```bash
 brew install jmeter
 ```
-
-Or download it from https://jmeter.apache.org/download_jmeter.cgi.
 
 ## Database
 
@@ -33,14 +75,6 @@ Default database settings:
 - Database: `nexus_shopping`
 - User: `nexus`
 - Password: `nexus`
-
-Override with:
-
-```bash
-DB_URL=jdbc:postgresql://localhost:5432/nexus_shopping
-DB_USERNAME=nexus
-DB_PASSWORD=nexus
-```
 
 Flyway runs automatically on application startup. The migrations create:
 
@@ -100,7 +134,7 @@ SELECT * FROM products WHERE category_id = ? ORDER BY id LIMIT ? OFFSET ?
 SELECT * FROM products WHERE name >= ? AND name < ? AND name LIKE ? ORDER BY name LIMIT ? OFFSET ?
 ```
 
-The endpoint returns a slice response with `content`, `page`, `size`, `count`, and `hasNext`. It intentionally avoids `COUNT(*)` so each request performs only the page read. The name lookup still uses `LIKE`, but it is written as a prefix range so the portable B-tree index on `products.name` can be used. The branch `missing-index-performance-baseline` preserves the version without secondary indexes.
+The endpoint returns a slice response with `content`, `page`, `size`, `count`, and `hasNext`. It intentionally avoids `COUNT(*)` so each request performs only the page read. The name lookup still uses `LIKE`, but it is written as a prefix range so the portable B-tree index on `products.name` can be used.
 
 ## Docker Image
 
@@ -118,31 +152,21 @@ Run PostgreSQL and the app with Docker Compose:
 APP_IMAGE=nexus-shopping:local docker compose up -d postgres app
 ```
 
-The app service uses the internal Compose hostname `postgres`:
+To build and push the scenario images to Docker Hub:
 
 ```bash
-DB_URL=jdbc:postgresql://postgres:5432/nexus_shopping
+make push-baseline
+make push-indexes
+make push-pagination
+make push-all
 ```
 
-To switch to one of the didactic branches, build the image, and run the full stack:
+To switch to one of the didactic branches, build the image locally, and run the full stack:
 
 ```bash
 scripts/run-stack.sh baseline --reset-db
 scripts/run-stack.sh indexes --reset-db
 scripts/run-stack.sh pagination --reset-db
-```
-
-The script maps:
-
-- `baseline` to `missing-index-performance-baseline`
-- `indexes` to `add-product-query-indexes`
-- `pagination` to `add-products-pagination`
-- `main` to `main`
-
-The local `latest` image should always be built from `main`, which represents the latest paginated version:
-
-```bash
-make image-latest
 ```
 
 ## Test
@@ -161,86 +185,46 @@ The automated tests validate:
 
 ## Load Test with JMeter
 
-The JMeter test plans are versioned at:
+JMeter test plans are versioned at:
 
-```bash
+```
 load-tests/jmeter/products-by-category.jmx
 load-tests/jmeter/products-by-name.jmx
 ```
 
-Run the app first:
+The recommended workflow uses Docker Hub images and the Makefile targets:
 
 ```bash
-docker compose down -v
-docker compose up -d postgres
-./gradlew bootRun
+make start-baseline       # pull image, reset DB, seed 10M products, wait health
+make jmeter-all SCENARIO=baseline
+
+make start-indexes        # swap image, Flyway applies indexes, wait health
+make jmeter-all SCENARIO=indexes
+
+make start-pagination     # swap image, no new migrations, wait health
+make jmeter-all SCENARIO=pagination
 ```
 
-Run the load test:
+Or run everything in one command per scenario:
 
 ```bash
-mkdir -p build/jmeter-results build/jmeter-report
-jmeter -n \
-  -t load-tests/jmeter/products-by-category.jmx \
-  -l build/jmeter-results/products-by-category.jtl \
-  -e -o build/jmeter-report/products-by-category \
-  -Jthreads=10 \
-  -JrampUp=10 \
-  -Jduration=60 \
-  -Jhost=localhost \
-  -Jport=8080 \
-  -JcategoryId=1 \
-  -Jpage=0 \
-  -Jsize=50
+make load-hub-baseline
+make load-hub-indexes
+make load-hub-pagination
 ```
 
-Run the name search load test:
+HTML reports are saved to `build/jmeter-report/`. Committed reference reports for all three scenarios are available under `docs/jmeter-reports/`.
 
-```bash
-mkdir -p build/jmeter-results build/jmeter-report
-jmeter -n \
-  -t load-tests/jmeter/products-by-name.jmx \
-  -l build/jmeter-results/products-by-name.jtl \
-  -e -o build/jmeter-report/products-by-name \
-  -Jthreads=5 \
-  -JrampUp=10 \
-  -Jduration=60 \
-  -Jhost=localhost \
-  -Jport=8080 \
-  -Jname='Product 2999999' \
-  -Jpage=0 \
-  -Jsize=50
+The full load test guide with installation instructions, expected results, and report interpretation is at:
+
 ```
-
-Open the HTML report:
-
-```bash
-open build/jmeter-report/products-by-category/index.html
-open build/jmeter-report/products-by-name/index.html
-```
-
-JMeter is not an application dependency. It is an external tool used to run load tests and generate demonstrative HTML reports.
-
-The full JMeter workflow guide is available at:
-
-```bash
 docs/jmeter-test-guide.md
 ```
 
-The documented baseline run without indexes is available at:
+The documented result summaries are at:
 
-```bash
-docs/load-test-results-20260626.md
 ```
-
-The documented comparison run with indexes is available at:
-
-```bash
-docs/load-test-index-results-20260626.md
-```
-
-The documented comparison run with pagination is available at:
-
-```bash
-docs/load-test-pagination-results-20260627.md
+docs/load-test-results-20260626.md          baseline without indexes
+docs/load-test-index-results-20260626.md    with indexes
+docs/load-test-pagination-results-20260627.md  with pagination
 ```
