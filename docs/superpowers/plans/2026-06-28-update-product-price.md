@@ -4,7 +4,7 @@
 
 **Goal:** Add `PATCH /products/{id}` that updates only `priceAmount`, returning the full updated product or 400/404 on error.
 
-**Architecture:** Hexagonal — new `UpdateProductPriceUseCase` orchestrates validation and calls `ProductRepositoryPort.updatePrice`, which executes a single `UPDATE … RETURNING *`. Errors are typed exceptions caught by the controller (same pattern as the existing `POST /products` flow).
+**Architecture:** Hexagonal — new `UpdateProductPriceUseCase` orchestrates validation and calls `ProductRepositoryPort.updatePrice`, which executes a portable `UPDATE` followed by a `SELECT` when a row is changed. Errors are typed exceptions caught by the controller (same pattern as the existing `POST /products` flow).
 
 **Tech Stack:** Kotlin, Spring Boot 4, JdbcTemplate, PostgreSQL / H2 (tests)
 
@@ -34,7 +34,7 @@
 | Modify | `src/main/kotlin/com/nexus/shopping/product/adapter/inbound/http/ProductController.kt` |
 | Modify | `src/test/kotlin/com/nexus/shopping/product/ProductSearchUseCaseTest.kt` |
 | Modify | `src/test/kotlin/com/nexus/shopping/product/ProductCreateUseCaseTest.kt` |
-| Modify | `src/test/kotlin/com/nexus/shopping/ProductControllerTest.kt` |
+| Modify | `src/test/kotlin/com/nexus/shopping/product/ProductControllerTest.kt` |
 
 ---
 
@@ -52,7 +52,7 @@
 **Interfaces:**
 - Produces: `UpdatePriceCommand(id: Long, priceAmount: BigDecimal)`, `ProductNotFoundException`, `ProductRepositoryPort.updatePrice(id: Long, priceAmount: BigDecimal): Product?`
 
-- [ ] **Step 1: Create `UpdatePriceCommand.kt`**
+- [x] **Step 1: Create `UpdatePriceCommand.kt`**
 
 ```kotlin
 package com.nexus.shopping.product.application.usecase
@@ -65,7 +65,7 @@ data class UpdatePriceCommand(
 )
 ```
 
-- [ ] **Step 2: Create `ProductNotFoundException.kt`**
+- [x] **Step 2: Create `ProductNotFoundException.kt`**
 
 ```kotlin
 package com.nexus.shopping.product.application.usecase
@@ -73,7 +73,7 @@ package com.nexus.shopping.product.application.usecase
 class ProductNotFoundException(message: String) : RuntimeException(message)
 ```
 
-- [ ] **Step 3: Add `updatePrice` to `ProductRepositoryPort`**
+- [x] **Step 3: Add `updatePrice` to `ProductRepositoryPort`**
 
 Replace the entire file — keep the existing `save` method, add `updatePrice`:
 
@@ -93,7 +93,7 @@ interface ProductRepositoryPort {
 }
 ```
 
-- [ ] **Step 4: Add `updatePrice` stub to `ProductSearchUseCaseTest` fake**
+- [x] **Step 4: Add `updatePrice` stub to `ProductSearchUseCaseTest` fake**
 
 The fake must implement every port method. Add the `updatePrice` stub and the `BigDecimal` import to the existing file:
 
@@ -176,7 +176,7 @@ class ProductSearchUseCaseTest {
 }
 ```
 
-- [ ] **Step 5: Add `updatePrice` stub to `ProductCreateUseCaseTest` fake**
+- [x] **Step 5: Add `updatePrice` stub to `ProductCreateUseCaseTest` fake**
 
 Add the import and the stub — only the fake block changes, all tests remain intact:
 
@@ -315,7 +315,7 @@ class ProductCreateUseCaseTest {
 }
 ```
 
-- [ ] **Step 6: Run build — expect BUILD SUCCESSFUL**
+- [x] **Step 6: Run build — expect BUILD SUCCESSFUL**
 
 ```bash
 rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
@@ -325,7 +325,7 @@ Expected: `BUILD SUCCESSFUL` — all existing tests pass. Build will flag `Produ
 
 > If the build fails for any reason OTHER than `ProductRepository` missing `updatePrice`, fix it before continuing.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/main/kotlin/com/nexus/shopping/product/application/usecase/UpdatePriceCommand.kt
@@ -348,7 +348,7 @@ git commit -m "feat: add UpdatePriceCommand, ProductNotFoundException, and port 
 - Consumes: `UpdatePriceCommand(id, priceAmount)`, `ProductNotFoundException`, `ProductValidationException`, `ProductRepositoryPort.updatePrice`
 - Produces: `UpdateProductPriceUseCase.execute(command: UpdatePriceCommand): Product`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 The fake must implement all four port methods (`findByCategoryId`, `findByName`, `save`, `updatePrice`):
 
@@ -430,7 +430,7 @@ class UpdateProductPriceUseCaseTest {
 }
 ```
 
-- [ ] **Step 2: Run tests — expect compile failure (class does not exist yet)**
+- [x] **Step 2: Run tests — expect compile failure (class does not exist yet)**
 
 ```bash
 rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test 2>&1 | grep -E "error:|FAILED|UpdateProductPriceUseCase"
@@ -438,7 +438,7 @@ rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local .
 
 Expected: compile error — `Unresolved reference: UpdateProductPriceUseCase`
 
-- [ ] **Step 3: Implement `UpdateProductPriceUseCase.kt`**
+- [x] **Step 3: Implement `UpdateProductPriceUseCase.kt`**
 
 ```kotlin
 package com.nexus.shopping.product.application.usecase
@@ -463,7 +463,7 @@ class UpdateProductPriceUseCase(
 }
 ```
 
-- [ ] **Step 4: Run tests — expect 4 passing**
+- [x] **Step 4: Run tests — expect 4 passing**
 
 ```bash
 rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test 2>&1 | grep -E "tests|PASSED|FAILED|UpdateProductPrice"
@@ -471,7 +471,7 @@ rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local .
 
 Expected: `UpdateProductPriceUseCaseTest > 4 tests` all PASSED. Build may still fail on `ProductRepository` — that is expected and will be fixed in Task 3.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/test/kotlin/com/nexus/shopping/product/UpdateProductPriceUseCaseTest.kt
@@ -490,23 +490,29 @@ git commit -m "feat: implement UpdateProductPriceUseCase with validation"
 - Consumes: `ProductRepositoryPort.updatePrice(id: Long, priceAmount: BigDecimal): Product?`
 - Produces: concrete implementation; returns `null` when no row matches `id`
 
-- [ ] **Step 1: Add `updatePrice` to `ProductRepository`**
+- [x] **Step 1: Add `updatePrice` to `ProductRepository`**
 
 Add this method after the existing `findByName` and before the private helpers. The existing private `toProduct()` extension is reused:
 
 ```kotlin
-override fun updatePrice(id: Long, priceAmount: BigDecimal): Product? =
-    jdbcTemplate.query(
-        "UPDATE products SET price_amount = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING *",
-        { resultSet, _ -> resultSet.toProduct() },
+override fun updatePrice(id: Long, priceAmount: BigDecimal): Product? {
+    val updatedRows = jdbcTemplate.update(
+        "UPDATE products SET price_amount = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         priceAmount,
         id,
-    ).firstOrNull()
+    )
+
+    if (updatedRows == 0) {
+        return null
+    }
+
+    return jdbcTemplate.queryForObject("SELECT * FROM products WHERE id = ?", { rs, _ -> rs.toProduct() }, id)
+}
 ```
 
 Also add `import java.math.BigDecimal` to the file imports.
 
-- [ ] **Step 2: Run build — expect BUILD SUCCESSFUL**
+- [x] **Step 2: Run build — expect BUILD SUCCESSFUL**
 
 ```bash
 rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
@@ -514,11 +520,11 @@ rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local .
 
 Expected: `BUILD SUCCESSFUL` — all tests pass, including the 4 new use case tests.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jdbc/ProductRepository.kt
-git commit -m "feat: implement updatePrice in ProductRepository via UPDATE RETURNING"
+git commit -m "feat: implement updatePrice in ProductRepository"
 ```
 
 ---
@@ -528,13 +534,13 @@ git commit -m "feat: implement updatePrice in ProductRepository via UPDATE RETUR
 **Files:**
 - Create: `src/main/kotlin/com/nexus/shopping/product/adapter/inbound/http/UpdatePriceRequest.kt`
 - Modify: `src/main/kotlin/com/nexus/shopping/product/adapter/inbound/http/ProductController.kt`
-- Modify: `src/test/kotlin/com/nexus/shopping/ProductControllerTest.kt`
+- Modify: `src/test/kotlin/com/nexus/shopping/product/ProductControllerTest.kt`
 
 **Interfaces:**
 - Consumes: `UpdateProductPriceUseCase.execute(UpdatePriceCommand): Product`, `ProductValidationException`, `ProductNotFoundException`
 - Produces: `PATCH /products/{id}` → `200 Product` | `400` | `404`
 
-- [ ] **Step 1: Create `UpdatePriceRequest.kt`**
+- [x] **Step 1: Create `UpdatePriceRequest.kt`**
 
 ```kotlin
 package com.nexus.shopping.product.adapter.inbound.http
@@ -549,7 +555,7 @@ data class UpdatePriceRequest(
 }
 ```
 
-- [ ] **Step 2: Add `PATCH /products/{id}` to `ProductController`**
+- [x] **Step 2: Add `PATCH /products/{id}` to `ProductController`**
 
 The controller already has GET and POST. Add `UpdateProductPriceUseCase` as a constructor parameter and add the PATCH endpoint. Replace the entire file:
 
@@ -623,7 +629,7 @@ class ProductController(
 }
 ```
 
-- [ ] **Step 3: Add PATCH tests to `ProductControllerTest`**
+- [x] **Step 3: Add PATCH tests to `ProductControllerTest`**
 
 Add a `patch` helper method and three new tests to the existing `ProductControllerTest` class. The seed has 3 products (id 1, 2, 3 via `productSeedCount=3`). Replace the entire file:
 
@@ -631,7 +637,6 @@ Add a `patch` helper method and three new tests to the existing `ProductControll
 package com.nexus.shopping
 
 import com.fasterxml.jackson.databind.json.JsonMapper
-import com.fasterxml.jackson.databind.node.ObjectNode
 import java.math.BigDecimal
 import java.net.URI
 import java.net.http.HttpClient
@@ -792,7 +797,7 @@ class ProductControllerTest {
 }
 ```
 
-- [ ] **Step 4: Run build — expect BUILD SUCCESSFUL**
+- [x] **Step 4: Run build — expect BUILD SUCCESSFUL**
 
 ```bash
 rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
@@ -800,11 +805,11 @@ rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local .
 
 Expected: `BUILD SUCCESSFUL` — all tests pass, including the 3 new controller tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/kotlin/com/nexus/shopping/product/adapter/inbound/http/UpdatePriceRequest.kt
 git add src/main/kotlin/com/nexus/shopping/product/adapter/inbound/http/ProductController.kt
-git add src/test/kotlin/com/nexus/shopping/ProductControllerTest.kt
+git add src/test/kotlin/com/nexus/shopping/product/ProductControllerTest.kt
 git commit -m "feat: add PATCH /products/{id} endpoint to update product price"
 ```

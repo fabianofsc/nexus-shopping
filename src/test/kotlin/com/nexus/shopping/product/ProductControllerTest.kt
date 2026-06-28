@@ -1,7 +1,7 @@
 package com.nexus.shopping
 
 import com.fasterxml.jackson.databind.json.JsonMapper
-import com.fasterxml.jackson.databind.node.ObjectNode
+import java.math.BigDecimal
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -37,6 +37,15 @@ class ProductControllerTest {
             .uri(URI.create("http://localhost:$port/products"))
             .header("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofString(body))
+            .build()
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+    }
+
+    private fun patch(port: String, id: Long, body: String): HttpResponse<String> {
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create("http://localhost:$port/products/$id"))
+            .header("Content-Type", "application/json")
+            .method("PATCH", HttpRequest.BodyPublishers.ofString(body))
             .build()
         return httpClient.send(request, HttpResponse.BodyHandlers.ofString())
     }
@@ -123,5 +132,32 @@ class ProductControllerTest {
         val response = post(port, body)
 
         assertEquals(400, response.statusCode())
+    }
+
+    @Test
+    fun `PATCH products updates price and returns 200 with full product`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val response = patch(port, 1L, """{"priceAmount": 99.90}""")
+
+        assertEquals(200, response.statusCode())
+        val product = mapper.readTree(response.body())
+        assertEquals(1L, product["id"].asLong())
+        assertEquals(0, BigDecimal("99.90").compareTo(BigDecimal(product["priceAmount"].asText())))
+    }
+
+    @Test
+    fun `PATCH products with priceAmount zero returns 400`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val response = patch(port, 1L, """{"priceAmount": 0}""")
+
+        assertEquals(400, response.statusCode())
+    }
+
+    @Test
+    fun `PATCH products with non-existent id returns 404`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val response = patch(port, 9999999999L, """{"priceAmount": 99.90}""")
+
+        assertEquals(404, response.statusCode())
     }
 }
