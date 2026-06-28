@@ -92,7 +92,12 @@ RETURNING *
 **Existing: `CatalogMigrationContractTest`**
 - No new migration needed; current schema already supports the operation.
 
-No new controller-level test — the project has no controller test layer and none is introduced here.
+**Extended: `ProductControllerTest`** (SpringBootTest + random port + raw HttpClient — same pattern as PR #2)
+- `PATCH /products/{id}` with valid price → 200 with updated product
+- `PATCH /products/{id}` with `priceAmount = 0` → 400
+- `PATCH /products/{id}` with non-existent id → 404
+
+> PR #2 introduced `ProductControllerTest` with this pattern; PATCH tests follow the same conventions.
 
 ## Out of Scope
 

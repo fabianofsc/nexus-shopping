@@ -4,7 +4,7 @@
 
 **Goal:** Add `PATCH /products/{id}` that updates only `priceAmount`, returning the full updated product or 400/404 on error.
 
-**Architecture:** Hexagonal — new `UpdateProductPriceUseCase` orchestrates validation and calls `ProductRepositoryPort.updatePrice`, which executes a single `UPDATE … RETURNING *`. Errors are typed exceptions caught by the controller (same pattern as `ProductSearchUseCase`).
+**Architecture:** Hexagonal — new `UpdateProductPriceUseCase` orchestrates validation and calls `ProductRepositoryPort.updatePrice`, which executes a single `UPDATE … RETURNING *`. Errors are typed exceptions caught by the controller (same pattern as the existing `POST /products` flow).
 
 **Tech Stack:** Kotlin, Spring Boot 4, JdbcTemplate, PostgreSQL / H2 (tests)
 
@@ -13,7 +13,8 @@
 - All shell commands must be prefixed with `rtk`
 - Use Gradle wrapper: `rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build`
 - No JPA/ORM — JDBC only
-- Test style: `kotlin.test` (`assertFailsWith`, `assertEquals`), hand-rolled fakes — no Mockito
+- Unit test style: `kotlin.test` (`assertFailsWith`, `assertEquals`), hand-rolled fakes — no Mockito
+- Controller test style: `@SpringBootTest(webEnvironment = RANDOM_PORT)` + raw `java.net.http.HttpClient` (same as `ProductControllerTest`)
 - SQL must be portable between PostgreSQL and H2
 - Dependency direction: adapter → application → domain
 
@@ -31,19 +32,22 @@
 | Modify | `src/main/kotlin/com/nexus/shopping/product/application/port/outbound/ProductRepositoryPort.kt` |
 | Modify | `src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jdbc/ProductRepository.kt` |
 | Modify | `src/main/kotlin/com/nexus/shopping/product/adapter/inbound/http/ProductController.kt` |
-| Fix | `src/test/kotlin/com/nexus/shopping/product/ProductSearchUseCaseTest.kt` |
+| Modify | `src/test/kotlin/com/nexus/shopping/product/ProductSearchUseCaseTest.kt` |
+| Modify | `src/test/kotlin/com/nexus/shopping/product/ProductCreateUseCaseTest.kt` |
+| Modify | `src/test/kotlin/com/nexus/shopping/ProductControllerTest.kt` |
 
 ---
 
-## Task 1: Foundation types, port contract, and compilation fix
+## Task 1: Foundation types and port contract
 
-> **Context:** `ProductSearchUseCaseTest.kt` currently references `CreateProductCommand` (not yet implemented) and an `override fun save(...)` that does not exist in `ProductRepositoryPort`. This prevents compilation. This task creates the foundation types for our feature and fixes the broken test file.
+> **Context:** The port currently has `findByCategoryId`, `findByName`, and `save`. Adding `updatePrice` requires updating every hand-rolled fake that implements the port (`ProductSearchUseCaseTest`, `ProductCreateUseCaseTest`).
 
 **Files:**
 - Create: `src/main/kotlin/com/nexus/shopping/product/application/usecase/UpdatePriceCommand.kt`
 - Create: `src/main/kotlin/com/nexus/shopping/product/application/usecase/ProductNotFoundException.kt`
 - Modify: `src/main/kotlin/com/nexus/shopping/product/application/port/outbound/ProductRepositoryPort.kt`
-- Fix: `src/test/kotlin/com/nexus/shopping/product/ProductSearchUseCaseTest.kt`
+- Modify: `src/test/kotlin/com/nexus/shopping/product/ProductSearchUseCaseTest.kt`
+- Modify: `src/test/kotlin/com/nexus/shopping/product/ProductCreateUseCaseTest.kt`
 
 **Interfaces:**
 - Produces: `UpdatePriceCommand(id: Long, priceAmount: BigDecimal)`, `ProductNotFoundException`, `ProductRepositoryPort.updatePrice(id: Long, priceAmount: BigDecimal): Product?`
@@ -71,11 +75,12 @@ class ProductNotFoundException(message: String) : RuntimeException(message)
 
 - [ ] **Step 3: Add `updatePrice` to `ProductRepositoryPort`**
 
-Replace the entire file content:
+Replace the entire file — keep the existing `save` method, add `updatePrice`:
 
 ```kotlin
 package com.nexus.shopping.product.application.port.outbound
 
+import com.nexus.shopping.product.application.usecase.CreateProductCommand
 import com.nexus.shopping.product.domain.Product
 import com.nexus.shopping.product.domain.ProductPage
 import java.math.BigDecimal
@@ -83,13 +88,14 @@ import java.math.BigDecimal
 interface ProductRepositoryPort {
     fun findByCategoryId(categoryId: Long, page: Int, size: Int): ProductPage
     fun findByName(name: String, page: Int, size: Int): ProductPage
+    fun save(command: CreateProductCommand): Product
     fun updatePrice(id: Long, priceAmount: BigDecimal): Product?
 }
 ```
 
-- [ ] **Step 4: Fix `ProductSearchUseCaseTest.kt`**
+- [ ] **Step 4: Add `updatePrice` stub to `ProductSearchUseCaseTest` fake**
 
-The existing test has a broken `save` override and a `CreateProductCommand` import that do not belong yet. Replace the file with the corrected version that stubs `updatePrice` instead:
+The fake must implement every port method. Add the `updatePrice` stub and the `BigDecimal` import to the existing file:
 
 ```kotlin
 package com.nexus.shopping.product.application.usecase
@@ -117,8 +123,9 @@ class ProductSearchUseCaseTest {
             return ProductPage(content = emptyList(), page = page, size = size, count = 0, hasNext = false)
         }
 
-        override fun updatePrice(id: Long, priceAmount: BigDecimal): Product? =
-            throw UnsupportedOperationException()
+        override fun save(command: CreateProductCommand): Product = throw UnsupportedOperationException()
+
+        override fun updatePrice(id: Long, priceAmount: BigDecimal): Product? = throw UnsupportedOperationException()
     }
 
     private val useCase = ProductSearchUseCase(fakeRepo)
@@ -169,23 +176,163 @@ class ProductSearchUseCaseTest {
 }
 ```
 
-- [ ] **Step 5: Run build — expect all tests to pass**
+- [ ] **Step 5: Add `updatePrice` stub to `ProductCreateUseCaseTest` fake**
+
+Add the import and the stub — only the fake block changes, all tests remain intact:
+
+```kotlin
+package com.nexus.shopping.product.application.usecase
+
+import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
+import com.nexus.shopping.product.domain.Product
+import com.nexus.shopping.product.domain.ProductPage
+import java.math.BigDecimal
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+
+class ProductCreateUseCaseTest {
+
+    private val fakeRepo = object : ProductRepositoryPort {
+        override fun findByCategoryId(categoryId: Long, page: Int, size: Int) =
+            ProductPage(content = emptyList(), page = page, size = size, count = 0, hasNext = false)
+
+        override fun findByName(name: String, page: Int, size: Int) =
+            ProductPage(content = emptyList(), page = page, size = size, count = 0, hasNext = false)
+
+        override fun save(command: CreateProductCommand): Product = Product(
+            id = 1L, brandId = command.brandId, categoryId = command.categoryId,
+            sku = "SKU-TEST", name = command.name, slug = command.slug,
+            description = command.description, status = command.status,
+            priceAmount = command.priceAmount, currency = command.currency,
+            inventoryQuantity = command.inventoryQuantity,
+            createdAt = java.time.LocalDateTime.now(), updatedAt = java.time.LocalDateTime.now(),
+        )
+
+        override fun updatePrice(id: Long, priceAmount: BigDecimal): Product? = throw UnsupportedOperationException()
+    }
+
+    private val useCase = ProductCreateUseCase(fakeRepo)
+
+    private fun validCommand() = CreateProductCommand(
+        brandId = 1L,
+        categoryId = 1L,
+        sku = "SKU-001",
+        name = "Product Name",
+        slug = "product-name",
+        priceAmount = BigDecimal("29.90"),
+    )
+
+    @Test
+    fun `create valid product delegates to repository`() {
+        val result = useCase.create(validCommand())
+        assertEquals("SKU-TEST", result.sku)
+    }
+
+    @Test
+    fun `create with blank sku throws`() {
+        assertFailsWith<ProductValidationException> {
+            useCase.create(validCommand().copy(sku = "  "))
+        }
+    }
+
+    @Test
+    fun `create with sku over 120 chars throws`() {
+        assertFailsWith<ProductValidationException> {
+            useCase.create(validCommand().copy(sku = "a".repeat(121)))
+        }
+    }
+
+    @Test
+    fun `create with blank name throws`() {
+        assertFailsWith<ProductValidationException> {
+            useCase.create(validCommand().copy(name = ""))
+        }
+    }
+
+    @Test
+    fun `create with name over 220 chars throws`() {
+        assertFailsWith<ProductValidationException> {
+            useCase.create(validCommand().copy(name = "a".repeat(221)))
+        }
+    }
+
+    @Test
+    fun `create with blank slug throws`() {
+        assertFailsWith<ProductValidationException> {
+            useCase.create(validCommand().copy(slug = ""))
+        }
+    }
+
+    @Test
+    fun `create with description over 2000 chars throws`() {
+        assertFailsWith<ProductValidationException> {
+            useCase.create(validCommand().copy(description = "a".repeat(2001)))
+        }
+    }
+
+    @Test
+    fun `create with invalid status throws`() {
+        assertFailsWith<ProductValidationException> {
+            useCase.create(validCommand().copy(status = "DELETED"))
+        }
+    }
+
+    @Test
+    fun `create with negative priceAmount throws`() {
+        assertFailsWith<ProductValidationException> {
+            useCase.create(validCommand().copy(priceAmount = BigDecimal("-0.01")))
+        }
+    }
+
+    @Test
+    fun `create with currency length not 3 throws`() {
+        assertFailsWith<ProductValidationException> {
+            useCase.create(validCommand().copy(currency = "US"))
+        }
+    }
+
+    @Test
+    fun `create with negative inventoryQuantity throws`() {
+        assertFailsWith<ProductValidationException> {
+            useCase.create(validCommand().copy(inventoryQuantity = -1))
+        }
+    }
+
+    @Test
+    fun `create with zero brandId throws`() {
+        assertFailsWith<ProductValidationException> {
+            useCase.create(validCommand().copy(brandId = 0L))
+        }
+    }
+
+    @Test
+    fun `create with zero categoryId throws`() {
+        assertFailsWith<ProductValidationException> {
+            useCase.create(validCommand().copy(categoryId = 0L))
+        }
+    }
+}
+```
+
+- [ ] **Step 6: Run build — expect BUILD SUCCESSFUL**
 
 ```bash
 rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
-Expected: `BUILD SUCCESSFUL` — `ProductRepository` still compiles because Kotlin will flag the missing `updatePrice` implementation as an error, so check output. If it fails because `ProductRepository` doesn't implement `updatePrice` yet, that is expected and fine — proceed to Task 2; the compile error will be fixed in Task 3.
+Expected: `BUILD SUCCESSFUL` — all existing tests pass. Build will flag `ProductRepository` for not implementing `updatePrice` yet; that is expected and will be fixed in Task 3.
 
-> **Note:** If the build fails only on `ProductRepository` not implementing `updatePrice`, continue. If it fails for any other reason, fix it before continuing.
+> If the build fails for any reason OTHER than `ProductRepository` missing `updatePrice`, fix it before continuing.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add src/main/kotlin/com/nexus/shopping/product/application/usecase/UpdatePriceCommand.kt
 git add src/main/kotlin/com/nexus/shopping/product/application/usecase/ProductNotFoundException.kt
 git add src/main/kotlin/com/nexus/shopping/product/application/port/outbound/ProductRepositoryPort.kt
 git add src/test/kotlin/com/nexus/shopping/product/ProductSearchUseCaseTest.kt
+git add src/test/kotlin/com/nexus/shopping/product/ProductCreateUseCaseTest.kt
 git commit -m "feat: add UpdatePriceCommand, ProductNotFoundException, and port contract"
 ```
 
@@ -202,6 +349,8 @@ git commit -m "feat: add UpdatePriceCommand, ProductNotFoundException, and port 
 - Produces: `UpdateProductPriceUseCase.execute(command: UpdatePriceCommand): Product`
 
 - [ ] **Step 1: Write the failing test**
+
+The fake must implement all four port methods (`findByCategoryId`, `findByName`, `save`, `updatePrice`):
 
 ```kotlin
 package com.nexus.shopping.product.application.usecase
@@ -240,6 +389,9 @@ class UpdateProductPriceUseCaseTest {
             throw UnsupportedOperationException()
 
         override fun findByName(name: String, page: Int, size: Int): ProductPage =
+            throw UnsupportedOperationException()
+
+        override fun save(command: CreateProductCommand): Product =
             throw UnsupportedOperationException()
 
         override fun updatePrice(id: Long, priceAmount: BigDecimal): Product? = repoReturn
@@ -317,7 +469,7 @@ class UpdateProductPriceUseCase(
 rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test 2>&1 | grep -E "tests|PASSED|FAILED|UpdateProductPrice"
 ```
 
-Expected: `UpdateProductPriceUseCaseTest > 4 tests` all PASSED. Build may still fail due to `ProductRepository` not implementing `updatePrice` — that is fine; the test task itself should pass.
+Expected: `UpdateProductPriceUseCaseTest > 4 tests` all PASSED. Build may still fail on `ProductRepository` — that is expected and will be fixed in Task 3.
 
 - [ ] **Step 5: Commit**
 
@@ -340,7 +492,7 @@ git commit -m "feat: implement UpdateProductPriceUseCase with validation"
 
 - [ ] **Step 1: Add `updatePrice` to `ProductRepository`**
 
-Add this method to the `ProductRepository` class (after `findByName`, before the private helpers). The existing `toProduct()` extension is reused:
+Add this method after the existing `findByName` and before the private helpers. The existing private `toProduct()` extension is reused:
 
 ```kotlin
 override fun updatePrice(id: Long, priceAmount: BigDecimal): Product? =
@@ -352,7 +504,7 @@ override fun updatePrice(id: Long, priceAmount: BigDecimal): Product? =
     ).firstOrNull()
 ```
 
-Also add `import java.math.BigDecimal` to the file imports if not already present.
+Also add `import java.math.BigDecimal` to the file imports.
 
 - [ ] **Step 2: Run build — expect BUILD SUCCESSFUL**
 
@@ -371,11 +523,12 @@ git commit -m "feat: implement updatePrice in ProductRepository via UPDATE RETUR
 
 ---
 
-## Task 4: HTTP adapter
+## Task 4: HTTP adapter and controller tests
 
 **Files:**
 - Create: `src/main/kotlin/com/nexus/shopping/product/adapter/inbound/http/UpdatePriceRequest.kt`
 - Modify: `src/main/kotlin/com/nexus/shopping/product/adapter/inbound/http/ProductController.kt`
+- Modify: `src/test/kotlin/com/nexus/shopping/ProductControllerTest.kt`
 
 **Interfaces:**
 - Consumes: `UpdateProductPriceUseCase.execute(UpdatePriceCommand): Product`, `ProductValidationException`, `ProductNotFoundException`
@@ -398,11 +551,12 @@ data class UpdatePriceRequest(
 
 - [ ] **Step 2: Add `PATCH /products/{id}` to `ProductController`**
 
-Add `UpdateProductPriceUseCase` as a constructor parameter and add the new endpoint. Full updated file:
+The controller already has GET and POST. Add `UpdateProductPriceUseCase` as a constructor parameter and add the PATCH endpoint. Replace the entire file:
 
 ```kotlin
 package com.nexus.shopping.product.adapter.inbound.http
 
+import com.nexus.shopping.product.application.usecase.ProductCreateUseCase
 import com.nexus.shopping.product.application.usecase.ProductNotFoundException
 import com.nexus.shopping.product.application.usecase.ProductSearchUseCase
 import com.nexus.shopping.product.application.usecase.ProductValidationException
@@ -413,9 +567,11 @@ import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
 
@@ -423,6 +579,7 @@ import org.springframework.web.server.ResponseStatusException
 @RequestMapping("/products")
 class ProductController(
     private val productSearchUseCase: ProductSearchUseCase,
+    private val productCreateUseCase: ProductCreateUseCase,
     private val updateProductPriceUseCase: UpdateProductPriceUseCase,
 ) {
 
@@ -435,6 +592,16 @@ class ProductController(
     ): ProductPage {
         try {
             return productSearchUseCase.search(categoryId, name, page, size)
+        } catch (e: ProductValidationException) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, e.message)
+        }
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    fun create(@RequestBody request: CreateProductRequest): Product {
+        try {
+            return productCreateUseCase.create(request.toCommand())
         } catch (e: ProductValidationException) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, e.message)
         }
@@ -456,49 +623,188 @@ class ProductController(
 }
 ```
 
-- [ ] **Step 3: Run build — expect BUILD SUCCESSFUL**
+- [ ] **Step 3: Add PATCH tests to `ProductControllerTest`**
+
+Add a `patch` helper method and three new tests to the existing `ProductControllerTest` class. The seed has 3 products (id 1, 2, 3 via `productSeedCount=3`). Replace the entire file:
+
+```kotlin
+package com.nexus.shopping
+
+import com.fasterxml.jackson.databind.json.JsonMapper
+import com.fasterxml.jackson.databind.node.ObjectNode
+import java.math.BigDecimal
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.core.env.Environment
+
+@SpringBootTest(
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    properties = [
+        "spring.datasource.url=jdbc:h2:mem:nexus_shopping_controller_test;DB_CLOSE_DELAY=-1",
+        "spring.datasource.driver-class-name=org.h2.Driver",
+        "spring.datasource.username=sa",
+        "spring.datasource.password=",
+        "spring.flyway.placeholders.productSeedCount=3",
+        "spring.jpa.hibernate.ddl-auto=none",
+    ],
+)
+class ProductControllerTest {
+
+    @Autowired
+    private lateinit var environment: Environment
+
+    private val mapper = JsonMapper.builder().build()
+    private val httpClient = HttpClient.newHttpClient()
+
+    private fun post(port: String, body: String): HttpResponse<String> {
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create("http://localhost:$port/products"))
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(body))
+            .build()
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+    }
+
+    private fun patch(port: String, id: Long, body: String): HttpResponse<String> {
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create("http://localhost:$port/products/$id"))
+            .header("Content-Type", "application/json")
+            .method("PATCH", HttpRequest.BodyPublishers.ofString(body))
+            .build()
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+    }
+
+    @Test
+    fun `POST products returns 201 with created product`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val body = """
+            {
+              "brandId": 1,
+              "categoryId": 1,
+              "sku": "SKU-CTRL-001",
+              "name": "Controller Test Product",
+              "slug": "controller-test-product",
+              "priceAmount": 49.90
+            }
+        """.trimIndent()
+
+        val response = post(port, body)
+
+        assertEquals(201, response.statusCode())
+        val product = mapper.readTree(response.body())
+        assertNotNull(product["id"].asLong().takeIf { it > 0 }, "Expected a generated id > 0")
+        assertEquals("SKU-CTRL-001", product["sku"].asText())
+        assertEquals("Controller Test Product", product["name"].asText())
+        assertEquals("ACTIVE", product["status"].asText())
+        assertEquals("BRL", product["currency"].asText())
+        assertEquals(0, product["inventoryQuantity"].asInt())
+    }
+
+    @Test
+    fun `POST products with blank sku returns 400`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val body = """
+            {
+              "brandId": 1,
+              "categoryId": 1,
+              "sku": "",
+              "name": "Some Product",
+              "slug": "some-product",
+              "priceAmount": 10.00
+            }
+        """.trimIndent()
+
+        val response = post(port, body)
+
+        assertEquals(400, response.statusCode())
+    }
+
+    @Test
+    fun `POST products with negative price returns 400`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val body = """
+            {
+              "brandId": 1,
+              "categoryId": 1,
+              "sku": "SKU-NEG",
+              "name": "Negative Price",
+              "slug": "negative-price",
+              "priceAmount": -1.00
+            }
+        """.trimIndent()
+
+        val response = post(port, body)
+
+        assertEquals(400, response.statusCode())
+    }
+
+    @Test
+    fun `POST products with invalid status returns 400`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val body = """
+            {
+              "brandId": 1,
+              "categoryId": 1,
+              "sku": "SKU-STATUS",
+              "name": "Status Product",
+              "slug": "status-product",
+              "priceAmount": 10.00,
+              "status": "DELETED"
+            }
+        """.trimIndent()
+
+        val response = post(port, body)
+
+        assertEquals(400, response.statusCode())
+    }
+
+    @Test
+    fun `PATCH products updates price and returns 200 with full product`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val response = patch(port, 1L, """{"priceAmount": 99.90}""")
+
+        assertEquals(200, response.statusCode())
+        val product = mapper.readTree(response.body())
+        assertEquals(1L, product["id"].asLong())
+        assertEquals(0, BigDecimal("99.90").compareTo(BigDecimal(product["priceAmount"].asText())))
+    }
+
+    @Test
+    fun `PATCH products with priceAmount zero returns 400`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val response = patch(port, 1L, """{"priceAmount": 0}""")
+        assertEquals(400, response.statusCode())
+    }
+
+    @Test
+    fun `PATCH products with non-existent id returns 404`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val response = patch(port, 9999999999L, """{"priceAmount": 99.90}""")
+        assertEquals(404, response.statusCode())
+    }
+}
+```
+
+- [ ] **Step 4: Run build — expect BUILD SUCCESSFUL**
 
 ```bash
 rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
-Expected: `BUILD SUCCESSFUL`
-
-- [ ] **Step 4: Smoke-test the endpoint manually (optional but recommended)**
-
-Start the stack and send a PATCH request:
-
-```bash
-rtk docker compose up -d postgres
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew bootRun &
-# wait for health
-curl -s http://localhost:8080/actuator/health
-
-# update price of product id=1
-curl -s -X PATCH http://localhost:8080/products/1 \
-  -H "Content-Type: application/json" \
-  -d '{"priceAmount": 99.90}' | jq .
-
-# verify 404
-curl -s -X PATCH http://localhost:8080/products/9999999999 \
-  -H "Content-Type: application/json" \
-  -d '{"priceAmount": 99.90}' -w "\nHTTP %{http_code}\n"
-
-# verify 400
-curl -s -X PATCH http://localhost:8080/products/1 \
-  -H "Content-Type: application/json" \
-  -d '{"priceAmount": 0}' -w "\nHTTP %{http_code}\n"
-```
-
-Expected:
-- First call: `200` with full product JSON, `priceAmount` = `99.90`
-- Second call: `HTTP 404`
-- Third call: `HTTP 400`
+Expected: `BUILD SUCCESSFUL` — all tests pass, including the 3 new controller tests.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add src/main/kotlin/com/nexus/shopping/product/adapter/inbound/http/UpdatePriceRequest.kt
 git add src/main/kotlin/com/nexus/shopping/product/adapter/inbound/http/ProductController.kt
+git add src/test/kotlin/com/nexus/shopping/ProductControllerTest.kt
 git commit -m "feat: add PATCH /products/{id} endpoint to update product price"
 ```
