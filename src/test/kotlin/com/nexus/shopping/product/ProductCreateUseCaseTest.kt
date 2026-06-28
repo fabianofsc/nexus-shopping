@@ -25,6 +25,8 @@ class ProductCreateUseCaseTest {
             inventoryQuantity = command.inventoryQuantity,
             createdAt = java.time.LocalDateTime.now(), updatedAt = java.time.LocalDateTime.now(),
         )
+
+        override fun updatePrice(id: Long, priceAmount: BigDecimal): Product? = throw UnsupportedOperationException()
     }
 
     private val useCase = ProductCreateUseCase(fakeRepo)
