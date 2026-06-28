@@ -1,10 +1,12 @@
 package com.nexus.shopping.product.adapter.outbound.jdbc
 
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
+import com.nexus.shopping.product.application.usecase.CreateProductCommand
 import com.nexus.shopping.product.domain.Product
 import com.nexus.shopping.product.domain.ProductPage
 import java.sql.ResultSet
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.jdbc.core.simple.SimpleJdbcInsert
 import org.springframework.stereotype.Repository
 
 @Repository
@@ -42,6 +44,32 @@ class ProductRepository(
         )
 
         return products.toPage(page, size)
+    }
+
+    override fun save(command: CreateProductCommand): Product {
+        val id = SimpleJdbcInsert(jdbcTemplate)
+            .withTableName("products")
+            .usingGeneratedKeyColumns("id")
+            .usingColumns(
+                "brand_id", "category_id", "sku", "name", "slug", "description",
+                "status", "price_amount", "currency", "inventory_quantity",
+            )
+            .executeAndReturnKey(
+                mapOf(
+                    "brand_id" to command.brandId,
+                    "category_id" to command.categoryId,
+                    "sku" to command.sku,
+                    "name" to command.name,
+                    "slug" to command.slug,
+                    "description" to command.description,
+                    "status" to command.status,
+                    "price_amount" to command.priceAmount,
+                    "currency" to command.currency,
+                    "inventory_quantity" to command.inventoryQuantity,
+                ),
+            ).toLong()
+
+        return jdbcTemplate.queryForObject("SELECT * FROM products WHERE id = ?", { rs, _ -> rs.toProduct() }, id)!!
     }
 
     private fun List<Product>.toPage(page: Int, size: Int): ProductPage {
