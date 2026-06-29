@@ -145,6 +145,21 @@ class ProductControllerTest {
     }
 
     @Test
+    fun `GET products with non-numeric categoryId returns 400 problem details`() {
+        val port = environment.getRequiredProperty("local.server.port")
+
+        val response = get(port, "?categoryId=abc&page=0&size=50")
+
+        assertProblem(
+            response = response,
+            expectedStatus = 400,
+            expectedTitle = "Bad Request",
+            expectedInstance = "/products",
+        )
+        assertNoInternalDetailsLeaked(response.body())
+    }
+
+    @Test
     fun `POST products with blank sku returns 400 problem details`() {
         val port = environment.getRequiredProperty("local.server.port")
         val body = """

@@ -10,10 +10,12 @@ import org.springframework.http.HttpStatusCode
 import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.web.ErrorResponse
 import org.springframework.web.HttpMediaTypeNotSupportedException
 import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.server.ResponseStatusException
 
 @RestControllerAdvice
@@ -75,18 +77,44 @@ class ProductExceptionHandler {
     fun handleResponseStatus(
         exception: ResponseStatusException,
         request: HttpServletRequest,
-    ): ResponseEntity<ProblemDetail> =
-        problem(
+    ): ResponseEntity<ProblemDetail> {
+        if (exception.statusCode.is5xxServerError) {
+            logger.error("Unhandled response status exception while processing request", exception)
+            return problem(
+                status = HttpStatus.INTERNAL_SERVER_ERROR,
+                detail = "Unexpected server error.",
+                request = request,
+            )
+        }
+
+        return problem(
             status = exception.statusCode,
             detail = exception.reason ?: exception.statusCode.toString(),
             request = request,
         )
+    }
 
     @ExceptionHandler(Exception::class)
     fun handleUnhandled(
         exception: Exception,
         request: HttpServletRequest,
     ): ResponseEntity<ProblemDetail> {
+        if (exception is ErrorResponse && exception.statusCode.is4xxClientError) {
+            return problem(
+                status = exception.statusCode,
+                detail = exception.body.detail?.takeIf { it.isNotBlank() } ?: "Invalid request.",
+                request = request,
+            )
+        }
+
+        if (exception is MethodArgumentTypeMismatchException) {
+            return problem(
+                status = HttpStatus.BAD_REQUEST,
+                detail = "Invalid request.",
+                request = request,
+            )
+        }
+
         logger.error("Unhandled exception while processing request", exception)
         return problem(
             status = HttpStatus.INTERNAL_SERVER_ERROR,
