@@ -3,7 +3,7 @@
 **Status:** Aprovado para planejamento
 **Data:** 2026-06-29
 **Branch alvo:** `hexagonal-architecture`
-**Decision record relacionado:** `docs/decisions/2026-06-29-structured-logging-correlation-id.md`
+**Decision record relacionado:** `docs/decisions/2026-06-29-prd-structured-logging-correlation-id.md`
 
 ---
 
@@ -204,7 +204,7 @@ rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local .
 
 ## Documentacao
 
-Criar `docs/decisions/2026-06-29-structured-logging-correlation-id.md` com:
+Criar `docs/decisions/2026-06-29-prd-structured-logging-correlation-id.md` com:
 
 - problema
 - objetivo
