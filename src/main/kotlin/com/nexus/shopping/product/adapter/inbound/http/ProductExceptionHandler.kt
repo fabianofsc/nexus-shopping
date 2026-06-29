@@ -7,8 +7,8 @@ import java.net.URI
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.HttpStatusCode
-import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
+import org.springframework.http.ProblemDetail as ExceptionDetail
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.ErrorResponse
 import org.springframework.web.HttpMediaTypeNotSupportedException
@@ -25,8 +25,8 @@ class ProductExceptionHandler {
     fun handleValidation(
         exception: ProductValidationException,
         request: HttpServletRequest,
-    ): ResponseEntity<ProblemDetail> =
-        problem(
+    ): ResponseEntity<ExceptionDetail> =
+        exceptionDetailResponse(
             status = HttpStatus.BAD_REQUEST,
             detail = exception.message ?: "Validation failed.",
             request = request,
@@ -36,8 +36,8 @@ class ProductExceptionHandler {
     fun handleNotFound(
         exception: ProductNotFoundException,
         request: HttpServletRequest,
-    ): ResponseEntity<ProblemDetail> =
-        problem(
+    ): ResponseEntity<ExceptionDetail> =
+        exceptionDetailResponse(
             status = HttpStatus.NOT_FOUND,
             detail = exception.message ?: "Resource not found.",
             request = request,
@@ -46,8 +46,8 @@ class ProductExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException::class)
     fun handleMessageNotReadable(
         request: HttpServletRequest,
-    ): ResponseEntity<ProblemDetail> =
-        problem(
+    ): ResponseEntity<ExceptionDetail> =
+        exceptionDetailResponse(
             status = HttpStatus.BAD_REQUEST,
             detail = "Malformed request body.",
             request = request,
@@ -57,8 +57,8 @@ class ProductExceptionHandler {
     fun handleMethodNotSupported(
         exception: HttpRequestMethodNotSupportedException,
         request: HttpServletRequest,
-    ): ResponseEntity<ProblemDetail> {
-        val problem = createProblem(
+    ): ResponseEntity<ExceptionDetail> {
+        val exceptionDetail = buildDetail(
             status = HttpStatus.METHOD_NOT_ALLOWED,
             detail = "Request method is not supported.",
             request = request,
@@ -66,14 +66,14 @@ class ProductExceptionHandler {
         return ResponseEntity
             .status(HttpStatus.METHOD_NOT_ALLOWED)
             .allow(*exception.supportedHttpMethods.orEmpty().toTypedArray())
-            .body(problem)
+            .body(exceptionDetail)
     }
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException::class)
     fun handleMediaTypeNotSupported(
         request: HttpServletRequest,
-    ): ResponseEntity<ProblemDetail> =
-        problem(
+    ): ResponseEntity<ExceptionDetail> =
+        exceptionDetailResponse(
             status = HttpStatus.UNSUPPORTED_MEDIA_TYPE,
             detail = "Content type is not supported.",
             request = request,
@@ -83,17 +83,17 @@ class ProductExceptionHandler {
     fun handleResponseStatus(
         exception: ResponseStatusException,
         request: HttpServletRequest,
-    ): ResponseEntity<ProblemDetail> {
+    ): ResponseEntity<ExceptionDetail> {
         if (exception.statusCode.is5xxServerError) {
             logger.error("Unhandled response status exception while processing request", exception)
-            return problem(
+            return exceptionDetailResponse(
                 status = HttpStatus.INTERNAL_SERVER_ERROR,
                 detail = "Unexpected server error.",
                 request = request,
             )
         }
 
-        return problem(
+        return exceptionDetailResponse(
             status = exception.statusCode,
             detail = exception.reason ?: exception.statusCode.toString(),
             request = request,
@@ -104,9 +104,9 @@ class ProductExceptionHandler {
     fun handleUnhandled(
         exception: Exception,
         request: HttpServletRequest,
-    ): ResponseEntity<ProblemDetail> {
+    ): ResponseEntity<ExceptionDetail> {
         if (exception is ErrorResponse && exception.statusCode.is4xxClientError) {
-            return problem(
+            return exceptionDetailResponse(
                 status = exception.statusCode,
                 detail = exception.body.detail?.takeIf { it.isNotBlank() } ?: "Invalid request.",
                 request = request,
@@ -114,7 +114,7 @@ class ProductExceptionHandler {
         }
 
         if (exception is MethodArgumentTypeMismatchException) {
-            return problem(
+            return exceptionDetailResponse(
                 status = HttpStatus.BAD_REQUEST,
                 detail = "Invalid request.",
                 request = request,
@@ -122,32 +122,32 @@ class ProductExceptionHandler {
         }
 
         logger.error("Unhandled exception while processing request", exception)
-        return problem(
+        return exceptionDetailResponse(
             status = HttpStatus.INTERNAL_SERVER_ERROR,
             detail = "Unexpected server error.",
             request = request,
         )
     }
 
-    private fun problem(
+    private fun exceptionDetailResponse(
         status: HttpStatusCode,
         detail: String,
         request: HttpServletRequest,
-    ): ResponseEntity<ProblemDetail> {
-        val problem = createProblem(status, detail, request)
-        return ResponseEntity.status(status).body(problem)
+    ): ResponseEntity<ExceptionDetail> {
+        val exceptionDetail = buildDetail(status, detail, request)
+        return ResponseEntity.status(status).body(exceptionDetail)
     }
 
-    private fun createProblem(
+    private fun buildDetail(
         status: HttpStatusCode,
         detail: String,
         request: HttpServletRequest,
-    ): ProblemDetail {
-        val problem = ProblemDetail.forStatusAndDetail(status, detail)
-        problem.type = URI.create("about:blank")
-        problem.title = HttpStatus.resolve(status.value())?.reasonPhrase ?: status.toString()
-        problem.instance = URI.create(request.requestURI)
-        return problem
+    ): ExceptionDetail {
+        val exceptionDetail = ExceptionDetail.forStatusAndDetail(status, detail)
+        exceptionDetail.type = URI.create("about:blank")
+        exceptionDetail.title = HttpStatus.resolve(status.value())?.reasonPhrase ?: status.toString()
+        exceptionDetail.instance = URI.create(request.requestURI)
+        return exceptionDetail
     }
 
     private companion object {

@@ -73,7 +73,7 @@ class ProductControllerTest {
         return httpClient.send(request, HttpResponse.BodyHandlers.ofString())
     }
 
-    private fun assertProblem(
+    private fun assertExceptionDetail(
         response: HttpResponse<String>,
         expectedStatus: Int,
         expectedTitle: String,
@@ -82,15 +82,15 @@ class ProductControllerTest {
     ): JsonNode {
         assertEquals(expectedStatus, response.statusCode())
         assertTrue(response.headers().firstValue("Content-Type").orElse("").startsWith("application/problem+json"))
-        val problem = mapper.readTree(response.body())
-        assertEquals("about:blank", problem["type"].asText())
-        assertEquals(expectedTitle, problem["title"].asText())
-        assertEquals(expectedStatus, problem["status"].asInt())
-        assertEquals(expectedInstance, problem["instance"].asText())
+        val exceptionDetail = mapper.readTree(response.body())
+        assertEquals("about:blank", exceptionDetail["type"].asText())
+        assertEquals(expectedTitle, exceptionDetail["title"].asText())
+        assertEquals(expectedStatus, exceptionDetail["status"].asInt())
+        assertEquals(expectedInstance, exceptionDetail["instance"].asText())
         if (expectedDetail != null) {
-            assertEquals(expectedDetail, problem["detail"].asText())
+            assertEquals(expectedDetail, exceptionDetail["detail"].asText())
         }
-        return problem
+        return exceptionDetail
     }
 
     private fun assertNoInternalDetailsLeaked(body: String) {
@@ -135,7 +135,7 @@ class ProductControllerTest {
 
         val response = get(port, "?categoryId=1&name=Product&page=0&size=50")
 
-        assertProblem(
+        assertExceptionDetail(
             response = response,
             expectedStatus = 400,
             expectedTitle = "Bad Request",
@@ -150,7 +150,7 @@ class ProductControllerTest {
 
         val response = get(port, "?categoryId=abc&page=0&size=50")
 
-        assertProblem(
+        assertExceptionDetail(
             response = response,
             expectedStatus = 400,
             expectedTitle = "Bad Request",
@@ -176,7 +176,7 @@ class ProductControllerTest {
 
         val response = post(port, body)
 
-        assertProblem(
+        assertExceptionDetail(
             response = response,
             expectedStatus = 400,
             expectedTitle = "Bad Request",
@@ -201,7 +201,7 @@ class ProductControllerTest {
 
         val response = post(port, body)
 
-        assertProblem(
+        assertExceptionDetail(
             response = response,
             expectedStatus = 400,
             expectedTitle = "Bad Request",
@@ -227,7 +227,7 @@ class ProductControllerTest {
 
         val response = post(port, body)
 
-        assertProblem(
+        assertExceptionDetail(
             response = response,
             expectedStatus = 400,
             expectedTitle = "Bad Request",
@@ -242,7 +242,7 @@ class ProductControllerTest {
 
         val response = post(port, """{"brandId":""")
 
-        assertProblem(
+        assertExceptionDetail(
             response = response,
             expectedStatus = 400,
             expectedTitle = "Bad Request",
@@ -267,7 +267,7 @@ class ProductControllerTest {
 
         val response = post(port, body)
 
-        assertProblem(
+        assertExceptionDetail(
             response = response,
             expectedStatus = 500,
             expectedTitle = "Internal Server Error",
@@ -283,7 +283,7 @@ class ProductControllerTest {
 
         val response = post(port, "plain text", contentType = "text/plain")
 
-        assertProblem(
+        assertExceptionDetail(
             response = response,
             expectedStatus = 415,
             expectedTitle = "Unsupported Media Type",
@@ -308,7 +308,7 @@ class ProductControllerTest {
         val port = environment.getRequiredProperty("local.server.port")
         val response = patch(port, 1L, """{"priceAmount": 0}""")
 
-        assertProblem(
+        assertExceptionDetail(
             response = response,
             expectedStatus = 400,
             expectedTitle = "Bad Request",
@@ -322,7 +322,7 @@ class ProductControllerTest {
         val port = environment.getRequiredProperty("local.server.port")
         val response = patch(port, 9999999999L, """{"priceAmount": 99.90}""")
 
-        assertProblem(
+        assertExceptionDetail(
             response = response,
             expectedStatus = 404,
             expectedTitle = "Not Found",
@@ -336,7 +336,7 @@ class ProductControllerTest {
         val port = environment.getRequiredProperty("local.server.port")
         val response = delete(port, 1L)
 
-        assertProblem(
+        assertExceptionDetail(
             response = response,
             expectedStatus = 405,
             expectedTitle = "Method Not Allowed",
