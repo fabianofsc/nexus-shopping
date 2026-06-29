@@ -5,6 +5,7 @@ out/
 *.iml
 .idea/
 .DS_Store
+.worktrees/
 jmeter.log
 *.hprof
 *.hprof
