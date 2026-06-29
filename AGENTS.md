@@ -231,6 +231,7 @@ rtk make jmeter-name SCENARIO=pagination
   - `docs/load-test-pagination-results-20260627.md`: pagination comparison.
 - Store committed chart PNGs under `docs/assets/load-tests/`.
 - Committed JMeter HTML reports live under `docs/jmeter-reports/baseline/`, `indexes/`, `pagination/`.
+- PRD/decision records live under `docs/decisions/` and must use the filename template `YYYY-MM-DD-prd-<topic>.md`.
 - Keep docs concise and in Portuguese for result explanations.
 - Prefer ASCII in new or edited files unless there is a strong reason not to.
 
