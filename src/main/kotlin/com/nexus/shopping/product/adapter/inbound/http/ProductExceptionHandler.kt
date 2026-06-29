@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest
 import java.net.URI
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
+import org.springframework.http.HttpStatusCode
 import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
@@ -13,6 +14,7 @@ import org.springframework.web.HttpMediaTypeNotSupportedException
 import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.server.ResponseStatusException
 
 @RestControllerAdvice
 class ProductExceptionHandler {
@@ -41,7 +43,6 @@ class ProductExceptionHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException::class)
     fun handleMessageNotReadable(
-        exception: HttpMessageNotReadableException,
         request: HttpServletRequest,
     ): ResponseEntity<ProblemDetail> =
         problem(
@@ -52,7 +53,6 @@ class ProductExceptionHandler {
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
     fun handleMethodNotSupported(
-        exception: HttpRequestMethodNotSupportedException,
         request: HttpServletRequest,
     ): ResponseEntity<ProblemDetail> =
         problem(
@@ -63,12 +63,22 @@ class ProductExceptionHandler {
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException::class)
     fun handleMediaTypeNotSupported(
-        exception: HttpMediaTypeNotSupportedException,
         request: HttpServletRequest,
     ): ResponseEntity<ProblemDetail> =
         problem(
             status = HttpStatus.UNSUPPORTED_MEDIA_TYPE,
             detail = "Content type is not supported.",
+            request = request,
+        )
+
+    @ExceptionHandler(ResponseStatusException::class)
+    fun handleResponseStatus(
+        exception: ResponseStatusException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ProblemDetail> =
+        problem(
+            status = exception.statusCode,
+            detail = exception.reason ?: exception.statusCode.toString(),
             request = request,
         )
 
@@ -86,13 +96,13 @@ class ProductExceptionHandler {
     }
 
     private fun problem(
-        status: HttpStatus,
+        status: HttpStatusCode,
         detail: String,
         request: HttpServletRequest,
     ): ResponseEntity<ProblemDetail> {
         val problem = ProblemDetail.forStatusAndDetail(status, detail)
         problem.type = URI.create("about:blank")
-        problem.title = status.reasonPhrase
+        problem.title = HttpStatus.resolve(status.value())?.reasonPhrase ?: status.toString()
         problem.instance = URI.create(request.requestURI)
         return ResponseEntity.status(status).body(problem)
     }
