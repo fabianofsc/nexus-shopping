@@ -70,6 +70,9 @@ rtk docker compose ps
 - `main`: latest stable version.
 - Branch names must be in English.
 - Keep commits grouped by context: code, migrations, tests, load-test docs, generated report assets.
+- Never merge a branch without explicit user confirmation for that specific merge.
+- Every spec/plan execution must happen on an isolated branch, never directly on the accumulation branch.
+- At the end of every spec/plan execution, ask the user whether to merge locally, open a PR, keep the branch, or discard the work.
 
 ## Application Behavior
 
@@ -231,6 +234,9 @@ rtk make jmeter-name SCENARIO=pagination
   - `docs/load-test-pagination-results-20260627.md`: pagination comparison.
 - Store committed chart PNGs under `docs/assets/load-tests/`.
 - Committed JMeter HTML reports live under `docs/jmeter-reports/baseline/`, `indexes/`, `pagination/`.
+- PRD/decision records live under `docs/decisions/` and must use the filename template `YYYY-MM-DD-prd-<topic>.md`.
+- Superpowers specs live under `docs/superpowers/specs/` and must use `YYYY-MM-DD-<topic>-design.md`; include `prd` only when the spec itself is explicitly a PRD.
+- Superpowers implementation plans live under `docs/superpowers/plans/` and must use `YYYY-MM-DD-<topic>.md`; never include `prd` in plan filenames, even when the plan implements a PRD.
 - Keep docs concise and in Portuguese for result explanations.
 - Prefer ASCII in new or edited files unless there is a strong reason not to.
 
