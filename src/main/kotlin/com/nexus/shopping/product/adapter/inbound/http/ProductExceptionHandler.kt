@@ -55,13 +55,19 @@ class ProductExceptionHandler {
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
     fun handleMethodNotSupported(
+        exception: HttpRequestMethodNotSupportedException,
         request: HttpServletRequest,
-    ): ResponseEntity<ProblemDetail> =
-        problem(
+    ): ResponseEntity<ProblemDetail> {
+        val problem = createProblem(
             status = HttpStatus.METHOD_NOT_ALLOWED,
             detail = "Request method is not supported.",
             request = request,
         )
+        return ResponseEntity
+            .status(HttpStatus.METHOD_NOT_ALLOWED)
+            .allow(*exception.supportedHttpMethods.orEmpty().toTypedArray())
+            .body(problem)
+    }
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException::class)
     fun handleMediaTypeNotSupported(
@@ -128,11 +134,20 @@ class ProductExceptionHandler {
         detail: String,
         request: HttpServletRequest,
     ): ResponseEntity<ProblemDetail> {
+        val problem = createProblem(status, detail, request)
+        return ResponseEntity.status(status).body(problem)
+    }
+
+    private fun createProblem(
+        status: HttpStatusCode,
+        detail: String,
+        request: HttpServletRequest,
+    ): ProblemDetail {
         val problem = ProblemDetail.forStatusAndDetail(status, detail)
         problem.type = URI.create("about:blank")
         problem.title = HttpStatus.resolve(status.value())?.reasonPhrase ?: status.toString()
         problem.instance = URI.create(request.requestURI)
-        return ResponseEntity.status(status).body(problem)
+        return problem
     }
 
     private companion object {

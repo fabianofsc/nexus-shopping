@@ -155,6 +155,7 @@ class ProductControllerTest {
             expectedStatus = 400,
             expectedTitle = "Bad Request",
             expectedInstance = "/products",
+            expectedDetail = "Invalid request.",
         )
         assertNoInternalDetailsLeaked(response.body())
     }
@@ -342,5 +343,7 @@ class ProductControllerTest {
             expectedInstance = "/products/1",
             expectedDetail = "Request method is not supported.",
         )
+        val allow = response.headers().firstValue("Allow").orElse("")
+        assertTrue(allow.split(",").map { it.trim() }.contains("PATCH"))
     }
 }
