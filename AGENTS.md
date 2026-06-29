@@ -70,6 +70,9 @@ rtk docker compose ps
 - `main`: latest stable version.
 - Branch names must be in English.
 - Keep commits grouped by context: code, migrations, tests, load-test docs, generated report assets.
+- Never merge a branch without explicit user confirmation for that specific merge.
+- Every spec/plan execution must happen on an isolated branch, never directly on the accumulation branch.
+- At the end of every spec/plan execution, ask the user whether to merge locally, open a PR, keep the branch, or discard the work.
 
 ## Application Behavior
 
