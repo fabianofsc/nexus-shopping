@@ -4,8 +4,8 @@ import com.nexus.shopping.product.adapter.inbound.http.dto.CreateProductRequest
 import com.nexus.shopping.product.adapter.inbound.http.dto.ProductPageResponse
 import com.nexus.shopping.product.adapter.inbound.http.dto.ProductResponse
 import com.nexus.shopping.product.adapter.inbound.http.dto.UpdatePriceRequest
-import com.nexus.shopping.product.adapter.inbound.http.mapper.toCommand
-import com.nexus.shopping.product.adapter.inbound.http.mapper.toResponse
+import com.nexus.shopping.product.adapter.inbound.http.dto.toCommand
+import com.nexus.shopping.product.adapter.inbound.http.dto.toResponse
 import com.nexus.shopping.product.application.usecase.ProductCreateUseCase
 import com.nexus.shopping.product.application.usecase.ProductSearchUseCase
 import com.nexus.shopping.product.application.usecase.UpdateProductPriceUseCase

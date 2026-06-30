@@ -115,21 +115,17 @@ Criar responses:
 
 O shape JSON deve permanecer compativel com o retorno atual de `Product` e `ProductPage`.
 
-### 6. Criar mappers HTTP de produto
+### 6. Colocalizar extension functions de conversao nos DTOs HTTP
 
-Criar pacote:
-
-```text
-src/main/kotlin/com/nexus/shopping/product/adapter/inbound/http/mapper/
-```
-
-Criar funcoes de mapeamento para:
+Criar funcoes de conversao dentro dos proprios arquivos de request/response em
+`product/adapter/inbound/http/dto/`:
 
 - request -> command
 - `Product` -> `ProductResponse`
 - `ProductPage` -> `ProductPageResponse`
 
-Manter mapeamento no adapter HTTP, nao nos use cases nem no dominio.
+Manter as conversoes no adapter HTTP, nao nos use cases nem no dominio. Nao criar pacote
+separado de `mapper` nesta etapa.
 
 ### 7. Atualizar controller
 
