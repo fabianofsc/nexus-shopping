@@ -27,25 +27,23 @@ class ProductController(
     private val productCreateUseCase: ProductCreateUseCase,
     private val updateProductPriceUseCase: UpdateProductPriceUseCase,
 ) {
-
     @GetMapping
     fun search(
         @RequestParam(required = false) categoryId: Long?,
         @RequestParam(required = false) name: String?,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "50") size: Int,
-    ): ProductPageResponse =
-        productSearchUseCase.search(categoryId, name, page, size).toResponse()
+    ): ProductPageResponse = productSearchUseCase.search(categoryId, name, page, size).toResponse()
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    fun create(@RequestBody request: CreateProductRequest): ProductResponse =
-        productCreateUseCase.create(request.toCommand()).toResponse()
+    fun create(
+        @RequestBody request: CreateProductRequest,
+    ): ProductResponse = productCreateUseCase.create(request.toCommand()).toResponse()
 
     @PatchMapping("/{id}")
     fun updatePrice(
         @PathVariable id: Long,
         @RequestBody request: UpdatePriceRequest,
-    ): ProductResponse =
-        updateProductPriceUseCase.execute(request.toCommand(id)).toResponse()
+    ): ProductResponse = updateProductPriceUseCase.execute(request.toCommand(id)).toResponse()
 }

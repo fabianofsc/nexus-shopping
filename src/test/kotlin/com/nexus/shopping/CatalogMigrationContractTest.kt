@@ -1,16 +1,15 @@
 package com.nexus.shopping
 
-import java.sql.DriverManager
+import org.flywaydb.core.Flyway
+import org.junit.jupiter.api.Test
 import java.nio.file.Files
 import java.nio.file.Path
+import java.sql.DriverManager
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import org.flywaydb.core.Flyway
-import org.junit.jupiter.api.Test
 
 class CatalogMigrationContractTest {
-
     private val migrationDirectory = Path.of("src/main/resources/db/migration")
     private val schemaMigration = migrationDirectory.resolve("V1__create_product_catalog.sql")
     private val applicationConfig = Path.of("src/main/resources/application.yml")
@@ -68,12 +67,14 @@ class CatalogMigrationContractTest {
 
     @Test
     fun `catalog migrations should run on h2`() {
-        val result = Flyway.configure()
-            .dataSource("jdbc:h2:mem:catalog_migration_contract;DB_CLOSE_DELAY=-1", "sa", "")
-            .locations("classpath:db/migration")
-            .placeholders(mapOf("productSeedCount" to "10"))
-            .load()
-            .migrate()
+        val result =
+            Flyway
+                .configure()
+                .dataSource("jdbc:h2:mem:catalog_migration_contract;DB_CLOSE_DELAY=-1", "sa", "")
+                .locations("classpath:db/migration")
+                .placeholders(mapOf("productSeedCount" to "10"))
+                .load()
+                .migrate()
 
         assertTrue(result.migrationsExecuted >= 3)
     }
@@ -90,7 +91,8 @@ class CatalogMigrationContractTest {
     @Test
     fun `catalog seed should create relationally valid products`() {
         val jdbcUrl = "jdbc:h2:mem:catalog_seed_contract;DB_CLOSE_DELAY=-1"
-        Flyway.configure()
+        Flyway
+            .configure()
             .dataSource(jdbcUrl, "sa", "")
             .locations("classpath:db/migration")
             .placeholders(mapOf("productSeedCount" to "100"))
@@ -116,7 +118,10 @@ class CatalogMigrationContractTest {
                 .joinToString(separator = "\n")
         }
 
-    private fun countRows(connection: java.sql.Connection, fromClause: String): Int {
+    private fun countRows(
+        connection: java.sql.Connection,
+        fromClause: String,
+    ): Int {
         connection.createStatement().use { statement ->
             statement.executeQuery("SELECT COUNT(*) FROM $fromClause").use { resultSet ->
                 resultSet.next()

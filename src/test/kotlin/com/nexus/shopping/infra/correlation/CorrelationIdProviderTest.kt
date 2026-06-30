@@ -5,7 +5,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class CorrelationIdProviderTest {
-
     private val provider = CorrelationIdProvider()
 
     @Test

@@ -10,10 +10,11 @@ data class ProductPageResponse(
     val hasNext: Boolean,
 )
 
-fun ProductPage.toResponse() = ProductPageResponse(
-    content = content.map { it.toResponse() },
-    page = page,
-    size = size,
-    count = count,
-    hasNext = hasNext,
-)
+fun ProductPage.toResponse() =
+    ProductPageResponse(
+        content = content.map { it.toResponse() },
+        page = page,
+        size = size,
+        count = count,
+        hasNext = hasNext,
+    )

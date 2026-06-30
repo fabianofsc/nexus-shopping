@@ -1,9 +1,9 @@
 package com.nexus.shopping.infra.http
 
+import com.nexus.shopping.infra.correlation.CorrelationIdProvider
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
-import com.nexus.shopping.infra.correlation.CorrelationIdProvider
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import org.springframework.stereotype.Component
@@ -11,14 +11,13 @@ import org.springframework.web.filter.OncePerRequestFilter
 
 @Component
 class CorrelationIdFilter : OncePerRequestFilter() {
-
     private val logger = LoggerFactory.getLogger(CorrelationIdFilter::class.java)
     private val provider = CorrelationIdProvider()
 
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,
-        chain: FilterChain
+        chain: FilterChain,
     ) {
         val incomingId = request.getHeader("X-Correlation-ID")
         val resolvedId = provider.resolveCorrelationId(incomingId)

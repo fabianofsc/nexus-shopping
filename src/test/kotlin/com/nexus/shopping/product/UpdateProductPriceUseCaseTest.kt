@@ -16,37 +16,46 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 class UpdateProductPriceUseCaseTest {
-
-    private fun aProduct(price: BigDecimal) = Product(
-        id = 1L,
-        brandId = 1L,
-        categoryId = 1L,
-        sku = "SKU-001",
-        name = "Test Product",
-        slug = "test-product",
-        description = null,
-        status = ProductStatus.ACTIVE,
-        priceAmount = price,
-        currency = Currency.BRL,
-        inventoryQuantity = 0,
-        createdAt = LocalDateTime.of(2026, 1, 1, 0, 0),
-        updatedAt = LocalDateTime.of(2026, 1, 1, 0, 0),
-    )
+    private fun aProduct(price: BigDecimal) =
+        Product(
+            id = 1L,
+            brandId = 1L,
+            categoryId = 1L,
+            sku = "SKU-001",
+            name = "Test Product",
+            slug = "test-product",
+            description = null,
+            status = ProductStatus.ACTIVE,
+            priceAmount = price,
+            currency = Currency.BRL,
+            inventoryQuantity = 0,
+            createdAt = LocalDateTime.of(2026, 1, 1, 0, 0),
+            updatedAt = LocalDateTime.of(2026, 1, 1, 0, 0),
+        )
 
     private var repoReturn: Product? = null
 
-    private val fakeRepo = object : ProductRepositoryPort {
-        override fun findByCategoryId(categoryId: Long, page: Int, size: Int): ProductPage =
-            throw UnsupportedOperationException()
+    private val fakeRepo =
+        object : ProductRepositoryPort {
+            override fun findByCategoryId(
+                categoryId: Long,
+                page: Int,
+                size: Int,
+            ): ProductPage = throw UnsupportedOperationException()
 
-        override fun findByName(name: String, page: Int, size: Int): ProductPage =
-            throw UnsupportedOperationException()
+            override fun findByName(
+                name: String,
+                page: Int,
+                size: Int,
+            ): ProductPage = throw UnsupportedOperationException()
 
-        override fun save(command: CreateProductCommand): Product =
-            throw UnsupportedOperationException()
+            override fun save(command: CreateProductCommand): Product = throw UnsupportedOperationException()
 
-        override fun updatePrice(id: Long, priceAmount: BigDecimal): Product? = repoReturn
-    }
+            override fun updatePrice(
+                id: Long,
+                priceAmount: BigDecimal,
+            ): Product? = repoReturn
+        }
 
     private val useCase = UpdateProductPriceUseCase(fakeRepo)
 

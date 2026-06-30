@@ -11,24 +11,35 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 class ProductSearchUseCaseTest {
-
     private var lastCalledMethod: String? = null
 
-    private val fakeRepo = object : ProductRepositoryPort {
-        override fun findByCategoryId(categoryId: Long, page: Int, size: Int): ProductPage {
-            lastCalledMethod = "findByCategoryId"
-            return ProductPage(content = emptyList(), page = page, size = size, count = 0, hasNext = false)
+    private val fakeRepo =
+        object : ProductRepositoryPort {
+            override fun findByCategoryId(
+                categoryId: Long,
+                page: Int,
+                size: Int,
+            ): ProductPage {
+                lastCalledMethod = "findByCategoryId"
+                return ProductPage(content = emptyList(), page = page, size = size, count = 0, hasNext = false)
+            }
+
+            override fun findByName(
+                name: String,
+                page: Int,
+                size: Int,
+            ): ProductPage {
+                lastCalledMethod = "findByName"
+                return ProductPage(content = emptyList(), page = page, size = size, count = 0, hasNext = false)
+            }
+
+            override fun save(command: CreateProductCommand): Product = throw UnsupportedOperationException()
+
+            override fun updatePrice(
+                id: Long,
+                priceAmount: BigDecimal,
+            ): Product? = throw UnsupportedOperationException()
         }
-
-        override fun findByName(name: String, page: Int, size: Int): ProductPage {
-            lastCalledMethod = "findByName"
-            return ProductPage(content = emptyList(), page = page, size = size, count = 0, hasNext = false)
-        }
-
-        override fun save(command: CreateProductCommand): Product = throw UnsupportedOperationException()
-
-        override fun updatePrice(id: Long, priceAmount: BigDecimal): Product? = throw UnsupportedOperationException()
-    }
 
     private val useCase = ProductSearchUseCase(fakeRepo)
 

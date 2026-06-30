@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service
 class ProductCreateUseCase(
     private val productRepository: ProductRepositoryPort,
 ) {
-
     fun create(command: CreateProductCommand): Product {
         if (command.brandId <= 0) throw ProductValidationException("brandId must be greater than 0.")
         if (command.categoryId <= 0) throw ProductValidationException("categoryId must be greater than 0.")

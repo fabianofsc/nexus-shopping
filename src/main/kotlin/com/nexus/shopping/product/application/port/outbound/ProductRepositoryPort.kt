@@ -6,8 +6,22 @@ import com.nexus.shopping.product.domain.ProductPage
 import java.math.BigDecimal
 
 interface ProductRepositoryPort {
-    fun findByCategoryId(categoryId: Long, page: Int, size: Int): ProductPage
-    fun findByName(name: String, page: Int, size: Int): ProductPage
+    fun findByCategoryId(
+        categoryId: Long,
+        page: Int,
+        size: Int,
+    ): ProductPage
+
+    fun findByName(
+        name: String,
+        page: Int,
+        size: Int,
+    ): ProductPage
+
     fun save(command: CreateProductCommand): Product
-    fun updatePrice(id: Long, priceAmount: BigDecimal): Product?
+
+    fun updatePrice(
+        id: Long,
+        priceAmount: BigDecimal,
+    ): Product?
 }

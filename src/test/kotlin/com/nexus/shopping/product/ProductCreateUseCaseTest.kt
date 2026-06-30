@@ -13,36 +13,54 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 class ProductCreateUseCaseTest {
+    private val fakeRepo =
+        object : ProductRepositoryPort {
+            override fun findByCategoryId(
+                categoryId: Long,
+                page: Int,
+                size: Int,
+            ) = ProductPage(content = emptyList(), page = page, size = size, count = 0, hasNext = false)
 
-    private val fakeRepo = object : ProductRepositoryPort {
-        override fun findByCategoryId(categoryId: Long, page: Int, size: Int) =
-            ProductPage(content = emptyList(), page = page, size = size, count = 0, hasNext = false)
+            override fun findByName(
+                name: String,
+                page: Int,
+                size: Int,
+            ) = ProductPage(content = emptyList(), page = page, size = size, count = 0, hasNext = false)
 
-        override fun findByName(name: String, page: Int, size: Int) =
-            ProductPage(content = emptyList(), page = page, size = size, count = 0, hasNext = false)
+            override fun save(command: CreateProductCommand): Product =
+                Product(
+                    id = 1L,
+                    brandId = command.brandId,
+                    categoryId = command.categoryId,
+                    sku = "SKU-TEST",
+                    name = command.name,
+                    slug = command.slug,
+                    description = command.description,
+                    status = ProductStatus.valueOf(command.status),
+                    priceAmount = command.priceAmount,
+                    currency = Currency.valueOf(command.currency),
+                    inventoryQuantity = command.inventoryQuantity,
+                    createdAt = java.time.LocalDateTime.now(),
+                    updatedAt = java.time.LocalDateTime.now(),
+                )
 
-        override fun save(command: CreateProductCommand): Product = Product(
-            id = 1L, brandId = command.brandId, categoryId = command.categoryId,
-            sku = "SKU-TEST", name = command.name, slug = command.slug,
-            description = command.description, status = ProductStatus.valueOf(command.status),
-            priceAmount = command.priceAmount, currency = Currency.valueOf(command.currency),
-            inventoryQuantity = command.inventoryQuantity,
-            createdAt = java.time.LocalDateTime.now(), updatedAt = java.time.LocalDateTime.now(),
-        )
-
-        override fun updatePrice(id: Long, priceAmount: BigDecimal): Product? = throw UnsupportedOperationException()
-    }
+            override fun updatePrice(
+                id: Long,
+                priceAmount: BigDecimal,
+            ): Product? = throw UnsupportedOperationException()
+        }
 
     private val useCase = ProductCreateUseCase(fakeRepo)
 
-    private fun validCommand() = CreateProductCommand(
-        brandId = 1L,
-        categoryId = 1L,
-        sku = "SKU-001",
-        name = "Product Name",
-        slug = "product-name",
-        priceAmount = BigDecimal("29.90"),
-    )
+    private fun validCommand() =
+        CreateProductCommand(
+            brandId = 1L,
+            categoryId = 1L,
+            sku = "SKU-001",
+            name = "Product Name",
+            slug = "product-name",
+            priceAmount = BigDecimal("29.90"),
+        )
 
     @Test
     fun `create valid product delegates to repository`() {

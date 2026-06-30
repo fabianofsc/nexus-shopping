@@ -1,13 +1,5 @@
 package com.nexus.shopping.infra.http
 
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertNull
-import kotlin.test.assertNotNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.slf4j.MDC
@@ -16,6 +8,14 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.core.env.Environment
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -29,7 +29,6 @@ import org.springframework.web.bind.annotation.RestController
     ],
 )
 class CorrelationIdFilterTest {
-
     @Autowired
     private lateinit var environment: Environment
 
@@ -45,11 +44,16 @@ class CorrelationIdFilterTest {
         MDC.clear()
     }
 
-    private fun getRequest(path: String, correlationId: String? = null): HttpResponse<String> {
+    private fun getRequest(
+        path: String,
+        correlationId: String? = null,
+    ): HttpResponse<String> {
         val port = environment.getProperty("local.server.port")!!
-        val requestBuilder = HttpRequest.newBuilder()
-            .uri(URI.create("http://localhost:$port$path"))
-            .GET()
+        val requestBuilder =
+            HttpRequest
+                .newBuilder()
+                .uri(URI.create("http://localhost:$port$path"))
+                .GET()
 
         if (correlationId != null) {
             requestBuilder.header("X-Correlation-ID", correlationId)

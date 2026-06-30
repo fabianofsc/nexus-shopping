@@ -16,15 +16,16 @@ data class CreateProductRequest(
     val inventoryQuantity: Int? = null,
 )
 
-fun CreateProductRequest.toCommand() = CreateProductCommand(
-    brandId = brandId,
-    categoryId = categoryId,
-    sku = sku,
-    name = name,
-    slug = slug,
-    description = description,
-    status = status ?: "ACTIVE",
-    priceAmount = priceAmount,
-    currency = currency ?: "BRL",
-    inventoryQuantity = inventoryQuantity ?: 0,
-)
+fun CreateProductRequest.toCommand() =
+    CreateProductCommand(
+        brandId = brandId,
+        categoryId = categoryId,
+        sku = sku,
+        name = name,
+        slug = slug,
+        description = description,
+        status = status ?: "ACTIVE",
+        priceAmount = priceAmount,
+        currency = currency ?: "BRL",
+        inventoryQuantity = inventoryQuantity ?: 0,
+    )

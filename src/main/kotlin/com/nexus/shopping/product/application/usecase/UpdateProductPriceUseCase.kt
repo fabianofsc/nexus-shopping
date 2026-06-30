@@ -5,14 +5,13 @@ import com.nexus.shopping.product.application.exception.ProductNotFoundException
 import com.nexus.shopping.product.application.exception.ProductValidationException
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.domain.Product
-import java.math.BigDecimal
 import org.springframework.stereotype.Service
+import java.math.BigDecimal
 
 @Service
 class UpdateProductPriceUseCase(
     private val productRepository: ProductRepositoryPort,
 ) {
-
     fun execute(command: UpdatePriceCommand): Product {
         if (command.priceAmount <= BigDecimal.ZERO) {
             throw ProductValidationException("priceAmount must be greater than zero.")

@@ -9,8 +9,12 @@ import org.springframework.stereotype.Service
 class ProductSearchUseCase(
     private val productRepository: ProductRepositoryPort,
 ) {
-
-    fun search(categoryId: Long?, name: String?, page: Int, size: Int): ProductPage {
+    fun search(
+        categoryId: Long?,
+        name: String?,
+        page: Int,
+        size: Int,
+    ): ProductPage {
         if (categoryId != null && !name.isNullOrBlank()) {
             throw ProductValidationException("Use either categoryId or name, not both.")
         }

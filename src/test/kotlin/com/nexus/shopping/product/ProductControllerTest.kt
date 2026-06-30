@@ -2,6 +2,9 @@ package com.nexus.shopping
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.json.JsonMapper
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.core.env.Environment
 import java.math.BigDecimal
 import java.net.URI
 import java.net.http.HttpClient
@@ -12,9 +15,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.core.env.Environment
 
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -28,18 +28,22 @@ import org.springframework.core.env.Environment
     ],
 )
 class ProductControllerTest {
-
     @Autowired
     private lateinit var environment: Environment
 
     private val mapper = JsonMapper.builder().build()
     private val httpClient = HttpClient.newHttpClient()
 
-    private fun get(port: String, query: String): HttpResponse<String> {
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create("http://localhost:$port/products$query"))
-            .GET()
-            .build()
+    private fun get(
+        port: String,
+        query: String,
+    ): HttpResponse<String> {
+        val request =
+            HttpRequest
+                .newBuilder()
+                .uri(URI.create("http://localhost:$port/products$query"))
+                .GET()
+                .build()
         return httpClient.send(request, HttpResponse.BodyHandlers.ofString())
     }
 
@@ -48,28 +52,41 @@ class ProductControllerTest {
         body: String,
         contentType: String = "application/json",
     ): HttpResponse<String> {
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create("http://localhost:$port/products"))
-            .header("Content-Type", contentType)
-            .POST(HttpRequest.BodyPublishers.ofString(body))
-            .build()
+        val request =
+            HttpRequest
+                .newBuilder()
+                .uri(URI.create("http://localhost:$port/products"))
+                .header("Content-Type", contentType)
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build()
         return httpClient.send(request, HttpResponse.BodyHandlers.ofString())
     }
 
-    private fun patch(port: String, id: Long, body: String): HttpResponse<String> {
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create("http://localhost:$port/products/$id"))
-            .header("Content-Type", "application/json")
-            .method("PATCH", HttpRequest.BodyPublishers.ofString(body))
-            .build()
+    private fun patch(
+        port: String,
+        id: Long,
+        body: String,
+    ): HttpResponse<String> {
+        val request =
+            HttpRequest
+                .newBuilder()
+                .uri(URI.create("http://localhost:$port/products/$id"))
+                .header("Content-Type", "application/json")
+                .method("PATCH", HttpRequest.BodyPublishers.ofString(body))
+                .build()
         return httpClient.send(request, HttpResponse.BodyHandlers.ofString())
     }
 
-    private fun delete(port: String, id: Long): HttpResponse<String> {
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create("http://localhost:$port/products/$id"))
-            .DELETE()
-            .build()
+    private fun delete(
+        port: String,
+        id: Long,
+    ): HttpResponse<String> {
+        val request =
+            HttpRequest
+                .newBuilder()
+                .uri(URI.create("http://localhost:$port/products/$id"))
+                .DELETE()
+                .build()
         return httpClient.send(request, HttpResponse.BodyHandlers.ofString())
     }
 
@@ -81,7 +98,13 @@ class ProductControllerTest {
         expectedDetail: String? = null,
     ): JsonNode {
         assertEquals(expectedStatus, response.statusCode())
-        assertTrue(response.headers().firstValue("Content-Type").orElse("").startsWith("application/problem+json"))
+        assertTrue(
+            response
+                .headers()
+                .firstValue("Content-Type")
+                .orElse("")
+                .startsWith("application/problem+json"),
+        )
         val exceptionDetail = mapper.readTree(response.body())
         assertEquals("about:blank", exceptionDetail["type"].asText())
         assertEquals(expectedTitle, exceptionDetail["title"].asText())
@@ -109,7 +132,8 @@ class ProductControllerTest {
     @Test
     fun `POST products returns 201 with created product`() {
         val port = environment.getRequiredProperty("local.server.port")
-        val body = """
+        val body =
+            """
             {
               "brandId": 1,
               "categoryId": 1,
@@ -118,7 +142,7 @@ class ProductControllerTest {
               "slug": "controller-test-product",
               "priceAmount": 49.90
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val response = post(port, body)
 
@@ -166,7 +190,8 @@ class ProductControllerTest {
     @Test
     fun `POST products with blank sku returns 400 problem details`() {
         val port = environment.getRequiredProperty("local.server.port")
-        val body = """
+        val body =
+            """
             {
               "brandId": 1,
               "categoryId": 1,
@@ -175,7 +200,7 @@ class ProductControllerTest {
               "slug": "some-product",
               "priceAmount": 10.00
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val response = post(port, body)
 
@@ -191,7 +216,8 @@ class ProductControllerTest {
     @Test
     fun `POST products with negative price returns 400 problem details`() {
         val port = environment.getRequiredProperty("local.server.port")
-        val body = """
+        val body =
+            """
             {
               "brandId": 1,
               "categoryId": 1,
@@ -200,7 +226,7 @@ class ProductControllerTest {
               "slug": "negative-price",
               "priceAmount": -1.00
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val response = post(port, body)
 
@@ -216,7 +242,8 @@ class ProductControllerTest {
     @Test
     fun `POST products with invalid status returns 400 problem details`() {
         val port = environment.getRequiredProperty("local.server.port")
-        val body = """
+        val body =
+            """
             {
               "brandId": 1,
               "categoryId": 1,
@@ -226,7 +253,7 @@ class ProductControllerTest {
               "priceAmount": 10.00,
               "status": "DELETED"
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val response = post(port, body)
 
@@ -257,7 +284,8 @@ class ProductControllerTest {
     @Test
     fun `POST products with missing foreign key returns 500 generic problem details`() {
         val port = environment.getRequiredProperty("local.server.port")
-        val body = """
+        val body =
+            """
             {
               "brandId": 999999999,
               "categoryId": 1,
@@ -266,7 +294,7 @@ class ProductControllerTest {
               "slug": "foreign-key-failure",
               "priceAmount": 10.00
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val response = post(port, body)
 

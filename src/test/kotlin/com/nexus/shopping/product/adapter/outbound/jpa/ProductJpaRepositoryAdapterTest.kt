@@ -1,6 +1,9 @@
 package com.nexus.shopping.product.adapter.outbound.jpa
 
 import com.nexus.shopping.product.application.command.CreateProductCommand
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -8,9 +11,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.transaction.annotation.Transactional
 
 @SpringBootTest(
     properties = [
@@ -24,7 +24,6 @@ import org.springframework.transaction.annotation.Transactional
 )
 @Transactional
 class ProductJpaRepositoryAdapterTest {
-
     @Autowired
     private lateinit var repository: ProductJpaRepositoryAdapter
 
@@ -65,20 +64,21 @@ class ProductJpaRepositoryAdapterTest {
 
     @Test
     fun `save persists product and returns generated values`() {
-        val created = repository.save(
-            CreateProductCommand(
-                brandId = 1L,
-                categoryId = 1L,
-                sku = "SKU-JPA-001",
-                name = "JPA Adapter Product",
-                slug = "jpa-adapter-product",
-                description = "Created by the JPA adapter test.",
-                status = "ACTIVE",
-                priceAmount = BigDecimal("49.90"),
-                currency = "BRL",
-                inventoryQuantity = 7,
-            ),
-        )
+        val created =
+            repository.save(
+                CreateProductCommand(
+                    brandId = 1L,
+                    categoryId = 1L,
+                    sku = "SKU-JPA-001",
+                    name = "JPA Adapter Product",
+                    slug = "jpa-adapter-product",
+                    description = "Created by the JPA adapter test.",
+                    status = "ACTIVE",
+                    priceAmount = BigDecimal("49.90"),
+                    currency = "BRL",
+                    inventoryQuantity = 7,
+                ),
+            )
 
         assertTrue(created.id > 0)
         assertEquals("SKU-JPA-001", created.sku)
@@ -106,20 +106,21 @@ class ProductJpaRepositoryAdapterTest {
 
     @Test
     fun `updatePrice sets updatedAt to a non-null value not before createdAt`() {
-        val saved = repository.save(
-            CreateProductCommand(
-                brandId = 1L,
-                categoryId = 1L,
-                sku = "SKU-TIMESTAMP-001",
-                name = "Timestamp Product",
-                slug = "timestamp-product",
-                description = null,
-                status = "ACTIVE",
-                priceAmount = BigDecimal("10.00"),
-                currency = "BRL",
-                inventoryQuantity = 0,
-            ),
-        )
+        val saved =
+            repository.save(
+                CreateProductCommand(
+                    brandId = 1L,
+                    categoryId = 1L,
+                    sku = "SKU-TIMESTAMP-001",
+                    name = "Timestamp Product",
+                    slug = "timestamp-product",
+                    description = null,
+                    status = "ACTIVE",
+                    priceAmount = BigDecimal("10.00"),
+                    currency = "BRL",
+                    inventoryQuantity = 0,
+                ),
+            )
 
         val updated = repository.updatePrice(id = saved.id, priceAmount = BigDecimal("20.00"))
 

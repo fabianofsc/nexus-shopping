@@ -1,16 +1,16 @@
 package com.nexus.shopping
 
 import com.fasterxml.jackson.databind.json.JsonMapper
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
-import kotlin.test.assertEquals
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.core.env.Environment
 import org.springframework.jdbc.core.JdbcTemplate
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import kotlin.test.assertEquals
 
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -25,7 +25,6 @@ import org.springframework.jdbc.core.JdbcTemplate
     ],
 )
 class HealthEndpointTest {
-
     @Autowired
     private lateinit var environment: Environment
 
@@ -35,10 +34,12 @@ class HealthEndpointTest {
     @Test
     fun `should expose actuator health endpoint with database status`() {
         val port = environment.getRequiredProperty("local.server.port")
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create("http://localhost:$port/actuator/health"))
-            .GET()
-            .build()
+        val request =
+            HttpRequest
+                .newBuilder()
+                .uri(URI.create("http://localhost:$port/actuator/health"))
+                .GET()
+                .build()
 
         val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString())
 
@@ -52,10 +53,12 @@ class HealthEndpointTest {
     @Test
     fun `should expose products by category using the indexed read query`() {
         val port = environment.getRequiredProperty("local.server.port")
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create("http://localhost:$port/products?categoryId=1&page=0&size=1"))
-            .GET()
-            .build()
+        val request =
+            HttpRequest
+                .newBuilder()
+                .uri(URI.create("http://localhost:$port/products?categoryId=1&page=0&size=1"))
+                .GET()
+                .build()
 
         val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString())
 
@@ -70,10 +73,12 @@ class HealthEndpointTest {
     @Test
     fun `should expose products by name using the indexed prefix like query`() {
         val port = environment.getRequiredProperty("local.server.port")
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create("http://localhost:$port/products?name=Product%201&page=0&size=1"))
-            .GET()
-            .build()
+        val request =
+            HttpRequest
+                .newBuilder()
+                .uri(URI.create("http://localhost:$port/products?name=Product%201&page=0&size=1"))
+                .GET()
+                .build()
 
         val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString())
 

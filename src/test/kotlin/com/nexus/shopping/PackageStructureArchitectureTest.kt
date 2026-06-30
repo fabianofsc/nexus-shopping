@@ -5,7 +5,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class PackageStructureArchitectureTest {
-
     @Test
     fun `application exceptions use platform base exceptions`() {
         val validationException = Class.forName("com.nexus.shopping.platform.application.exception.ValidationException")
@@ -24,9 +23,12 @@ class PackageStructureArchitectureTest {
         val handler = Class.forName("com.nexus.shopping.platform.adapter.inbound.http.ApiExceptionHandler")
         assertTrue(handler.simpleName == "ApiExceptionHandler")
 
-        val handlerSource = java.nio.file.Path.of(
-            "src/main/kotlin/com/nexus/shopping/platform/adapter/inbound/http/ApiExceptionHandler.kt",
-        ).toFile().readText()
+        val handlerSource =
+            java.nio.file.Path
+                .of(
+                    "src/main/kotlin/com/nexus/shopping/platform/adapter/inbound/http/ApiExceptionHandler.kt",
+                ).toFile()
+                .readText()
 
         assertFalse(handlerSource.contains("com.nexus.shopping.product"))
     }
@@ -39,25 +41,32 @@ class PackageStructureArchitectureTest {
 
     @Test
     fun `codebase does not use a shared package for cross cutting structure`() {
-        val sourceRoots = listOf(
-            java.nio.file.Path.of("src/main/kotlin/com/nexus/shopping"),
-            java.nio.file.Path.of("src/test/kotlin/com/nexus/shopping"),
-        )
+        val sourceRoots =
+            listOf(
+                java.nio.file.Path
+                    .of("src/main/kotlin/com/nexus/shopping"),
+                java.nio.file.Path
+                    .of("src/test/kotlin/com/nexus/shopping"),
+            )
         val forbiddenPackage = "com.nexus.shopping." + "shared"
-        val sharedPackageExists = sourceRoots.any { sourceRoot ->
-            java.nio.file.Files.walk(sourceRoot).use { paths ->
-                paths
-                    .filter { path -> java.nio.file.Files.isRegularFile(path) && path.toString().endsWith(".kt") }
-                    .anyMatch { path ->
-                        val source = path.toFile().readText()
-                        path.toString().contains("/shared/") ||
-                            source.lineSequence().any { line ->
-                                line.startsWith("package $forbiddenPackage") ||
-                                    line.startsWith("import $forbiddenPackage")
-                            }
-                    }
+        val sharedPackageExists =
+            sourceRoots.any { sourceRoot ->
+                java.nio.file.Files.walk(sourceRoot).use { paths ->
+                    paths
+                        .filter { path ->
+                            java.nio.file.Files
+                                .isRegularFile(path) &&
+                                path.toString().endsWith(".kt")
+                        }.anyMatch { path ->
+                            val source = path.toFile().readText()
+                            path.toString().contains("/shared/") ||
+                                source.lineSequence().any { line ->
+                                    line.startsWith("package $forbiddenPackage") ||
+                                        line.startsWith("import $forbiddenPackage")
+                                }
+                        }
                 }
-        }
+            }
 
         assertFalse(sharedPackageExists)
     }

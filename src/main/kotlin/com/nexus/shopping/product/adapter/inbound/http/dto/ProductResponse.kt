@@ -20,18 +20,19 @@ data class ProductResponse(
     val updatedAt: LocalDateTime,
 )
 
-fun Product.toResponse() = ProductResponse(
-    id = id,
-    brandId = brandId,
-    categoryId = categoryId,
-    sku = sku,
-    name = name,
-    slug = slug,
-    description = description,
-    status = status.name,
-    priceAmount = priceAmount,
-    currency = currency.name,
-    inventoryQuantity = inventoryQuantity,
-    createdAt = createdAt,
-    updatedAt = updatedAt,
-)
+fun Product.toResponse() =
+    ProductResponse(
+        id = id,
+        brandId = brandId,
+        categoryId = categoryId,
+        sku = sku,
+        name = name,
+        slug = slug,
+        description = description,
+        status = status.name,
+        priceAmount = priceAmount,
+        currency = currency.name,
+        inventoryQuantity = inventoryQuantity,
+        createdAt = createdAt,
+        updatedAt = updatedAt,
+    )

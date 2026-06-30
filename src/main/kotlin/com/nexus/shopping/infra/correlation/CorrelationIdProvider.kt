@@ -3,7 +3,6 @@ package com.nexus.shopping.infra.correlation
 import java.util.UUID
 
 class CorrelationIdProvider {
-
     companion object {
         private const val MAX_LENGTH = 128
         private val ALLOWED_PATTERN = Regex("^[a-zA-Z0-9._:\\-]*$")

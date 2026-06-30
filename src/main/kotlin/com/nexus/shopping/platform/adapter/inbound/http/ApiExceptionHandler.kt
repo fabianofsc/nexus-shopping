@@ -3,7 +3,6 @@ package com.nexus.shopping.platform.adapter.inbound.http
 import com.nexus.shopping.platform.application.exception.NotFoundException
 import com.nexus.shopping.platform.application.exception.ValidationException
 import jakarta.servlet.http.HttpServletRequest
-import java.net.URI
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.HttpStatusCode
@@ -16,10 +15,10 @@ import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+import java.net.URI
 
 @RestControllerAdvice
 class ApiExceptionHandler {
-
     @ExceptionHandler(ValidationException::class)
     fun handleValidation(
         exception: ValidationException,
@@ -60,11 +59,12 @@ class ApiExceptionHandler {
         exception: HttpRequestMethodNotSupportedException,
         request: HttpServletRequest,
     ): ResponseEntity<ProblemDetail> {
-        val detail = buildProblemDetail(
-            status = HttpStatus.METHOD_NOT_ALLOWED,
-            detail = "Request method is not supported.",
-            request = request,
-        )
+        val detail =
+            buildProblemDetail(
+                status = HttpStatus.METHOD_NOT_ALLOWED,
+                detail = "Request method is not supported.",
+                request = request,
+            )
         return ResponseEntity
             .status(HttpStatus.METHOD_NOT_ALLOWED)
             .allow(*exception.supportedHttpMethods.orEmpty().toTypedArray())
@@ -72,9 +72,7 @@ class ApiExceptionHandler {
     }
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException::class)
-    fun handleMediaTypeNotSupported(
-        request: HttpServletRequest,
-    ): ResponseEntity<ProblemDetail> =
+    fun handleMediaTypeNotSupported(request: HttpServletRequest): ResponseEntity<ProblemDetail> =
         problemDetailResponse(
             status = HttpStatus.UNSUPPORTED_MEDIA_TYPE,
             detail = "Content type is not supported.",
@@ -82,9 +80,7 @@ class ApiExceptionHandler {
         )
 
     @ExceptionHandler(MethodArgumentTypeMismatchException::class)
-    fun handleTypeMismatch(
-        request: HttpServletRequest,
-    ): ResponseEntity<ProblemDetail> =
+    fun handleTypeMismatch(request: HttpServletRequest): ResponseEntity<ProblemDetail> =
         problemDetailResponse(
             status = HttpStatus.BAD_REQUEST,
             detail = "Invalid request.",

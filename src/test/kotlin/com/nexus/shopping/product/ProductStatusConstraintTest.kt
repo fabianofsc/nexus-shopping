@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class ProductStatusConstraintTest {
-
     @Test
     fun `ProductStatus enum values match the CHECK constraint in V1 migration`() {
         val constraintValues = setOf("ACTIVE", "INACTIVE", "ARCHIVED")
