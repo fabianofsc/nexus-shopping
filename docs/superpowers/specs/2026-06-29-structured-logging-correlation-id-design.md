@@ -73,10 +73,12 @@ Emitir JSON por padrao em todos os ambientes. O objetivo do projeto e ensinar lo
 
 A mudanca fica no adaptador HTTP e na configuracao da aplicacao. Dominio e use cases permanecem sem dependencia de logging, MDC, Servlet API, Spring Web ou formatos de observabilidade.
 
-Pacote proposto:
+Pacotes propostos:
 
 ```text
-src/main/kotlin/com/nexus/shopping/shared/observability/
+src/main/kotlin/com/nexus/shopping/infra/correlation/
+  CorrelationIdProvider.kt
+src/main/kotlin/com/nexus/shopping/infra/http/
   CorrelationIdFilter.kt
 ```
 

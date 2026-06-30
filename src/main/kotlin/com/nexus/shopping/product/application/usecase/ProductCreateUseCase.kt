@@ -1,10 +1,11 @@
 package com.nexus.shopping.product.application.usecase
 
+import com.nexus.shopping.product.application.command.CreateProductCommand
+import com.nexus.shopping.product.application.exception.ProductValidationException
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.domain.Currency
 import com.nexus.shopping.product.domain.Product
 import com.nexus.shopping.product.domain.ProductStatus
-import com.nexus.shopping.shared.requireValidEnum
 import org.springframework.stereotype.Service
 
 @Service
@@ -31,4 +32,13 @@ class ProductCreateUseCase(
 
         return productRepository.save(command)
     }
+}
+
+private inline fun <reified T : Enum<T>> requireValidEnum(
+    value: String,
+    fieldName: String,
+    exception: (String) -> Exception,
+) {
+    val names = enumValues<T>().map { it.name }
+    if (value !in names) throw exception("$fieldName must be one of: ${names.joinToString(", ")}.")
 }

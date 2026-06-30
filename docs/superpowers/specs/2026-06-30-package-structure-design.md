@@ -49,7 +49,6 @@ product/
     inbound/
       http/
         dto/
-        mapper/
     outbound/
       jdbc/
 ```
@@ -160,11 +159,15 @@ Requests e responses HTTP devem viver em:
 product/adapter/inbound/http/dto/
 ```
 
-Mappers HTTP devem viver em:
+As funcoes de conversao HTTP devem ser extension functions colocalizadas nos proprios
+arquivos de request/response dentro de `dto/`. Exemplos:
 
-```text
-product/adapter/inbound/http/mapper/
-```
+- `CreateProductRequest.toCommand()`
+- `UpdatePriceRequest.toCommand(id)`
+- `Product.toResponse()`, no arquivo de `ProductResponse`
+- `ProductPage.toResponse()`, no arquivo de `ProductPageResponse`
+
+Decisao de implementacao: extensions colocalizadas em `dto/`; pacote `mapper/` diferido.
 
 O controller deve converter:
 

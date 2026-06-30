@@ -1,6 +1,6 @@
 package com.nexus.shopping.product.adapter.outbound.jpa
 
-import com.nexus.shopping.product.application.usecase.CreateProductCommand
+import com.nexus.shopping.product.application.command.CreateProductCommand
 import java.math.BigDecimal
 import kotlin.test.Test
 import kotlin.test.assertEquals

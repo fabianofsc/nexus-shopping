@@ -25,10 +25,10 @@
 ## Estrutura de Arquivos
 
 **Novos arquivos:**
-- `src/main/kotlin/com/nexus/shopping/shared/observability/CorrelationIdProvider.kt` — valida e gera IDs de correlação
-- `src/main/kotlin/com/nexus/shopping/shared/observability/CorrelationIdFilter.kt` — servlet filter para contrato HTTP
-- `src/test/kotlin/com/nexus/shopping/shared/observability/CorrelationIdProviderTest.kt` — testes unitários do provider
-- `src/test/kotlin/com/nexus/shopping/shared/observability/CorrelationIdFilterTest.kt` — testes unitários do filter + limpeza MDC
+- `src/main/kotlin/com/nexus/shopping/infra/correlation/CorrelationIdProvider.kt` — valida e gera IDs de correlação
+- `src/main/kotlin/com/nexus/shopping/infra/http/CorrelationIdFilter.kt` — servlet filter para contrato HTTP
+- `src/test/kotlin/com/nexus/shopping/infra/correlation/CorrelationIdProviderTest.kt` — testes unitários do provider
+- `src/test/kotlin/com/nexus/shopping/infra/http/CorrelationIdFilterTest.kt` — testes unitários do filter + limpeza MDC
 
 **Arquivos modificados:**
 - `src/main/resources/application.yml` — habilitar config de logging estruturado do Spring Boot
@@ -41,7 +41,7 @@
 ### Tarefa 1: Escrever testes unitários do CorrelationIdProvider
 
 **Arquivos:**
-- Criar: `src/test/kotlin/com/nexus/shopping/shared/observability/CorrelationIdProviderTest.kt`
+- Criar: `src/test/kotlin/com/nexus/shopping/infra/correlation/CorrelationIdProviderTest.kt`
 
 **Interfaces:**
 - Produz: Classe `CorrelationIdProvider` com uma única função pública:
@@ -53,13 +53,13 @@
 - [ ] **Passo 1: Criar diretório do teste**
 
 ```bash
-mkdir -p /Users/fabiano/Developer/nexus-shopping/src/test/kotlin/com/nexus/shopping/shared/observability
+mkdir -p /Users/fabiano/Developer/nexus-shopping/src/test/kotlin/com/nexus/shopping/infra/correlation
 ```
 
 - [ ] **Passo 2: Escrever classe de teste com os 6 casos de teste**
 
 ```kotlin
-package com.nexus.shopping.shared.observability
+package com.nexus.shopping.infra.correlation
 
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
@@ -131,7 +131,7 @@ Esperado: Erro de compilação (classe CorrelationIdProvider não existe ainda) 
 ### Tarefa 2: Implementar CorrelationIdProvider
 
 **Arquivos:**
-- Criar: `src/main/kotlin/com/nexus/shopping/shared/observability/CorrelationIdProvider.kt`
+- Criar: `src/main/kotlin/com/nexus/shopping/infra/correlation/CorrelationIdProvider.kt`
 
 **Interfaces:**
 - Produz: Classe `CorrelationIdProvider` com:
@@ -142,13 +142,13 @@ Esperado: Erro de compilação (classe CorrelationIdProvider não existe ainda) 
 - [ ] **Passo 1: Criar diretório**
 
 ```bash
-mkdir -p /Users/fabiano/Developer/nexus-shopping/src/main/kotlin/com/nexus/shopping/shared/observability
+mkdir -p /Users/fabiano/Developer/nexus-shopping/src/main/kotlin/com/nexus/shopping/infra/correlation
 ```
 
 - [ ] **Passo 2: Implementar CorrelationIdProvider**
 
 ```kotlin
-package com.nexus.shopping.shared.observability
+package com.nexus.shopping.infra.correlation
 
 import java.util.UUID
 
@@ -202,7 +202,7 @@ cd /Users/fabiano/Developer/nexus-shopping && git add -A && git commit -m "feat:
 ### Tarefa 3: Escrever testes unitários do CorrelationIdFilter
 
 **Arquivos:**
-- Criar: `src/test/kotlin/com/nexus/shopping/shared/observability/CorrelationIdFilterTest.kt`
+- Criar: `src/test/kotlin/com/nexus/shopping/infra/http/CorrelationIdFilterTest.kt`
 - Usa: `CorrelationIdProvider` da Tarefa 2
 
 **Interfaces:**
@@ -221,8 +221,9 @@ cd /Users/fabiano/Developer/nexus-shopping && git add -A && git commit -m "feat:
 - [ ] **Passo 1: Escrever classe de teste**
 
 ```kotlin
-package com.nexus.shopping.shared.observability
+package com.nexus.shopping.infra.http
 
+import com.nexus.shopping.infra.correlation.CorrelationIdProvider
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.AfterEach
@@ -333,7 +334,7 @@ Esperado: Erro de compilação (CorrelationIdFilter não existe) — correto.
 ### Tarefa 4: Implementar CorrelationIdFilter
 
 **Arquivos:**
-- Criar: `src/main/kotlin/com/nexus/shopping/shared/observability/CorrelationIdFilter.kt`
+- Criar: `src/main/kotlin/com/nexus/shopping/infra/http/CorrelationIdFilter.kt`
 - Usa: `CorrelationIdProvider` da Tarefa 2
 
 **Interfaces:**
@@ -343,8 +344,9 @@ Esperado: Erro de compilação (CorrelationIdFilter não existe) — correto.
 - [ ] **Passo 1: Implementar o filter**
 
 ```kotlin
-package com.nexus.shopping.shared.observability
+package com.nexus.shopping.infra.http
 
+import com.nexus.shopping.infra.correlation.CorrelationIdProvider
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -570,7 +572,7 @@ cd /Users/fabiano/Developer/nexus-shopping && rtk docker compose down
 ### Tarefa 8: Adicionar logging de resumo de requisição (http.request.completed)
 
 **Arquivos:**
-- Modificar: `src/main/kotlin/com/nexus/shopping/shared/observability/CorrelationIdFilter.kt`
+- Modificar: `src/main/kotlin/com/nexus/shopping/infra/http/CorrelationIdFilter.kt`
 
 **Interfaces:**
 - Consome: `CorrelationIdFilter` existente da Tarefa 4
@@ -644,7 +646,7 @@ Esperado: BUILD SUCCESS.
 - [ ] **Passo 5: Fazer commit**
 
 ```bash
-cd /Users/fabiano/Developer/nexus-shopping && git add src/main/kotlin/com/nexus/shopping/shared/observability/CorrelationIdFilter.kt && git commit -m "feat: registrar http.request.completed resumo por requisição"
+cd /Users/fabiano/Developer/nexus-shopping && git add src/main/kotlin/com/nexus/shopping/infra/http/CorrelationIdFilter.kt && git commit -m "feat: registrar http.request.completed resumo por requisição"
 ```
 
 ---
@@ -706,7 +708,7 @@ Esperado: Header contém UUID de 36 caracteres (não a tentativa de injection).
 
 Verificação de código:
 ```bash
-grep -A 10 "finally {" /Users/fabiano/Developer/nexus-shopping/src/main/kotlin/com/nexus/shopping/shared/observability/CorrelationIdFilter.kt
+grep -A 10 "finally {" /Users/fabiano/Developer/nexus-shopping/src/main/kotlin/com/nexus/shopping/infra/http/CorrelationIdFilter.kt
 ```
 
 Esperado: Contém `MDC.remove("correlation.id")`.
