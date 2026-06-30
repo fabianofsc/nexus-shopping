@@ -1,6 +1,7 @@
 package com.nexus.shopping.product.adapter.outbound.jpa
 
 import com.nexus.shopping.product.application.command.CreateProductCommand
+import com.nexus.shopping.product.application.exception.ProductValidationException
 import com.nexus.shopping.product.domain.Currency
 import com.nexus.shopping.product.domain.Product
 import com.nexus.shopping.product.domain.ProductStatus
@@ -92,8 +93,16 @@ fun CreateProductCommand.toEntity(): ProductEntity =
         name = name,
         slug = slug,
         description = description,
-        status = ProductStatus.valueOf(status),
+        status = try {
+            ProductStatus.valueOf(status)
+        } catch (e: IllegalArgumentException) {
+            throw ProductValidationException("Invalid product status: $status")
+        },
         priceAmount = priceAmount,
-        currency = Currency.valueOf(currency),
+        currency = try {
+            Currency.valueOf(currency)
+        } catch (e: IllegalArgumentException) {
+            throw ProductValidationException("Invalid currency: $currency")
+        },
         inventoryQuantity = inventoryQuantity,
     )
