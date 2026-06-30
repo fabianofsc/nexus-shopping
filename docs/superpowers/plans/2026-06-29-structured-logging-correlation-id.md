@@ -663,7 +663,7 @@ cd /Users/fabiano/Developer/nexus-shopping && git add src/main/kotlin/com/nexus/
 
 Executar:
 ```bash
-cd /Users/fabiano/Developer/nexus-shopping && docker compose up -d postgres && rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew bootRun 2>&1 | grep -E '"@timestamp"' | head -1
+cd /Users/fabiano/Developer/nexus-shopping && docker compose up -d postgres && env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew bootRun 2>&1 | grep -E '"@timestamp"' | head -1
 ```
 
 Esperado: Saída contém `"@timestamp"` (campo ECS).
