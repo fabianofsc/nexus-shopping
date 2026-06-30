@@ -4,6 +4,7 @@ import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPor
 import com.nexus.shopping.product.domain.Currency
 import com.nexus.shopping.product.domain.Product
 import com.nexus.shopping.product.domain.ProductStatus
+import com.nexus.shopping.shared.requireValidEnum
 import org.springframework.stereotype.Service
 
 @Service
@@ -23,18 +24,11 @@ class ProductCreateUseCase(
         if (command.description != null && command.description.length > 2000) {
             throw ProductValidationException("description must be at most 2000 characters.")
         }
-        requireValidEnum<ProductStatus>(command.status, "status")
+        requireValidEnum<ProductStatus>(command.status, "status") { ProductValidationException(it) }
         if (command.priceAmount < java.math.BigDecimal.ZERO) throw ProductValidationException("priceAmount must be >= 0.")
-        requireValidEnum<Currency>(command.currency, "currency")
+        requireValidEnum<Currency>(command.currency, "currency") { ProductValidationException(it) }
         if (command.inventoryQuantity < 0) throw ProductValidationException("inventoryQuantity must be >= 0.")
 
         return productRepository.save(command)
-    }
-
-    private inline fun <reified T : Enum<T>> requireValidEnum(value: String, fieldName: String) {
-        val names = enumValues<T>().map { it.name }
-        if (value !in names) {
-            throw ProductValidationException("$fieldName must be one of: ${names.joinToString(", ")}.")
-        }
     }
 }
