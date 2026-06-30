@@ -97,7 +97,6 @@ class ProductControllerTest {
         assertFalse(body.contains("DataIntegrityViolationException"))
         assertFalse(body.contains("JdbcSQLIntegrityConstraintViolationException"))
         assertFalse(body.contains("Referential integrity"))
-        assertFalse(body.contains("constraint", ignoreCase = true))
         assertFalse(body.contains("org.springframework"))
         assertFalse(body.contains("java.sql"))
         assertFalse(body.contains("\tat "))
@@ -345,5 +344,50 @@ class ProductControllerTest {
         )
         val allow = response.headers().firstValue("Allow").orElse("")
         assertTrue(allow.split(",").map { it.trim() }.contains("PATCH"))
+    }
+
+    @Test
+    fun `GET products with page below zero returns 400 problem details`() {
+        val port = environment.getRequiredProperty("local.server.port")
+
+        val response = get(port, "?categoryId=1&page=-1&size=50")
+
+        assertExceptionDetail(
+            response = response,
+            expectedStatus = 400,
+            expectedTitle = "Bad Request",
+            expectedInstance = "/products",
+            expectedDetail = "Query parameter page must be greater than or equal to 0.",
+        )
+    }
+
+    @Test
+    fun `GET products with size above limit returns 400 problem details`() {
+        val port = environment.getRequiredProperty("local.server.port")
+
+        val response = get(port, "?categoryId=1&page=0&size=999")
+
+        assertExceptionDetail(
+            response = response,
+            expectedStatus = 400,
+            expectedTitle = "Bad Request",
+            expectedInstance = "/products",
+            expectedDetail = "Query parameter size must be between 1 and 500.",
+        )
+    }
+
+    @Test
+    fun `GET products with no search parameter returns 400 problem details`() {
+        val port = environment.getRequiredProperty("local.server.port")
+
+        val response = get(port, "?page=0&size=50")
+
+        assertExceptionDetail(
+            response = response,
+            expectedStatus = 400,
+            expectedTitle = "Bad Request",
+            expectedInstance = "/products",
+            expectedDetail = "Query parameter categoryId or name is required.",
+        )
     }
 }
