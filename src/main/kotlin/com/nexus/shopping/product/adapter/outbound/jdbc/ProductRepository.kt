@@ -9,6 +9,7 @@ import java.sql.ResultSet
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert
 import org.springframework.stereotype.Repository
+import org.springframework.transaction.annotation.Transactional
 
 @Repository
 class ProductRepository(
@@ -73,6 +74,7 @@ class ProductRepository(
         return jdbcTemplate.queryForObject("SELECT * FROM products WHERE id = ?", { rs, _ -> rs.toProduct() }, id)!!
     }
 
+    @Transactional
     override fun updatePrice(id: Long, priceAmount: BigDecimal): Product? {
         val updatedRows = jdbcTemplate.update(
             "UPDATE products SET price_amount = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
