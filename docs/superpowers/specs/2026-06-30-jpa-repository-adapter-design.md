@@ -1,6 +1,6 @@
 # Refactor do Adapter de Repository para JPA
 
-Status: aprovado para planejamento. Nao implementar ate confirmacao explicita do usuario.
+Status: concluido.
 
 ## Contexto
 

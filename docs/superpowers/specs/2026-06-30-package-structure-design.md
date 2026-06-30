@@ -1,6 +1,6 @@
 # Reorganizacao de pacotes para crescimento hexagonal
 
-**Status:** Pendente de implementacao
+**Status:** Concluido
 **Data:** 2026-06-30
 **Branch alvo:** worktree isolada -> `hexagonal-architecture`
 
