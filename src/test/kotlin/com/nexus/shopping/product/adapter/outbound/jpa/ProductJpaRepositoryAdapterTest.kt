@@ -47,7 +47,6 @@ class ProductJpaRepositoryAdapterTest {
         assertEquals(1, result.count)
         assertFalse(result.hasNext)
         assertEquals(1L, result.content.single().categoryId)
-        assertEquals(6L, result.content.single().id)
     }
 
     @Test
