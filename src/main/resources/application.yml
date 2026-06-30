@@ -17,6 +17,10 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  logback:
+    format: ecs
+    structured-logging:
+      enabled: true
 
 management:
   health:
@@ -33,3 +37,11 @@ management:
 logging:
   level:
     org.flywaydb: INFO
+  pattern:
+    level: "%5p"
+  charset:
+    console: UTF-8
+  logback:
+    rollingpolicy:
+      max-history: 10
+      max-size: 10MB
