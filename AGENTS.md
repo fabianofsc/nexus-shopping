@@ -8,7 +8,7 @@
 ## Project Snapshot
 
 - Backend REST API educacional: catalogo de produtos com evolucao incremental de performance e arquitetura.
-- Stack: Kotlin, Java 21, Gradle Wrapper, Spring Boot 4, Actuator, Flyway, PostgreSQL, JdbcTemplate (sem JPA/ORM).
+- Stack: Kotlin, Java 21, Gradle Wrapper, Spring Boot 4, Actuator, Flyway, PostgreSQL, Spring Data JPA.
 - Docker Hub: `fabianofsc/nexus-shopping` com tags `baseline`, `indexes`, `pagination`, `latest`.
 
 ## Architecture
@@ -32,13 +32,16 @@ product/
     inbound/http/
       ProductController.kt             # HTTP -> use case -> HTTP
       CreateProductRequest.kt          # DTO HTTP com toCommand()
-    outbound/jdbc/
-      ProductRepository.kt             # implementa ProductRepositoryPort via JdbcTemplate
+    outbound/jpa/
+      ProductEntity.kt                 # entidade JPA isolada no adapter
+      SpringDataProductRepository.kt   # Spring Data repository com @Query JPQL para leituras
+      ProductJpaRepositoryAdapter.kt   # implementa ProductRepositoryPort via JPA
 ```
 
 Decisoes chave:
-- JPA/ORM rejeitado para preservar pureza do dominio e valor didatico do JDBC.
-- `SimpleJdbcInsert` para INSERT, evitando verbosidade do KeyHolder.
+- JPA/ORM e aceito somente no adapter outbound; dominio e application continuam sem anotacoes ou imports de persistencia.
+- Consultas de leitura usam `@Query` JPQL para manter visivel o shape das queries e o valor didatico de performance.
+- Escritas usam o fluxo natural do JPA (`save`, entidade gerenciada e dirty checking).
 - Validacao vive no use case, reusavel por qualquer adaptador futuro (CLI, fila, batch).
 
 ## Local Command Rules

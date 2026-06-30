@@ -1,6 +1,6 @@
 # Nexus Shopping Backend
 
-Backend REST API educacional construido com Kotlin, Java 21, Spring Boot 4, Actuator, Flyway, PostgreSQL e JdbcTemplate.
+Backend REST API educacional construido com Kotlin, Java 21, Spring Boot 4, Actuator, Flyway, PostgreSQL e Spring Data JPA.
 
 O projeto evolui de forma incremental, cobrindo diferentes topicos de engenharia de software em aulas progressivas: performance de banco de dados, arquitetura hexagonal, tratamento de erros padronizado, logging estruturado, e outros. Cada topico e introduzido em uma branch separada e publicado como imagem Docker Hub para uso independente do codigo-fonte.
 
@@ -26,11 +26,12 @@ product/
     usecase/       -> ProductSearchUseCase, ProductCreateUseCase, excecoes tipadas
   adapter/
     inbound/http/  -> ProductController, DTOs de requisicao
-    outbound/jdbc/ -> ProductRepository (JdbcTemplate)
+    outbound/jpa/ -> ProductJpaRepositoryAdapter, ProductEntity, SpringDataProductRepository
 ```
 
 Restricoes de design:
-- Domain e use cases sem imports de Spring ou JDBC.
+- Domain e use cases sem imports de Spring, JDBC ou JPA.
+- JPA fica isolado no adapter outbound, que implementa `ProductRepositoryPort`, mapeia `ProductEntity` para `Product` e usa `@Query` JPQL nas consultas de leitura para manter explicito o shape das queries de performance.
 - `ProductValidationException` lancada pelos use cases; o controller captura apenas este tipo.
 - Validacao nos use cases para reuso por qualquer adaptador futuro (CLI, fila, batch).
 
