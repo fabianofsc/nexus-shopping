@@ -26,6 +26,10 @@
   - Cobrir comportamento do adapter com H2 e Flyway.
 - Modify: `src/test/kotlin/com/nexus/shopping/product/ProductControllerTest.kt`
   - Ampliar a verificacao de nao vazamento de detalhes internos para excecoes JPA/Hibernate.
+- Modify: `README.md`
+  - Atualizar a stack, a arvore arquitetural e a narrativa do repository para JPA/Spring Data.
+- Modify: `AGENTS.md`
+  - Atualizar as instrucoes de arquitetura e stack para o adapter JPA, mantendo o arquivo abaixo de 200 linhas.
 
 ## Task 1: Preparar suporte Kotlin JPA
 
@@ -57,12 +61,13 @@ rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local .
 
 Expected: comando termina com `BUILD SUCCESSFUL`.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Revisar diff local**
 
 ```bash
-rtk git add build.gradle.kts
-rtk git commit -m "build: enable kotlin jpa plugin"
+rtk git diff -- build.gradle.kts
 ```
+
+Expected: diff mostra apenas a inclusao de `kotlin("plugin.jpa")`.
 
 ## Task 2: Criar teste inicial do adapter JPA
 
@@ -191,12 +196,13 @@ rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local .
 
 Expected: FAIL porque `ProductJpaRepositoryAdapter` ainda nao existe.
 
-- [ ] **Step 3: Commit do teste falhando**
+- [ ] **Step 3: Revisar diff local**
 
 ```bash
-rtk git add src/test/kotlin/com/nexus/shopping/product/adapter/outbound/jpa/ProductJpaRepositoryAdapterTest.kt
-rtk git commit -m "test: describe jpa product repository adapter"
+rtk git diff -- src/test/kotlin/com/nexus/shopping/product/adapter/outbound/jpa/ProductJpaRepositoryAdapterTest.kt
 ```
+
+Expected: diff mostra apenas o novo teste do adapter JPA.
 
 ## Task 3: Criar entidade JPA e mapper para dominio
 
@@ -255,7 +261,7 @@ class ProductEntity(
     @Column(name = "price_amount", nullable = false, precision = 12, scale = 2)
     var priceAmount: BigDecimal = BigDecimal.ZERO,
 
-    @Column(name = "currency", nullable = false, length = 3)
+    @Column(name = "currency", nullable = false, columnDefinition = "CHAR(3)")
     var currency: String = "BRL",
 
     @Column(name = "inventory_quantity", nullable = false)
@@ -298,12 +304,13 @@ rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local .
 
 Expected: FAIL porque o repository Spring Data e o adapter JPA ainda nao existem.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Revisar diff local**
 
 ```bash
-rtk git add src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jpa/ProductEntity.kt
-rtk git commit -m "feat: map product jpa entity"
+rtk git diff -- src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jpa/ProductEntity.kt
 ```
+
+Expected: diff mostra apenas a nova entidade JPA, com `currency` mapeado como `CHAR(3)`.
 
 ## Task 4: Criar Spring Data repository com queries JPQL
 
@@ -318,6 +325,7 @@ Criar o arquivo:
 package com.nexus.shopping.product.adapter.outbound.jpa
 
 import org.springframework.data.domain.Pageable
+import org.springframework.data.domain.Slice
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
@@ -334,7 +342,7 @@ interface SpringDataProductRepository : JpaRepository<ProductEntity, Long> {
     fun findByCategoryId(
         @Param("categoryId") categoryId: Long,
         pageable: Pageable,
-    ): List<ProductEntity>
+    ): Slice<ProductEntity>
 
     @Query(
         """
@@ -350,7 +358,7 @@ interface SpringDataProductRepository : JpaRepository<ProductEntity, Long> {
         @Param("upperBound") upperBound: String,
         @Param("prefix") prefix: String,
         pageable: Pageable,
-    ): List<ProductEntity>
+    ): Slice<ProductEntity>
 }
 ```
 
@@ -364,12 +372,13 @@ rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local .
 
 Expected: FAIL porque `ProductJpaRepositoryAdapter` ainda nao existe.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Revisar diff local**
 
 ```bash
-rtk git add src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jpa/SpringDataProductRepository.kt
-rtk git commit -m "feat: add product spring data queries"
+rtk git diff -- src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jpa/SpringDataProductRepository.kt
 ```
+
+Expected: diff mostra o repository Spring Data com duas queries JPQL retornando `Slice<ProductEntity>`.
 
 ## Task 5: Implementar adapter JPA e remover adapter JDBC
 
@@ -386,10 +395,10 @@ package com.nexus.shopping.product.adapter.outbound.jpa
 
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.application.usecase.CreateProductCommand
-import com.nexus.shopping.product.domain.Product
 import com.nexus.shopping.product.domain.ProductPage
 import java.math.BigDecimal
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Slice
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
 
@@ -402,10 +411,10 @@ class ProductJpaRepositoryAdapter(
     override fun findByCategoryId(categoryId: Long, page: Int, size: Int): ProductPage {
         val products = repository.findByCategoryId(
             categoryId = categoryId,
-            pageable = PageRequest.of(page, size + 1),
-        ).map { it.toDomain() }
+            pageable = PageRequest.of(page, size),
+        )
 
-        return products.toPage(page, size)
+        return products.toProductPage(page, size)
     }
 
     @Transactional(readOnly = true)
@@ -414,10 +423,10 @@ class ProductJpaRepositoryAdapter(
             name = name,
             upperBound = nextLexicographicValue(name),
             prefix = "$name%",
-            pageable = PageRequest.of(page, size + 1),
-        ).map { it.toDomain() }
+            pageable = PageRequest.of(page, size),
+        )
 
-        return products.toPage(page, size)
+        return products.toProductPage(page, size)
     }
 
     @Transactional
@@ -449,16 +458,15 @@ class ProductJpaRepositoryAdapter(
         return repository.saveAndFlush(product).toDomain()
     }
 
-    private fun List<Product>.toPage(page: Int, size: Int): ProductPage {
-        val hasNext = this.size > size
-        val content = if (hasNext) take(size) else this
+    private fun Slice<ProductEntity>.toProductPage(page: Int, size: Int): ProductPage {
+        val productContent = content.map { it.toDomain() }
 
         return ProductPage(
-            content = content,
+            content = productContent,
             page = page,
             size = size,
-            count = content.size,
-            hasNext = hasNext,
+            count = productContent.size,
+            hasNext = hasNext(),
         )
     }
 
@@ -503,13 +511,14 @@ rtk rg "JdbcTemplate|SimpleJdbcInsert|adapter.outbound.jdbc" src/main/kotlin src
 
 Expected: nenhum resultado em `src/main/kotlin`. Resultados em documentacao nao importam para esta tarefa.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Revisar diff local**
 
 ```bash
-rtk git add src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jpa/ProductJpaRepositoryAdapter.kt src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jpa/ProductEntity.kt src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jpa/SpringDataProductRepository.kt src/test/kotlin/com/nexus/shopping/product/adapter/outbound/jpa/ProductJpaRepositoryAdapterTest.kt
-rtk git rm src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jdbc/ProductRepository.kt
-rtk git commit -m "feat: replace product jdbc adapter with jpa"
+rtk git status --short
+rtk git diff -- src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jpa src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jdbc src/test/kotlin/com/nexus/shopping/product/adapter/outbound/jpa
 ```
+
+Expected: diff mostra o novo adapter JPA, o novo repository Spring Data, a nova entidade, o novo teste e a remocao do adapter JDBC. Nao executar commit sem autorizacao explicita do usuario.
 
 ## Task 6: Preservar contrato HTTP de erro sem vazamento
 
@@ -545,14 +554,117 @@ rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local .
 
 Expected: PASS.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Revisar diff local**
 
 ```bash
-rtk git add src/test/kotlin/com/nexus/shopping/product/ProductControllerTest.kt
-rtk git commit -m "test: guard jpa persistence error details"
+rtk git diff -- src/test/kotlin/com/nexus/shopping/product/ProductControllerTest.kt
 ```
 
-## Task 7: Verificacoes de arquitetura e build completo
+Expected: diff mostra apenas a ampliacao do helper de vazamento de detalhes internos.
+
+## Task 7: Atualizar documentacao do projeto
+
+**Files:**
+- Modify: `README.md`
+- Modify: `AGENTS.md`
+
+- [ ] **Step 1: Localizar referencias antigas a JDBC/JPA rejeitado**
+
+Run:
+
+```bash
+rtk rg -n "JdbcTemplate|SimpleJdbcInsert|JPA/ORM rejeitado|sem JPA/ORM|adapter/outbound/jdbc|outbound/jdbc" README.md AGENTS.md
+```
+
+Expected: resultados apontam os trechos que ainda descrevem o adapter JDBC como implementacao atual.
+
+- [ ] **Step 2: Atualizar README.md**
+
+Atualizar os trechos relevantes para refletir o novo estado:
+
+```markdown
+# Nexus Shopping
+
+Backend REST API educacional construido com Kotlin, Java 21, Spring Boot 4, Actuator, Flyway, PostgreSQL e Spring Data JPA.
+```
+
+Atualizar a arvore de arquitetura para:
+
+```text
+product/
+  domain/ -> Product, ProductPage
+  application/ -> use cases e ProductRepositoryPort
+  adapter/
+    inbound/http/ -> ProductController e DTOs HTTP
+    outbound/jpa/ -> ProductJpaRepositoryAdapter, ProductEntity, SpringDataProductRepository
+```
+
+Atualizar a explicacao do repository para preservar a intencao didatica:
+
+```markdown
+O dominio permanece livre de anotacoes de framework. A persistencia JPA fica isolada no adapter outbound, que implementa `ProductRepositoryPort`, mapeia `ProductEntity` para `Product` e usa `@Query` JPQL nas consultas de leitura para manter explicito o shape das queries de performance.
+```
+
+- [ ] **Step 3: Atualizar AGENTS.md**
+
+Atualizar o snapshot da stack para citar Spring Data JPA:
+
+```markdown
+- Stack: Kotlin, Java 21, Gradle Wrapper, Spring Boot 4, Actuator, Flyway, PostgreSQL, Spring Data JPA.
+```
+
+Atualizar a arvore do adapter outbound:
+
+```text
+  adapter/
+    inbound/http/
+      ProductController.kt             # HTTP -> use case -> HTTP
+      CreateProductRequest.kt          # DTO HTTP com toCommand()
+    outbound/jpa/
+      ProductEntity.kt                 # entidade JPA isolada no adapter
+      SpringDataProductRepository.kt   # Spring Data repository com @Query JPQL para leituras
+      ProductJpaRepositoryAdapter.kt   # implementa ProductRepositoryPort via JPA
+```
+
+Substituir a decisao antiga de rejeicao de JPA por:
+
+```markdown
+- JPA/ORM e aceito somente no adapter outbound; dominio e application continuam sem anotacoes ou imports de persistencia.
+- Consultas de leitura usam `@Query` JPQL para manter visivel o shape das queries e o valor didatico de performance.
+- Escritas usam o fluxo natural do JPA (`save`, entidade gerenciada e dirty checking).
+```
+
+- [ ] **Step 4: Validar que nao sobraram contradicoes na documentacao**
+
+Run:
+
+```bash
+rtk rg -n "JdbcTemplate|SimpleJdbcInsert|JPA/ORM rejeitado|sem JPA/ORM|adapter/outbound/jdbc|outbound/jdbc" README.md AGENTS.md
+```
+
+Expected: nenhum resultado, exceto se houver mencao historica claramente marcada como passado. Preferir nenhum resultado.
+
+- [ ] **Step 5: Validar tamanho do AGENTS.md**
+
+Run:
+
+```bash
+rtk wc -l AGENTS.md
+```
+
+Expected: menos de 200 linhas.
+
+- [ ] **Step 6: Revisar diff local**
+
+Run:
+
+```bash
+rtk git diff -- README.md AGENTS.md
+```
+
+Expected: diff restrito a atualizar a documentacao para o adapter JPA, sem mudar comandos locais, regras de branch ou secoes nao relacionadas.
+
+## Task 8: Verificacoes de arquitetura e build completo
 
 **Files:**
 - Nenhum arquivo de codigo e modificado nesta tarefa.
@@ -593,23 +705,22 @@ Run:
 
 ```bash
 rtk git diff --stat HEAD
-rtk git diff HEAD -- build.gradle.kts src/main/kotlin src/test/kotlin
+rtk git diff HEAD -- build.gradle.kts src/main/kotlin src/test/kotlin README.md AGENTS.md
 ```
 
-Expected: diff restrito ao plugin JPA, remocao do adapter JDBC, novo adapter JPA e ajuste de teste HTTP.
+Expected: diff restrito ao plugin JPA, remocao do adapter JDBC, novo adapter JPA, ajuste de teste HTTP e documentacao do adapter JPA.
 
-- [ ] **Step 5: Commit se houver ajustes finais**
+- [ ] **Step 5: Preparar handoff sem commit**
 
-Se os passos anteriores exigirem ajustes pequenos, commitar somente esses ajustes:
+Se os passos anteriores exigirem ajustes pequenos, revisar o status final e aguardar autorizacao explicita antes de qualquer commit:
 
 ```bash
-rtk git add build.gradle.kts src/main/kotlin src/test/kotlin
-rtk git commit -m "chore: finalize jpa repository adapter refactor"
+rtk git status --short
 ```
 
 ## Self-Review
 
-- Spec coverage: as tarefas cobrem dominio puro, entidade separada, queries JPQL, escrita JPA natural, paginacao `size + 1`, testes do adapter, contrato HTTP e verificacao arquitetural.
+- Spec coverage: as tarefas cobrem dominio puro, entidade separada, queries JPQL, escrita JPA natural, paginacao com `Slice` sem `COUNT(*)`, testes do adapter, contrato HTTP, documentacao do projeto e verificacao arquitetural.
 - Placeholder scan: o plano nao contem marcadores abertos.
 - Type consistency: nomes planejados sao `ProductEntity`, `SpringDataProductRepository`, `ProductJpaRepositoryAdapter` e preservam `ProductRepositoryPort`.
 - Scope check: o plano e focado em um unico adapter outbound e nao inclui entidades de marca/categoria, Bean Validation, mudancas HTTP ou benchmark.

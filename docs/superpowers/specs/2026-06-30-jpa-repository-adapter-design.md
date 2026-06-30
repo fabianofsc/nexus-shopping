@@ -15,7 +15,7 @@ A mudanca proposta substitui esse adapter por uma implementacao com JPA e Spring
 - As consultas de leitura usam `@Query` com JPQL explicito para manter o foco didatico no shape das queries.
 - Operacoes de escrita seguem o padrao natural do JPA: `save`, entidade gerenciada e dirty checking.
 - `brand_id` e `category_id` serao mapeados como campos escalares (`Long`) em `ProductEntity`, sem criar `BrandEntity` ou `CategoryEntity`.
-- A paginacao mantem a estrategia atual de buscar `size + 1` registros para calcular `hasNext`, evitando `COUNT(*)`.
+- A paginacao preserva a semantica atual de `page * size` e `hasNext`, evitando `COUNT(*)`. No JPA, isso sera feito com `Slice` e `PageRequest.of(page, size)`, deixando o Spring Data buscar a linha extra necessaria para detectar proxima pagina.
 - O comportamento publico dos endpoints deve permanecer igual.
 
 ## Arquitetura Proposta
@@ -36,7 +36,7 @@ src/main/kotlin/com/nexus/shopping/product/
 
 `SpringDataProductRepository` estende `JpaRepository<ProductEntity, Long>` e contem os metodos de leitura anotados com `@Query`. Ele e um detalhe interno do adapter.
 
-`ProductJpaRepositoryAdapter` implementa `ProductRepositoryPort`, calcula parametros auxiliares como `upperBound` para busca por prefixo, monta `PageRequest`, chama o repository Spring Data e converte `ProductEntity` para `Product`.
+`ProductJpaRepositoryAdapter` implementa `ProductRepositoryPort`, calcula parametros auxiliares como `upperBound` para busca por prefixo, monta `PageRequest`, chama o repository Spring Data e converte `Slice<ProductEntity>` para `ProductPage`.
 
 ## Consultas
 
@@ -50,7 +50,7 @@ As leituras usam JPQL explicito:
     ORDER BY p.id
     """,
 )
-fun findByCategoryId(categoryId: Long, pageable: Pageable): List<ProductEntity>
+fun findByCategoryId(categoryId: Long, pageable: Pageable): Slice<ProductEntity>
 ```
 
 ```kotlin
@@ -68,7 +68,7 @@ fun findByNamePrefix(
     upperBound: String,
     prefix: String,
     pageable: Pageable,
-): List<ProductEntity>
+): Slice<ProductEntity>
 ```
 
 A busca por nome preserva a tecnica atual de prefix range bounds, permitindo que o indice B-tree em `name` continue relevante para o exemplo de performance.
@@ -93,13 +93,19 @@ Os testes unitarios existentes dos use cases devem continuar inalterados porque 
 
 Sera criado um teste de adapter JPA com H2 e Flyway cobrindo:
 
-- busca por categoria com paginacao `size + 1`;
+- busca por categoria com `Slice`, preservando offset `page * size` e `hasNext`;
 - busca por nome com prefix range bounds;
 - criacao de produto com retorno de id e defaults;
 - atualizacao de preco existente;
 - retorno `null` para atualizacao de id inexistente.
 
 O `ProductControllerTest` continua sendo o contrato HTTP de integracao. Ele deve passar sem mudancas de expectativa. O helper que verifica vazamento de detalhes internos pode ser ampliado para cobrir nomes de excecoes JPA/Hibernate.
+
+## Documentacao
+
+`README.md` e `AGENTS.md` devem ser atualizados para refletir o novo adapter JPA. As referencias a `JdbcTemplate` como stack atual, ao pacote `adapter/outbound/jdbc` e a decisao antiga de rejeitar JPA/ORM devem ser substituidas por uma explicacao coerente com a nova direcao: dominio puro, port preservado, entidade JPA isolada no adapter e consultas de leitura didaticas com `@Query` JPQL.
+
+Como `AGENTS.md` tem limite operacional no projeto, a atualizacao deve manter o arquivo com menos de 200 linhas.
 
 ## Criterios de Aceite
 
@@ -110,6 +116,8 @@ O `ProductControllerTest` continua sendo o contrato HTTP de integracao. Ele deve
 - O adapter novo nao usa `JdbcTemplate`.
 - Controllers e use cases preservam comportamento publico.
 - Migrations continuam portaveis entre PostgreSQL e H2.
+- `README.md` e `AGENTS.md` descrevem o adapter JPA atual sem referencias contraditorias ao adapter JDBC.
+- `AGENTS.md` permanece abaixo de 200 linhas.
 
 ## Fora de Escopo
 
