@@ -1,5 +1,6 @@
 package com.nexus.shopping.product.adapter.outbound.jpa
 
+import com.nexus.shopping.product.application.usecase.CreateProductCommand
 import com.nexus.shopping.product.domain.Product
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -76,3 +77,17 @@ class ProductEntity(
             updatedAt = requireNotNull(updatedAt) { "ProductEntity.updatedAt must be available before mapping to domain." },
         )
 }
+
+fun CreateProductCommand.toEntity(): ProductEntity =
+    ProductEntity(
+        brandId = brandId,
+        categoryId = categoryId,
+        sku = sku,
+        name = name,
+        slug = slug,
+        description = description,
+        status = status,
+        priceAmount = priceAmount,
+        currency = currency,
+        inventoryQuantity = inventoryQuantity,
+    )

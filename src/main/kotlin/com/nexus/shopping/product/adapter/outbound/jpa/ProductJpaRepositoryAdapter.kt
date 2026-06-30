@@ -38,24 +38,8 @@ class ProductJpaRepositoryAdapter(
     }
 
     @Transactional
-    override fun save(command: CreateProductCommand): Product {
-        val saved = repository.saveAndFlush(
-            ProductEntity(
-                brandId = command.brandId,
-                categoryId = command.categoryId,
-                sku = command.sku,
-                name = command.name,
-                slug = command.slug,
-                description = command.description,
-                status = command.status,
-                priceAmount = command.priceAmount,
-                currency = command.currency,
-                inventoryQuantity = command.inventoryQuantity,
-            ),
-        )
-
-        return saved.toDomain()
-    }
+    override fun save(command: CreateProductCommand): Product =
+        repository.saveAndFlush(command.toEntity()).toDomain()
 
     @Transactional
     override fun updatePrice(id: Long, priceAmount: BigDecimal): Product? {
