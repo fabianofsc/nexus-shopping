@@ -10,6 +10,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.transaction.annotation.Transactional
 
 @SpringBootTest(
     properties = [
@@ -21,6 +22,7 @@ import org.springframework.boot.test.context.SpringBootTest
         "spring.jpa.hibernate.ddl-auto=none",
     ],
 )
+@Transactional
 class ProductJpaRepositoryAdapterTest {
 
     @Autowired
