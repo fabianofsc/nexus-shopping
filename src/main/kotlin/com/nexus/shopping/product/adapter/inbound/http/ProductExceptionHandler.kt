@@ -1,6 +1,6 @@
 package com.nexus.shopping.product.adapter.inbound.http
 
-import com.nexus.shopping.product.application.usecase.ProductNotFoundException
+import com.nexus.shopping.product.domain.ProductNotFoundException
 import com.nexus.shopping.product.application.usecase.ProductValidationException
 import jakarta.servlet.http.HttpServletRequest
 import java.net.URI
