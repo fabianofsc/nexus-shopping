@@ -1,4 +1,4 @@
-package com.nexus.shopping.shared.observability
+package com.nexus.shopping.infra.http
 
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals

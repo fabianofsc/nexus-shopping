@@ -1,4 +1,4 @@
-package com.nexus.shopping.shared.observability
+package com.nexus.shopping.infra.http
 
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
