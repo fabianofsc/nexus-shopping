@@ -23,15 +23,18 @@ class ProductCreateUseCase(
         if (command.description != null && command.description.length > 2000) {
             throw ProductValidationException("description must be at most 2000 characters.")
         }
-        if (command.status !in ProductStatus.entries.map { it.name }) {
-            throw ProductValidationException("status must be one of: ${ProductStatus.entries.joinToString(", ")}.")
-        }
+        requireValidEnum<ProductStatus>(command.status, "status")
         if (command.priceAmount < java.math.BigDecimal.ZERO) throw ProductValidationException("priceAmount must be >= 0.")
-        if (command.currency !in Currency.entries.map { it.name }) {
-            throw ProductValidationException("currency must be one of: ${Currency.entries.joinToString(", ")}.")
-        }
+        requireValidEnum<Currency>(command.currency, "currency")
         if (command.inventoryQuantity < 0) throw ProductValidationException("inventoryQuantity must be >= 0.")
 
         return productRepository.save(command)
+    }
+
+    private inline fun <reified T : Enum<T>> requireValidEnum(value: String, fieldName: String) {
+        val names = enumValues<T>().map { it.name }
+        if (value !in names) {
+            throw ProductValidationException("$fieldName must be one of: ${names.joinToString(", ")}.")
+        }
     }
 }
