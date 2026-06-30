@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Todos os comandos shell prefixados com `rtk`
-- Gradle Wrapper com GRADLE_USER_HOME local: `rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build`
+- Gradle Wrapper com GRADLE_USER_HOME local: `env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build`
 - Manter compatibilidade H2 nos testes (sem RETURNING * em UPDATE)
 - Sem novos arquivos alem dos indicados
 - Commits em ingles, agrupados por contexto
@@ -43,7 +43,7 @@ class ProductNotFoundException(message: String) : RuntimeException(message)
 - [ ] **Step 2: Deletar arquivo antigo**
 
 ```bash
-rtk rm src/main/kotlin/com/nexus/shopping/product/application/usecase/ProductNotFoundException.kt
+rm src/main/kotlin/com/nexus/shopping/product/application/usecase/ProductNotFoundException.kt
 ```
 
 - [ ] **Step 3: Adicionar import em UpdateProductPriceUseCase.kt**
@@ -89,7 +89,7 @@ import com.nexus.shopping.product.domain.ProductNotFoundException
 - [ ] **Step 5: Verificar build**
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
 Esperado: BUILD SUCCESSFUL. Se houver erro "Unresolved reference: ProductNotFoundException", algum import ficou faltando.
@@ -139,7 +139,7 @@ override fun updatePrice(id: Long, priceAmount: BigDecimal): Product? {
 - [ ] **Step 3: Rodar build**
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
 Esperado: BUILD SUCCESSFUL. Os testes PATCH existentes devem continuar passando.
@@ -315,7 +315,7 @@ class ProductExceptionHandler {
 - [ ] **Step 2: Rodar build**
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
 Esperado: BUILD SUCCESSFUL. Todos os testes de controller existentes devem passar incluindo malformed JSON (400), method not allowed (405), unsupported media type (415) e missing FK (500).
@@ -421,7 +421,7 @@ fun `GET products with no search parameter returns 400 problem details`() {
 - [ ] **Step 3: Rodar build completo**
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
 Esperado: BUILD SUCCESSFUL com 16 testes passando (eram 13 antes desta task).

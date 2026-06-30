@@ -18,7 +18,7 @@
 - Use the Gradle wrapper and local Gradle cache:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
 - Keep the first phase opt-in: `ktlintCheck` and `ktlintFormat` must exist, but `build` and `check` must not run ktlint yet.
@@ -72,8 +72,8 @@ ij_kotlin_allow_trailing_comma_on_call_site = true
 Run:
 
 ```bash
-rtk git status --short .editorconfig
-rtk file .editorconfig
+git status --short .editorconfig
+file .editorconfig
 ```
 
 Expected:
@@ -88,8 +88,8 @@ Expected:
 Run:
 
 ```bash
-rtk git add .editorconfig
-rtk git commit -m "build: add editorconfig for kotlin linting"
+git add .editorconfig
+git commit -m "build: add editorconfig for kotlin linting"
 ```
 
 Expected: commit succeeds with only `.editorconfig`.
@@ -140,7 +140,7 @@ This deliberately leaves `ktlintCheck` available while removing direct ktlint ta
 Run:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew tasks --group verification
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew tasks --group verification
 ```
 
 Expected:
@@ -156,7 +156,7 @@ The exact task list may contain other verification tasks, but `ktlintCheck` must
 Run:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build --dry-run
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build --dry-run
 ```
 
 Expected:
@@ -169,7 +169,7 @@ Expected:
 Run:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew ktlintCheck
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew ktlintCheck
 ```
 
 Expected:
@@ -183,8 +183,8 @@ Expected:
 Run:
 
 ```bash
-rtk git add build.gradle.kts
-rtk git commit -m "build: add ktlint gradle plugin"
+git add build.gradle.kts
+git commit -m "build: add ktlint gradle plugin"
 ```
 
 Expected: commit succeeds with only `build.gradle.kts`.
@@ -210,13 +210,13 @@ Kotlin linting is configured with ktlint through Gradle. In the first adoption p
 Check Kotlin and Gradle Kotlin DSL style:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew ktlintCheck
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew ktlintCheck
 ```
 
 Autoformat Kotlin and Gradle Kotlin DSL files locally:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew ktlintFormat
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew ktlintFormat
 ```
 
 Run `ktlintFormat` only when the resulting diff is reviewed as a mechanical formatting change.
@@ -227,7 +227,7 @@ Run `ktlintFormat` only when the resulting diff is reviewed as a mechanical form
 Run:
 
 ```bash
-rtk rg -n "^```" README.md
+rg -n "^```" README.md
 ```
 
 Expected: the number of matching lines is even.
@@ -237,8 +237,8 @@ Expected: the number of matching lines is even.
 Run:
 
 ```bash
-rtk git add README.md
-rtk git commit -m "docs: document ktlint commands"
+git add README.md
+git commit -m "docs: document ktlint commands"
 ```
 
 Expected: commit succeeds with only `README.md`.
@@ -260,7 +260,7 @@ Expected: commit succeeds with only `README.md`.
 Run:
 
 ```bash
-rtk git diff --check
+git diff --check
 ```
 
 Expected:
@@ -272,7 +272,7 @@ No output and exit code 0.
 Run:
 
 ```bash
-rtk git status --short
+git status --short
 ```
 
 Expected:
@@ -284,7 +284,7 @@ No output. If there are changes, inspect them and either commit the intended cha
 Run:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
 Expected:
@@ -300,7 +300,7 @@ The build output must not show ktlint tasks executing in phase 1.
 Run:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew ktlintCheck
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew ktlintCheck
 ```
 
 Expected:

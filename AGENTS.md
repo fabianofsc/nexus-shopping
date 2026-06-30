@@ -39,14 +39,13 @@ Decisoes fixas:
 
 ## Local Command Rules
 
-- Sempre prefixar comandos shell com `rtk`.
 - Usar o Gradle wrapper, nao Gradle do sistema:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
-- Docker Compose via `rtk`: `rtk docker compose up -d postgres` / `rtk docker compose down -v`
+- Docker Compose: `docker compose up -d postgres` / `docker compose down -v`
 - Busca de arquivos/texto com `rg` / `rg --files`.
 - Nao commitar outputs de build nem relatorios HTML do JMeter em `build/`.
 
@@ -90,7 +89,7 @@ SELECT * FROM products WHERE name >= ? AND name < ? AND name LIKE ? ORDER BY nam
 ## Tests
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
 - Tests usam H2 e seeds Flyway reduzidos.

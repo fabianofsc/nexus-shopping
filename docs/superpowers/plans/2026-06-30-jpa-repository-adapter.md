@@ -56,7 +56,7 @@ plugins {
 Run:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew help
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew help
 ```
 
 Expected: comando termina com `BUILD SUCCESSFUL`.
@@ -64,7 +64,7 @@ Expected: comando termina com `BUILD SUCCESSFUL`.
 - [ ] **Step 3: Revisar diff local**
 
 ```bash
-rtk git diff -- build.gradle.kts
+git diff -- build.gradle.kts
 ```
 
 Expected: diff mostra apenas a inclusao de `kotlin("plugin.jpa")`.
@@ -191,7 +191,7 @@ class ProductJpaRepositoryAdapterTest {
 Run:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests 'com.nexus.shopping.product.adapter.outbound.jpa.ProductJpaRepositoryAdapterTest'
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests 'com.nexus.shopping.product.adapter.outbound.jpa.ProductJpaRepositoryAdapterTest'
 ```
 
 Expected: FAIL porque `ProductJpaRepositoryAdapter` ainda nao existe.
@@ -199,7 +199,7 @@ Expected: FAIL porque `ProductJpaRepositoryAdapter` ainda nao existe.
 - [ ] **Step 3: Revisar diff local**
 
 ```bash
-rtk git diff -- src/test/kotlin/com/nexus/shopping/product/adapter/outbound/jpa/ProductJpaRepositoryAdapterTest.kt
+git diff -- src/test/kotlin/com/nexus/shopping/product/adapter/outbound/jpa/ProductJpaRepositoryAdapterTest.kt
 ```
 
 Expected: diff mostra apenas o novo teste do adapter JPA.
@@ -299,7 +299,7 @@ class ProductEntity(
 Run:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests 'com.nexus.shopping.product.adapter.outbound.jpa.ProductJpaRepositoryAdapterTest'
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests 'com.nexus.shopping.product.adapter.outbound.jpa.ProductJpaRepositoryAdapterTest'
 ```
 
 Expected: FAIL porque o repository Spring Data e o adapter JPA ainda nao existem.
@@ -307,7 +307,7 @@ Expected: FAIL porque o repository Spring Data e o adapter JPA ainda nao existem
 - [ ] **Step 3: Revisar diff local**
 
 ```bash
-rtk git diff -- src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jpa/ProductEntity.kt
+git diff -- src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jpa/ProductEntity.kt
 ```
 
 Expected: diff mostra apenas a nova entidade JPA, com `currency` mapeado como `CHAR(3)`.
@@ -367,7 +367,7 @@ interface SpringDataProductRepository : JpaRepository<ProductEntity, Long> {
 Run:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests 'com.nexus.shopping.product.adapter.outbound.jpa.ProductJpaRepositoryAdapterTest'
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests 'com.nexus.shopping.product.adapter.outbound.jpa.ProductJpaRepositoryAdapterTest'
 ```
 
 Expected: FAIL porque `ProductJpaRepositoryAdapter` ainda nao existe.
@@ -375,7 +375,7 @@ Expected: FAIL porque `ProductJpaRepositoryAdapter` ainda nao existe.
 - [ ] **Step 3: Revisar diff local**
 
 ```bash
-rtk git diff -- src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jpa/SpringDataProductRepository.kt
+git diff -- src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jpa/SpringDataProductRepository.kt
 ```
 
 Expected: diff mostra o repository Spring Data com duas queries JPQL retornando `Slice<ProductEntity>`.
@@ -496,7 +496,7 @@ src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jdbc/ProductReposito
 Run:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests 'com.nexus.shopping.product.adapter.outbound.jpa.ProductJpaRepositoryAdapterTest'
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests 'com.nexus.shopping.product.adapter.outbound.jpa.ProductJpaRepositoryAdapterTest'
 ```
 
 Expected: PASS para `ProductJpaRepositoryAdapterTest`.
@@ -506,7 +506,7 @@ Expected: PASS para `ProductJpaRepositoryAdapterTest`.
 Run:
 
 ```bash
-rtk rg "JdbcTemplate|SimpleJdbcInsert|adapter.outbound.jdbc" src/main/kotlin src/test/kotlin
+rg "JdbcTemplate|SimpleJdbcInsert|adapter.outbound.jdbc" src/main/kotlin src/test/kotlin
 ```
 
 Expected: nenhum resultado em `src/main/kotlin`. Resultados em documentacao nao importam para esta tarefa.
@@ -514,8 +514,8 @@ Expected: nenhum resultado em `src/main/kotlin`. Resultados em documentacao nao 
 - [ ] **Step 5: Revisar diff local**
 
 ```bash
-rtk git status --short
-rtk git diff -- src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jpa src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jdbc src/test/kotlin/com/nexus/shopping/product/adapter/outbound/jpa
+git status --short
+git diff -- src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jpa src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jdbc src/test/kotlin/com/nexus/shopping/product/adapter/outbound/jpa
 ```
 
 Expected: diff mostra o novo adapter JPA, o novo repository Spring Data, a nova entidade, o novo teste e a remocao do adapter JDBC. Nao executar commit sem autorizacao explicita do usuario.
@@ -549,7 +549,7 @@ private fun assertNoInternalDetailsLeaked(body: String) {
 Run:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests 'com.nexus.shopping.ProductControllerTest'
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests 'com.nexus.shopping.ProductControllerTest'
 ```
 
 Expected: PASS.
@@ -557,7 +557,7 @@ Expected: PASS.
 - [ ] **Step 3: Revisar diff local**
 
 ```bash
-rtk git diff -- src/test/kotlin/com/nexus/shopping/product/ProductControllerTest.kt
+git diff -- src/test/kotlin/com/nexus/shopping/product/ProductControllerTest.kt
 ```
 
 Expected: diff mostra apenas a ampliacao do helper de vazamento de detalhes internos.
@@ -573,7 +573,7 @@ Expected: diff mostra apenas a ampliacao do helper de vazamento de detalhes inte
 Run:
 
 ```bash
-rtk rg -n "JdbcTemplate|SimpleJdbcInsert|JPA/ORM rejeitado|sem JPA/ORM|adapter/outbound/jdbc|outbound/jdbc" README.md AGENTS.md
+rg -n "JdbcTemplate|SimpleJdbcInsert|JPA/ORM rejeitado|sem JPA/ORM|adapter/outbound/jdbc|outbound/jdbc" README.md AGENTS.md
 ```
 
 Expected: resultados apontam os trechos que ainda descrevem o adapter JDBC como implementacao atual.
@@ -639,7 +639,7 @@ Substituir a decisao antiga de rejeicao de JPA por:
 Run:
 
 ```bash
-rtk rg -n "JdbcTemplate|SimpleJdbcInsert|JPA/ORM rejeitado|sem JPA/ORM|adapter/outbound/jdbc|outbound/jdbc" README.md AGENTS.md
+rg -n "JdbcTemplate|SimpleJdbcInsert|JPA/ORM rejeitado|sem JPA/ORM|adapter/outbound/jdbc|outbound/jdbc" README.md AGENTS.md
 ```
 
 Expected: nenhum resultado, exceto se houver mencao historica claramente marcada como passado. Preferir nenhum resultado.
@@ -649,7 +649,7 @@ Expected: nenhum resultado, exceto se houver mencao historica claramente marcada
 Run:
 
 ```bash
-rtk wc -l AGENTS.md
+wc -l AGENTS.md
 ```
 
 Expected: menos de 200 linhas.
@@ -659,7 +659,7 @@ Expected: menos de 200 linhas.
 Run:
 
 ```bash
-rtk git diff -- README.md AGENTS.md
+git diff -- README.md AGENTS.md
 ```
 
 Expected: diff restrito a atualizar a documentacao para o adapter JPA, sem mudar comandos locais, regras de branch ou secoes nao relacionadas.
@@ -674,7 +674,7 @@ Expected: diff restrito a atualizar a documentacao para o adapter JPA, sem mudar
 Run:
 
 ```bash
-rtk rg "jakarta.persistence|org.hibernate|org.springframework.data" src/main/kotlin/com/nexus/shopping/product/domain src/main/kotlin/com/nexus/shopping/product/application
+rg "jakarta.persistence|org.hibernate|org.springframework.data" src/main/kotlin/com/nexus/shopping/product/domain src/main/kotlin/com/nexus/shopping/product/application
 ```
 
 Expected: nenhum resultado.
@@ -684,7 +684,7 @@ Expected: nenhum resultado.
 Run:
 
 ```bash
-rtk rg "@Query|SELECT p FROM ProductEntity" src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jpa
+rg "@Query|SELECT p FROM ProductEntity" src/main/kotlin/com/nexus/shopping/product/adapter/outbound/jpa
 ```
 
 Expected: resultado em `SpringDataProductRepository.kt` mostrando as duas queries de leitura.
@@ -694,7 +694,7 @@ Expected: resultado em `SpringDataProductRepository.kt` mostrando as duas querie
 Run:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
 Expected: `BUILD SUCCESSFUL`.
@@ -704,8 +704,8 @@ Expected: `BUILD SUCCESSFUL`.
 Run:
 
 ```bash
-rtk git diff --stat HEAD
-rtk git diff HEAD -- build.gradle.kts src/main/kotlin src/test/kotlin README.md AGENTS.md
+git diff --stat HEAD
+git diff HEAD -- build.gradle.kts src/main/kotlin src/test/kotlin README.md AGENTS.md
 ```
 
 Expected: diff restrito ao plugin JPA, remocao do adapter JDBC, novo adapter JPA, ajuste de teste HTTP e documentacao do adapter JPA.
@@ -715,7 +715,7 @@ Expected: diff restrito ao plugin JPA, remocao do adapter JDBC, novo adapter JPA
 Se os passos anteriores exigirem ajustes pequenos, revisar o status final e aguardar autorizacao explicita antes de qualquer commit:
 
 ```bash
-rtk git status --short
+git status --short
 ```
 
 ## Self-Review

@@ -13,7 +13,7 @@
 ## Restrições Globais
 
 - Branch: `hexagonal-architecture`
-- Build: `rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build`
+- Build: `env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build`
 - Saída de logging: ECS/JSON para stdout/console por padrão em todos os ambientes
 - Validação de Correlation-ID: letras, dígitos, `.`, `_`, `-`, `:`, máximo 128 caracteres
 - Evento de resumo de requisição: exatamente um log `http.request.completed` por requisição, sem duplicatas
@@ -121,7 +121,7 @@ class CorrelationIdProviderTest {
 - [ ] **Passo 3: Verificar validação sintática do teste**
 
 ```bash
-cd /Users/fabiano/Developer/nexus-shopping && rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew testClasses 2>&1 | head -20
+cd /Users/fabiano/Developer/nexus-shopping && env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew testClasses 2>&1 | head -20
 ```
 
 Esperado: Erro de compilação (classe CorrelationIdProvider não existe ainda) — isto é correto.
@@ -186,7 +186,7 @@ class CorrelationIdProvider {
 - [ ] **Passo 3: Executar testes para verificar implementação**
 
 ```bash
-cd /Users/fabiano/Developer/nexus-shopping && rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests "CorrelationIdProviderTest" -v
+cd /Users/fabiano/Developer/nexus-shopping && env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests "CorrelationIdProviderTest" -v
 ```
 
 Esperado: Todos os 6 testes PASSAM.
@@ -324,7 +324,7 @@ class TestController {
 - [ ] **Passo 2: Verificar compilação**
 
 ```bash
-cd /Users/fabiano/Developer/nexus-shopping && rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew testClasses 2>&1 | grep -E "(error|ERROR)" | head -5
+cd /Users/fabiano/Developer/nexus-shopping && env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew testClasses 2>&1 | grep -E "(error|ERROR)" | head -5
 ```
 
 Esperado: Erro de compilação (CorrelationIdFilter não existe) — correto.
@@ -395,7 +395,7 @@ implementation("net.logstash.logback:logstash-logback-encoder:7.4")
 - [ ] **Passo 3: Executar testes**
 
 ```bash
-cd /Users/fabiano/Developer/nexus-shopping && rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests "CorrelationIdFilterTest" -v
+cd /Users/fabiano/Developer/nexus-shopping && env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests "CorrelationIdFilterTest" -v
 ```
 
 Esperado: 5 testes PASSAM.
@@ -457,7 +457,7 @@ spring:
 - [ ] **Passo 2: Verificar sintaxe YAML**
 
 ```bash
-cd /Users/fabiano/Developer/nexus-shopping && rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests "CorrelationIdFilterTest" 2>&1 | grep -i "yaml\|config error" | head -5
+cd /Users/fabiano/Developer/nexus-shopping && env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests "CorrelationIdFilterTest" 2>&1 | grep -i "yaml\|config error" | head -5
 ```
 
 Esperado: Sem erros de sintaxe YAML.
@@ -481,7 +481,7 @@ cd /Users/fabiano/Developer/nexus-shopping && git add src/main/resources/applica
 - [ ] **Passo 1: Executar build completo**
 
 ```bash
-cd /Users/fabiano/Developer/nexus-shopping && rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew clean build -x test
+cd /Users/fabiano/Developer/nexus-shopping && env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew clean build -x test
 ```
 
 Esperado: BUILD SUCCESS.
@@ -489,7 +489,7 @@ Esperado: BUILD SUCCESS.
 - [ ] **Passo 2: Executar suite de testes completa**
 
 ```bash
-cd /Users/fabiano/Developer/nexus-shopping && rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test -v
+cd /Users/fabiano/Developer/nexus-shopping && env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test -v
 ```
 
 Esperado: Todos os testes PASSAM (incluindo CorrelationIdProviderTest, CorrelationIdFilterTest, testes existentes).
@@ -497,7 +497,7 @@ Esperado: Todos os testes PASSAM (incluindo CorrelationIdProviderTest, Correlati
 - [ ] **Passo 3: Verificar sem falhas de teste**
 
 ```bash
-cd /Users/fabiano/Developer/nexus-shopping && rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test 2>&1 | tail -20
+cd /Users/fabiano/Developer/nexus-shopping && env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test 2>&1 | tail -20
 ```
 
 Esperado: "BUILD SUCCESS" com "X tests passed".
@@ -527,7 +527,7 @@ git add build.gradle.kts && git commit -m "chore: adicionar dependência de stru
 - [ ] **Passo 1: Iniciar PostgreSQL**
 
 ```bash
-cd /Users/fabiano/Developer/nexus-shopping && rtk docker compose up -d postgres
+cd /Users/fabiano/Developer/nexus-shopping && docker compose up -d postgres
 ```
 
 Esperado: Serviço postgres está rodando.
@@ -535,7 +535,7 @@ Esperado: Serviço postgres está rodando.
 - [ ] **Passo 2: Executar aplicação**
 
 ```bash
-cd /Users/fabiano/Developer/nexus-shopping && rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew bootRun 2>&1 | head -50
+cd /Users/fabiano/Developer/nexus-shopping && env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew bootRun 2>&1 | head -50
 ```
 
 Esperado: Aplicação inicia, logs estão em formato ECS/JSON (campos como `@timestamp`, `log.level`, `service.name`, `message`).
@@ -564,7 +564,7 @@ Procurar por:
 - [ ] **Passo 6: Parar PostgreSQL**
 
 ```bash
-cd /Users/fabiano/Developer/nexus-shopping && rtk docker compose down
+cd /Users/fabiano/Developer/nexus-shopping && docker compose down
 ```
 
 ---
@@ -630,7 +630,7 @@ companion object {
 - [ ] **Passo 3: Executar testes para verificar sem regressão**
 
 ```bash
-cd /Users/fabiano/Developer/nexus-shopping && rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests "CorrelationIdFilterTest" -v
+cd /Users/fabiano/Developer/nexus-shopping && env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests "CorrelationIdFilterTest" -v
 ```
 
 Esperado: Todos os 5 testes PASSAM.
@@ -638,7 +638,7 @@ Esperado: Todos os 5 testes PASSAM.
 - [ ] **Passo 4: Executar suite de testes completa**
 
 ```bash
-cd /Users/fabiano/Developer/nexus-shopping && rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test
+cd /Users/fabiano/Developer/nexus-shopping && env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test
 ```
 
 Esperado: BUILD SUCCESS.
@@ -663,7 +663,7 @@ cd /Users/fabiano/Developer/nexus-shopping && git add src/main/kotlin/com/nexus/
 
 Executar:
 ```bash
-cd /Users/fabiano/Developer/nexus-shopping && rtk docker compose up -d postgres && rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew bootRun 2>&1 | grep -E '"@timestamp"' | head -1
+cd /Users/fabiano/Developer/nexus-shopping && docker compose up -d postgres && rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew bootRun 2>&1 | grep -E '"@timestamp"' | head -1
 ```
 
 Esperado: Saída contém `"@timestamp"` (campo ECS).
@@ -735,7 +735,7 @@ Esperado: Arquivo existe e é legível.
 - [ ] **Critério 9: Build passa**
 
 ```bash
-cd /Users/fabiano/Developer/nexus-shopping && rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew clean build
+cd /Users/fabiano/Developer/nexus-shopping && env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew clean build
 ```
 
 Esperado: BUILD SUCCESS.
@@ -744,7 +744,7 @@ Esperado: BUILD SUCCESS.
 
 ```bash
 # Parar bootRun (Ctrl+C naquele terminal), então:
-cd /Users/fabiano/Developer/nexus-shopping && rtk docker compose down
+cd /Users/fabiano/Developer/nexus-shopping && docker compose down
 ```
 
 ---

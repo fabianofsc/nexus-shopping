@@ -230,7 +230,7 @@ Casos recomendados:
 O comando principal de verificacao continua sendo:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
 ---

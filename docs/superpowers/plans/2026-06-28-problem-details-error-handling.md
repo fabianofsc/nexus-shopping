@@ -18,7 +18,7 @@
 - Use the Gradle wrapper command:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
 - Keep validation in application use cases.
@@ -391,7 +391,7 @@ class ProductControllerTest {
 Run:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests com.nexus.shopping.ProductControllerTest
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests com.nexus.shopping.ProductControllerTest
 ```
 
 Expected: FAIL. The new Problem Details body and content-type assertions fail because the global advice does not exist yet and the controller still maps application errors through `ResponseStatusException`.
@@ -519,7 +519,7 @@ class ProductExceptionHandler {
 Run:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests com.nexus.shopping.ProductControllerTest
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests com.nexus.shopping.ProductControllerTest
 ```
 
 Expected: FAIL. The tests for application exceptions still fail because `ProductController` catches `ProductValidationException` and `ProductNotFoundException` and rethrows `ResponseStatusException`. The malformed JSON, DELETE 405, unsupported media type 415, and missing foreign key 500 tests should now pass.
@@ -592,7 +592,7 @@ class ProductController(
 Run:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests com.nexus.shopping.ProductControllerTest
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests com.nexus.shopping.ProductControllerTest
 ```
 
 Expected: PASS for `ProductControllerTest`.
@@ -602,8 +602,8 @@ Expected: PASS for `ProductControllerTest`.
 Run:
 
 ```bash
-rtk git add src/main/kotlin/com/nexus/shopping/product/adapter/inbound/http/ProductExceptionHandler.kt src/main/kotlin/com/nexus/shopping/product/adapter/inbound/http/ProductController.kt src/test/kotlin/com/nexus/shopping/product/ProductControllerTest.kt
-rtk git commit -m "feat: standardize product error responses"
+git add src/main/kotlin/com/nexus/shopping/product/adapter/inbound/http/ProductExceptionHandler.kt src/main/kotlin/com/nexus/shopping/product/adapter/inbound/http/ProductController.kt src/test/kotlin/com/nexus/shopping/product/ProductControllerTest.kt
+git commit -m "feat: standardize product error responses"
 ```
 
 Expected: commit succeeds.
@@ -622,7 +622,7 @@ Expected: commit succeeds.
 Run:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
 Expected: BUILD SUCCESSFUL.
@@ -632,7 +632,7 @@ Expected: BUILD SUCCESSFUL.
 Run:
 
 ```bash
-rtk git status --short
+git status --short
 ```
 
 Expected: clean output.
@@ -643,7 +643,7 @@ Include:
 
 ```text
 Verified with:
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
 Also include the commit hash from Task 3.

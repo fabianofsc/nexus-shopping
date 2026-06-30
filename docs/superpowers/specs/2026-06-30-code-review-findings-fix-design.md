@@ -222,7 +222,7 @@ use case e podem evoluir sem quebrar o contrato HTTP.
 ## Validacao
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
 Nenhuma nova migration. Nenhuma mudanca de contrato HTTP externo. Todos os testes

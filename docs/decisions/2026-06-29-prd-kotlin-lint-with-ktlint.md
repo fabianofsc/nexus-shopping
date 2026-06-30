@@ -13,7 +13,7 @@ O projeto usa Kotlin 2.2.21, Java 21, Gradle Wrapper 9.6.0, Spring Boot 4.1.0 e 
 Ainda nao ha uma biblioteca de lint ou formatacao Kotlin configurada no projeto. A verificacao principal continua sendo:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
 A discussao teve estes criterios:
@@ -69,14 +69,14 @@ A primeira implementacao deve:
 - usar versao explicita do plugin;
 - adicionar uma `.editorconfig` minima no root;
 - disponibilizar as tarefas padrao de check e format;
-- documentar comandos com `rtk`;
+- documentar comandos disponibilizados;
 - manter o lint fora do `build` e do `check` nesta fase inicial.
 
 Comandos esperados:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew ktlintCheck
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew ktlintFormat
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew ktlintCheck
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew ktlintFormat
 ```
 
 O `ktlintFormat` existe para uso local e revisao mecanica. O `ktlintCheck` valida estilo sem alterar arquivos.

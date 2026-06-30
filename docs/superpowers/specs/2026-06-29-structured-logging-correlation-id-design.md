@@ -199,7 +199,7 @@ Nao e necessario testar todo o JSON gerado pelo Spring Boot campo a campo. A pri
 Comando principal:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
 ---

@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - All shell commands must be prefixed with `rtk`
-- Use Gradle wrapper: `rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build`
+- Use Gradle wrapper: `env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build`
 - No JPA/ORM — JDBC only
 - Unit test style: `kotlin.test` (`assertFailsWith`, `assertEquals`), hand-rolled fakes — no Mockito
 - Controller test style: `@SpringBootTest(webEnvironment = RANDOM_PORT)` + raw `java.net.http.HttpClient` (same as `ProductControllerTest`)
@@ -320,7 +320,7 @@ class ProductCreateUseCaseTest {
 - [x] **Step 6: Run build — expect BUILD SUCCESSFUL**
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
 Expected: `BUILD SUCCESSFUL` — all existing tests pass. Build will flag `ProductRepository` for not implementing `updatePrice` yet; that is expected and will be fixed in Task 3.
@@ -435,7 +435,7 @@ class UpdateProductPriceUseCaseTest {
 - [x] **Step 2: Run tests — expect compile failure (class does not exist yet)**
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test 2>&1 | grep -E "error:|FAILED|UpdateProductPriceUseCase"
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test 2>&1 | grep -E "error:|FAILED|UpdateProductPriceUseCase"
 ```
 
 Expected: compile error — `Unresolved reference: UpdateProductPriceUseCase`
@@ -468,7 +468,7 @@ class UpdateProductPriceUseCase(
 - [x] **Step 4: Run tests — expect 4 passing**
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test 2>&1 | grep -E "tests|PASSED|FAILED|UpdateProductPrice"
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test 2>&1 | grep -E "tests|PASSED|FAILED|UpdateProductPrice"
 ```
 
 Expected: `UpdateProductPriceUseCaseTest > 4 tests` all PASSED. Build may still fail on `ProductRepository` — that is expected and will be fixed in Task 3.
@@ -517,7 +517,7 @@ Also add `import java.math.BigDecimal` to the file imports.
 - [x] **Step 2: Run build — expect BUILD SUCCESSFUL**
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
 Expected: `BUILD SUCCESSFUL` — all tests pass, including the 4 new use case tests.
@@ -802,7 +802,7 @@ class ProductControllerTest {
 - [x] **Step 4: Run build — expect BUILD SUCCESSFUL**
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
 Expected: `BUILD SUCCESSFUL` — all tests pass, including the 3 new controller tests.

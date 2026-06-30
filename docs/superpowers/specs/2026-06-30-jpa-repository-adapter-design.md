@@ -109,7 +109,7 @@ Como `AGENTS.md` tem limite operacional no projeto, a atualizacao deve manter o 
 
 ## Criterios de Aceite
 
-- `rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build` passa.
+- `env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build` passa.
 - Nenhum import de JPA, Hibernate ou Spring Data entra em `domain` ou `application`.
 - Leituras do adapter usam `@Query` JPQL.
 - Escritas usam padrao JPA natural.
