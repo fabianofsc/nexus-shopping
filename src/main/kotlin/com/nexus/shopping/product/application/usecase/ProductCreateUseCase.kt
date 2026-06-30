@@ -1,10 +1,10 @@
 package com.nexus.shopping.product.application.usecase
 
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
+import com.nexus.shopping.product.domain.Currency
 import com.nexus.shopping.product.domain.Product
+import com.nexus.shopping.product.domain.ProductStatus
 import org.springframework.stereotype.Service
-
-private val VALID_STATUSES = setOf("ACTIVE", "INACTIVE", "ARCHIVED")
 
 @Service
 class ProductCreateUseCase(
@@ -23,12 +23,12 @@ class ProductCreateUseCase(
         if (command.description != null && command.description.length > 2000) {
             throw ProductValidationException("description must be at most 2000 characters.")
         }
-        if (command.status !in VALID_STATUSES) {
-            throw ProductValidationException("status must be one of: ${VALID_STATUSES.joinToString(", ")}.")
+        if (command.status !in ProductStatus.entries.map { it.name }) {
+            throw ProductValidationException("status must be one of: ${ProductStatus.entries.joinToString(", ")}.")
         }
         if (command.priceAmount < java.math.BigDecimal.ZERO) throw ProductValidationException("priceAmount must be >= 0.")
-        if (command.currency.isBlank() || command.currency.length != 3) {
-            throw ProductValidationException("currency must be exactly 3 characters.")
+        if (command.currency !in Currency.entries.map { it.name }) {
+            throw ProductValidationException("currency must be one of: ${Currency.entries.joinToString(", ")}.")
         }
         if (command.inventoryQuantity < 0) throw ProductValidationException("inventoryQuantity must be >= 0.")
 

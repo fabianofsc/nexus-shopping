@@ -1,8 +1,10 @@
 package com.nexus.shopping.product.application.usecase
 
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
+import com.nexus.shopping.product.domain.Currency
 import com.nexus.shopping.product.domain.Product
 import com.nexus.shopping.product.domain.ProductPage
+import com.nexus.shopping.product.domain.ProductStatus
 import java.math.BigDecimal
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -20,8 +22,8 @@ class ProductCreateUseCaseTest {
         override fun save(command: CreateProductCommand): Product = Product(
             id = 1L, brandId = command.brandId, categoryId = command.categoryId,
             sku = "SKU-TEST", name = command.name, slug = command.slug,
-            description = command.description, status = command.status,
-            priceAmount = command.priceAmount, currency = command.currency,
+            description = command.description, status = ProductStatus.valueOf(command.status),
+            priceAmount = command.priceAmount, currency = Currency.valueOf(command.currency),
             inventoryQuantity = command.inventoryQuantity,
             createdAt = java.time.LocalDateTime.now(), updatedAt = java.time.LocalDateTime.now(),
         )
@@ -103,7 +105,7 @@ class ProductCreateUseCaseTest {
     }
 
     @Test
-    fun `create with currency length not 3 throws`() {
+    fun `create with unsupported currency throws`() {
         assertFailsWith<ProductValidationException> {
             useCase.create(validCommand().copy(currency = "US"))
         }

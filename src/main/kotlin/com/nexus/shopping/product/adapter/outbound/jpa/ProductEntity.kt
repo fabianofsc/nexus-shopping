@@ -1,9 +1,13 @@
 package com.nexus.shopping.product.adapter.outbound.jpa
 
 import com.nexus.shopping.product.application.usecase.CreateProductCommand
+import com.nexus.shopping.product.domain.Currency
 import com.nexus.shopping.product.domain.Product
+import com.nexus.shopping.product.domain.ProductStatus
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
@@ -40,14 +44,16 @@ class ProductEntity(
     @Column(name = "description", length = 2000)
     var description: String? = null,
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 24)
-    var status: String = "ACTIVE",
+    var status: ProductStatus = ProductStatus.ACTIVE,
 
     @Column(name = "price_amount", nullable = false, precision = 12, scale = 2)
     var priceAmount: BigDecimal = BigDecimal.ZERO,
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "currency", nullable = false, columnDefinition = "CHAR(3)")
-    var currency: String = "BRL",
+    var currency: Currency = Currency.BRL,
 
     @Column(name = "inventory_quantity", nullable = false)
     var inventoryQuantity: Int = 0,
@@ -86,8 +92,8 @@ fun CreateProductCommand.toEntity(): ProductEntity =
         name = name,
         slug = slug,
         description = description,
-        status = status,
+        status = ProductStatus.valueOf(status),
         priceAmount = priceAmount,
-        currency = currency,
+        currency = Currency.valueOf(currency),
         inventoryQuantity = inventoryQuantity,
     )
