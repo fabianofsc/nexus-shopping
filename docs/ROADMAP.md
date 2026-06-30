@@ -7,4 +7,5 @@
 - [x] Kotlin Lint com ktlint — [spec](superpowers/specs/2026-06-29-kotlin-lint-with-ktlint-design.md) | [plano](superpowers/plans/2026-06-29-kotlin-lint-with-ktlint.md)
 - [x] Structured Logging e Correlation-ID — [spec](superpowers/specs/2026-06-29-structured-logging-correlation-id-design.md) | [plano](superpowers/plans/2026-06-29-structured-logging-correlation-id.md)
 - [x] Correcao dos Findings do Code Review — [spec](superpowers/specs/2026-06-30-code-review-findings-fix-design.md) | [plano](superpowers/plans/2026-06-30-code-review-findings-fix.md)
+- [ ] Reorganizacao de pacotes para crescimento hexagonal — [spec](superpowers/specs/2026-06-30-package-structure-design.md) | [plano](superpowers/plans/2026-06-30-package-structure.md)
 - [ ] Adapter JPA (Spring Data) — [spec](superpowers/specs/2026-06-30-jpa-repository-adapter-design.md) | [plano](superpowers/plans/2026-06-30-jpa-repository-adapter.md)
