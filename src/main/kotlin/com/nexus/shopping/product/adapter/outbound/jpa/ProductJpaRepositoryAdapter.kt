@@ -27,9 +27,11 @@ class ProductJpaRepositoryAdapter(
 
     @Transactional(readOnly = true)
     override fun findByName(name: String, page: Int, size: Int): ProductPage {
+        val upperBound = nextLexicographicValue(name)
+        if (upperBound == name) return ProductPage(emptyList(), page, size, 0, false)
         val products = repository.findByNamePrefix(
             name = name,
-            upperBound = nextLexicographicValue(name),
+            upperBound = upperBound,
             prefix = "$name%",
             pageable = PageRequest.of(page, size),
         )

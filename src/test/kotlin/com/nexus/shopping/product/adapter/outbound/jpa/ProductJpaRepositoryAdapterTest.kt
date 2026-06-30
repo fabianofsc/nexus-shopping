@@ -103,4 +103,16 @@ class ProductJpaRepositoryAdapterTest {
 
         assertNull(updated)
     }
+
+    @Test
+    fun `findByName returns empty ProductPage when name contains only Char MAX_VALUE`() {
+        val maxCharString = "￿"
+        val result = repository.findByName(name = maxCharString, page = 0, size = 50)
+
+        assertEquals(0, result.page)
+        assertEquals(50, result.size)
+        assertEquals(0, result.count)
+        assertFalse(result.hasNext)
+        assertTrue(result.content.isEmpty())
+    }
 }
