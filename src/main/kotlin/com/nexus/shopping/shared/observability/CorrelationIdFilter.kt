@@ -9,9 +9,10 @@ import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
 
 @Component
-class CorrelationIdFilter(private val provider: CorrelationIdProvider) : OncePerRequestFilter() {
+class CorrelationIdFilter : OncePerRequestFilter() {
 
     private val logger = LoggerFactory.getLogger(CorrelationIdFilter::class.java)
+    private val provider = CorrelationIdProvider()
 
     override fun doFilterInternal(
         request: HttpServletRequest,
@@ -29,14 +30,19 @@ class CorrelationIdFilter(private val provider: CorrelationIdProvider) : OncePer
         } finally {
             val duration = System.currentTimeMillis() - startTime
             val statusCode = response.status
-            val message = "http.request.completed method=${request.method} path=${request.requestURI} status=$statusCode duration=${duration}ms"
-
+            MDC.put("http.request.method", request.method)
+            MDC.put("url.path", request.requestURI)
+            MDC.put("http.response.status_code", statusCode.toString())
+            MDC.put("event.duration", duration.toString())
             if (statusCode >= 500) {
-                logger.error(message)
+                logger.error("http.request.completed")
             } else {
-                logger.info(message)
+                logger.info("http.request.completed")
             }
-
+            MDC.remove("http.request.method")
+            MDC.remove("url.path")
+            MDC.remove("http.response.status_code")
+            MDC.remove("event.duration")
             MDC.remove("correlation.id")
         }
     }
