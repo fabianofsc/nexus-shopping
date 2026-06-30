@@ -13,36 +13,29 @@
 
 ## Architecture
 
-O projeto segue arquitetura hexagonal (Ports and Adapters). Direcao de dependencia: adapters -> application -> domain.
+Arquitetura hexagonal (Ports and Adapters). Direcao de dependencia: `adapter -> application -> domain`.
 
 ```
-product/
-  domain/                              # tipos de negocio puros, sem imports de framework
-    Product.kt
-    ProductPage.kt
+<domain>/
+  domain/           # tipos puros; zero imports de framework
   application/
-    port/outbound/
-      ProductRepositoryPort.kt         # outbound port (interface)
-    usecase/
-      ProductSearchUseCase.kt          # orquestracao + validacao
-      ProductCreateUseCase.kt          # orquestracao + validacao
-      CreateProductCommand.kt          # input do use case
-      ProductValidationException.kt    # excecao tipada; controller captura apenas este tipo
+    port/outbound/  # interfaces outbound ({Domain}RepositoryPort)
+    usecase/        # orquestracao, validacao, commands, excecoes tipadas
   adapter/
-    inbound/http/
-      ProductController.kt             # HTTP -> use case -> HTTP
-      CreateProductRequest.kt          # DTO HTTP com toCommand()
-    outbound/jpa/
-      ProductEntity.kt                 # entidade JPA isolada no adapter
-      SpringDataProductRepository.kt   # Spring Data repository com @Query JPQL para leituras
-      ProductJpaRepositoryAdapter.kt   # implementa ProductRepositoryPort via JPA
+    inbound/http/   # controllers + DTOs; DTO tem toCommand()
+    outbound/jpa/   # {Domain}Entity, Spring Data repository, {Domain}JpaRepositoryAdapter
 ```
 
-Decisoes chave:
-- JPA/ORM e aceito somente no adapter outbound; dominio e application continuam sem anotacoes ou imports de persistencia.
-- Consultas de leitura usam `@Query` JPQL para manter visivel o shape das queries e o valor didatico de performance.
-- Escritas usam o fluxo natural do JPA (`save`, entidade gerenciada e dirty checking).
-- Validacao vive no use case, reusavel por qualquer adaptador futuro (CLI, fila, batch).
+Convencoes de conversao (invariante em todos os dominios):
+- DTO HTTP -> command: `toCommand()` no DTO
+- Command -> entity JPA: `toEntity()` extension em `{Domain}Entity.kt`
+- Entity JPA -> domain: `toDomain()` em `{Domain}Entity`
+
+Decisoes fixas:
+- `domain/` e `application/` sem imports de `jakarta.persistence`, `org.hibernate` ou `org.springframework.data`.
+- Validacao vive no use case; adapter nao valida.
+- Leituras JPA com `@Query` JPQL explicito; sem derived queries.
+- Paginacao via `Slice` sem `COUNT(*)`.
 
 ## Local Command Rules
 
