@@ -1,0 +1,20 @@
+package com.nexus.shopping.product.adapter.inbound.http.dto
+
+import java.math.BigDecimal
+import java.time.LocalDateTime
+
+data class ProductResponse(
+    val id: Long,
+    val brandId: Long,
+    val categoryId: Long,
+    val sku: String,
+    val name: String,
+    val slug: String,
+    val description: String?,
+    val status: String,
+    val priceAmount: BigDecimal,
+    val currency: String,
+    val inventoryQuantity: Int,
+    val createdAt: LocalDateTime,
+    val updatedAt: LocalDateTime,
+)

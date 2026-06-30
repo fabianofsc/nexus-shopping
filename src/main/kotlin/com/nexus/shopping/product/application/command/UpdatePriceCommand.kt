@@ -1,4 +1,4 @@
-package com.nexus.shopping.product.application.usecase
+package com.nexus.shopping.product.application.command
 
 import java.math.BigDecimal
 

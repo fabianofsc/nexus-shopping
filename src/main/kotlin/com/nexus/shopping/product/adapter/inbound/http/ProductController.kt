@@ -1,10 +1,14 @@
 package com.nexus.shopping.product.adapter.inbound.http
 
+import com.nexus.shopping.product.adapter.inbound.http.dto.CreateProductRequest
+import com.nexus.shopping.product.adapter.inbound.http.dto.ProductPageResponse
+import com.nexus.shopping.product.adapter.inbound.http.dto.ProductResponse
+import com.nexus.shopping.product.adapter.inbound.http.dto.UpdatePriceRequest
+import com.nexus.shopping.product.adapter.inbound.http.mapper.toCommand
+import com.nexus.shopping.product.adapter.inbound.http.mapper.toResponse
 import com.nexus.shopping.product.application.usecase.ProductCreateUseCase
 import com.nexus.shopping.product.application.usecase.ProductSearchUseCase
 import com.nexus.shopping.product.application.usecase.UpdateProductPriceUseCase
-import com.nexus.shopping.product.domain.Product
-import com.nexus.shopping.product.domain.ProductPage
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -30,18 +34,18 @@ class ProductController(
         @RequestParam(required = false) name: String?,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "50") size: Int,
-    ): ProductPage =
-        productSearchUseCase.search(categoryId, name, page, size)
+    ): ProductPageResponse =
+        productSearchUseCase.search(categoryId, name, page, size).toResponse()
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    fun create(@RequestBody request: CreateProductRequest): Product =
-        productCreateUseCase.create(request.toCommand())
+    fun create(@RequestBody request: CreateProductRequest): ProductResponse =
+        productCreateUseCase.create(request.toCommand()).toResponse()
 
     @PatchMapping("/{id}")
     fun updatePrice(
         @PathVariable id: Long,
         @RequestBody request: UpdatePriceRequest,
-    ): Product =
-        updateProductPriceUseCase.execute(request.toCommand(id))
+    ): ProductResponse =
+        updateProductPriceUseCase.execute(request.toCommand(id)).toResponse()
 }

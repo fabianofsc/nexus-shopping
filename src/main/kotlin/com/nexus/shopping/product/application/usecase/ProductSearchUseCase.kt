@@ -1,5 +1,6 @@
 package com.nexus.shopping.product.application.usecase
 
+import com.nexus.shopping.product.application.exception.ProductValidationException
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.domain.ProductPage
 import org.springframework.stereotype.Service

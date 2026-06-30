@@ -1,6 +1,6 @@
 package com.nexus.shopping.product.application.port.outbound
 
-import com.nexus.shopping.product.application.usecase.CreateProductCommand
+import com.nexus.shopping.product.application.command.CreateProductCommand
 import com.nexus.shopping.product.domain.Product
 import com.nexus.shopping.product.domain.ProductPage
 import java.math.BigDecimal

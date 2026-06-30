@@ -1,7 +1,7 @@
-package com.nexus.shopping.product.adapter.inbound.http
+package com.nexus.shopping.platform.adapter.inbound.http
 
-import com.nexus.shopping.product.domain.ProductNotFoundException
-import com.nexus.shopping.product.application.usecase.ProductValidationException
+import com.nexus.shopping.platform.application.exception.NotFoundException
+import com.nexus.shopping.platform.application.exception.ValidationException
 import jakarta.servlet.http.HttpServletRequest
 import java.net.URI
 import org.slf4j.LoggerFactory
@@ -18,11 +18,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 
 @RestControllerAdvice
-class ProductExceptionHandler {
+class ApiExceptionHandler {
 
-    @ExceptionHandler(ProductValidationException::class)
+    @ExceptionHandler(ValidationException::class)
     fun handleValidation(
-        exception: ProductValidationException,
+        exception: ValidationException,
         request: HttpServletRequest,
     ): ResponseEntity<ProblemDetail> =
         problemDetailResponse(
@@ -31,9 +31,9 @@ class ProductExceptionHandler {
             request = request,
         )
 
-    @ExceptionHandler(ProductNotFoundException::class)
+    @ExceptionHandler(NotFoundException::class)
     fun handleNotFound(
-        exception: ProductNotFoundException,
+        exception: NotFoundException,
         request: HttpServletRequest,
     ): ResponseEntity<ProblemDetail> =
         problemDetailResponse(
@@ -132,6 +132,6 @@ class ProductExceptionHandler {
     }
 
     private companion object {
-        private val logger = LoggerFactory.getLogger(ProductExceptionHandler::class.java)
+        private val logger = LoggerFactory.getLogger(ApiExceptionHandler::class.java)
     }
 }

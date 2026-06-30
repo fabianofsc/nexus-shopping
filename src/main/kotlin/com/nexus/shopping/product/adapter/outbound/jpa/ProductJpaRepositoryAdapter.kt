@@ -1,7 +1,7 @@
 package com.nexus.shopping.product.adapter.outbound.jpa
 
+import com.nexus.shopping.product.application.command.CreateProductCommand
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
-import com.nexus.shopping.product.application.usecase.CreateProductCommand
 import com.nexus.shopping.product.domain.Product
 import com.nexus.shopping.product.domain.ProductPage
 import java.math.BigDecimal
