@@ -2,6 +2,8 @@
 
 > **Para agentes de trabalho:** HABILIDADE OBRIGATÓRIA: Use superpowers:subagent-driven-development (recomendado) ou superpowers:executing-plans para implementar este plano tarefa por tarefa. Passos usam sintaxe de checkbox (`- [ ]`) para rastreamento.
 
+**Status:** Implementado e mergeado em main (2026-06-29)
+
 **Objetivo:** Emitir logs estruturados ECS/JSON com rastreamento de correlation-ID por requisição, preparando a API para rastreamento distribuído futuro mantendo o domínio puro.
 
 **Arquitetura:** Um `CorrelationIdProvider` sem estado valida e gera IDs de correlação; um servlet `CorrelationIdFilter` resolve o header, coloca em MDC, devolve na resposta e registra um resumo da requisição. Spring Boot nativo trata a saída ECS/JSON. Nenhuma dependência de framework vaza para domínio ou use cases.

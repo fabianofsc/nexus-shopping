@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Status:** Implementado e mergeado em main (2026-06-29)
+
 **Goal:** Add ktlint as the first Kotlin lint/format library, with explicit check and format tasks and no phase-1 dependency from `build` or `check`.
 
 **Architecture:** This is a build-quality change only. It adds Gradle plugin configuration, a root `.editorconfig`, and README commands while keeping application code, tests, migrations, and runtime behavior untouched.

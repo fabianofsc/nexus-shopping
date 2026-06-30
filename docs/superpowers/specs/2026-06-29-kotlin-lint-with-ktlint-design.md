@@ -1,7 +1,7 @@
 # Kotlin Lint With ktlint — Design Spec
 
 **Date:** 2026-06-29
-**Status:** approved
+**Status:** Implementado e mergeado em main (2026-06-29)
 **Decision:** `docs/decisions/2026-06-29-prd-kotlin-lint-with-ktlint.md`
 **Implementation plan:** `docs/superpowers/plans/2026-06-29-kotlin-lint-with-ktlint.md`
 

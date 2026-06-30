@@ -1,6 +1,6 @@
 # Structured logging e correlation-id
 
-**Status:** Aprovado para planejamento
+**Status:** Implementado e mergeado em main (2026-06-29)
 **Data:** 2026-06-29
 **Branch alvo:** `hexagonal-architecture`
 **Decision record relacionado:** `docs/decisions/2026-06-29-prd-structured-logging-correlation-id.md`
