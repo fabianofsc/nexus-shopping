@@ -3,6 +3,7 @@ package com.nexus.shopping.infra.http
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import com.nexus.shopping.infra.correlation.CorrelationIdProvider
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import org.springframework.stereotype.Component

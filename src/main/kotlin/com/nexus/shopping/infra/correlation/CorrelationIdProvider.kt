@@ -1,4 +1,4 @@
-package com.nexus.shopping.infra.http
+package com.nexus.shopping.infra.correlation
 
 import java.util.UUID
 

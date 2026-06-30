@@ -1,4 +1,4 @@
-package com.nexus.shopping.infra.http
+package com.nexus.shopping.infra.correlation
 
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
