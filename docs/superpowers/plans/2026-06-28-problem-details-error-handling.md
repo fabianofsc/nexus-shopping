@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Status:** Implementado e mergeado em main — PR #4 (codex/problem-details-error-handling)
+
 **Goal:** Add a global Spring error handler that returns RFC 7807 Problem Details for validation, not-found, framework 4xx, and unhandled 5xx errors.
 
 **Architecture:** Keep error translation in the inbound HTTP adapter. Application use cases continue throwing typed application exceptions (`ProductValidationException`, `ProductNotFoundException`), while `ProductExceptionHandler` translates them to HTTP Problem Details. `ProductController` becomes a thin adapter with no local `try/catch` error mapping.

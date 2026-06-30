@@ -1,6 +1,6 @@
 # PRD: Respostas de erro padronizadas com Problem Details
 
-**Status:** Rascunho para revisao
+**Status:** Implementado e mergeado em main — PR #4 (codex/problem-details-error-handling)
 **Data:** 2026-06-28
 **Branch alvo:** `feat/product-create` -> `hexagonal-architecture`
 

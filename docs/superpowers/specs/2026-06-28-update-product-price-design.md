@@ -1,7 +1,7 @@
 # Update Product Price — Design Spec
 
 **Date:** 2026-06-28
-**Status:** approved
+**Status:** Implementado e mergeado em main — PR #3 (feat/update-product-price)
 
 ## Goal
 

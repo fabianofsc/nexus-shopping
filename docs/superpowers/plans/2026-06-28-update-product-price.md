@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Status:** Implementado e mergeado em main — PR #3 (feat/update-product-price)
+
 **Goal:** Add `PATCH /products/{id}` that updates only `priceAmount`, returning the full updated product or 400/404 on error.
 
 **Architecture:** Hexagonal — new `UpdateProductPriceUseCase` orchestrates validation and calls `ProductRepositoryPort.updatePrice`, which executes a portable `UPDATE` followed by a `SELECT` when a row is changed. Errors are typed exceptions caught by the controller (same pattern as the existing `POST /products` flow).
