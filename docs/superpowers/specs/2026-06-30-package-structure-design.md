@@ -167,6 +167,8 @@ arquivos de request/response dentro de `dto/`. Exemplos:
 - `Product.toResponse()`, no arquivo de `ProductResponse`
 - `ProductPage.toResponse()`, no arquivo de `ProductPageResponse`
 
+Decisao de implementacao: extensions colocalizadas em `dto/`; pacote `mapper/` diferido.
+
 O controller deve converter:
 
 ```text

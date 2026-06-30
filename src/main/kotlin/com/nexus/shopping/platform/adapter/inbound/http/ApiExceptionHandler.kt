@@ -81,25 +81,23 @@ class ApiExceptionHandler {
             request = request,
         )
 
+    @ExceptionHandler(MethodArgumentTypeMismatchException::class)
+    fun handleTypeMismatch(
+        request: HttpServletRequest,
+    ): ResponseEntity<ProblemDetail> =
+        problemDetailResponse(
+            status = HttpStatus.BAD_REQUEST,
+            detail = "Invalid request.",
+            request = request,
+        )
+
     @ExceptionHandler(Exception::class)
-    fun handleUnhandled(
+    fun handleUnexpected(
         exception: Exception,
         request: HttpServletRequest,
     ): ResponseEntity<ProblemDetail> {
         if (exception is ErrorResponse && exception.statusCode.is4xxClientError) {
-            return problemDetailResponse(
-                status = exception.statusCode,
-                detail = exception.body.detail?.takeIf { it.isNotBlank() } ?: "Invalid request.",
-                request = request,
-            )
-        }
-
-        if (exception is MethodArgumentTypeMismatchException) {
-            return problemDetailResponse(
-                status = HttpStatus.BAD_REQUEST,
-                detail = "Invalid request.",
-                request = request,
-            )
+            return handleErrorResponse(exception, request)
         }
 
         logger.error("Unhandled exception while processing request", exception)
@@ -109,6 +107,16 @@ class ApiExceptionHandler {
             request = request,
         )
     }
+
+    private fun handleErrorResponse(
+        exception: ErrorResponse,
+        request: HttpServletRequest,
+    ): ResponseEntity<ProblemDetail> =
+        problemDetailResponse(
+            status = exception.statusCode,
+            detail = exception.body.detail?.takeIf { it.isNotBlank() } ?: "Invalid request.",
+            request = request,
+        )
 
     private fun problemDetailResponse(
         status: HttpStatusCode,
