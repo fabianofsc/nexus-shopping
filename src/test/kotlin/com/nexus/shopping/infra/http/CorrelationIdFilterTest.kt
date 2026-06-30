@@ -1,4 +1,4 @@
-package com.nexus.shopping.shared.observability
+package com.nexus.shopping.infra.http
 
 import java.net.URI
 import java.net.http.HttpClient

@@ -1,9 +1,7 @@
-package com.nexus.shopping.shared.observability
+package com.nexus.shopping.infra.correlation
 
 import java.util.UUID
-import org.springframework.stereotype.Component
 
-@Component
 class CorrelationIdProvider {
 
     companion object {

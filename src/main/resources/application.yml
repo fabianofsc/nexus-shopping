@@ -41,7 +41,3 @@ logging:
     level: "%5p"
   charset:
     console: UTF-8
-  logback:
-    rollingpolicy:
-      max-history: 10
-      max-size: 10MB
