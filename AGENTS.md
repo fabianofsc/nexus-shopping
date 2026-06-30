@@ -8,38 +8,34 @@
 ## Project Snapshot
 
 - Backend REST API educacional: catalogo de produtos com evolucao incremental de performance e arquitetura.
-- Stack: Kotlin, Java 21, Gradle Wrapper, Spring Boot 4, Actuator, Flyway, PostgreSQL, JdbcTemplate (sem JPA/ORM).
+- Stack: Kotlin, Java 21, Gradle Wrapper, Spring Boot 4, Actuator, Flyway, PostgreSQL, Spring Data JPA.
 - Docker Hub: `fabianofsc/nexus-shopping` com tags `baseline`, `indexes`, `pagination`, `latest`.
 
 ## Architecture
 
-O projeto segue arquitetura hexagonal (Ports and Adapters). Direcao de dependencia: adapters -> application -> domain.
+Arquitetura hexagonal (Ports and Adapters). Direcao de dependencia: `adapter -> application -> domain`.
 
 ```
-product/
-  domain/                              # tipos de negocio puros, sem imports de framework
-    Product.kt
-    ProductPage.kt
+<domain>/
+  domain/           # tipos puros; zero imports de framework
   application/
-    port/outbound/
-      ProductRepositoryPort.kt         # outbound port (interface)
-    usecase/
-      ProductSearchUseCase.kt          # orquestracao + validacao
-      ProductCreateUseCase.kt          # orquestracao + validacao
-      CreateProductCommand.kt          # input do use case
-      ProductValidationException.kt    # excecao tipada; controller captura apenas este tipo
+    port/outbound/  # interfaces outbound ({Domain}RepositoryPort)
+    usecase/        # orquestracao, validacao, commands, excecoes tipadas
   adapter/
-    inbound/http/
-      ProductController.kt             # HTTP -> use case -> HTTP
-      CreateProductRequest.kt          # DTO HTTP com toCommand()
-    outbound/jdbc/
-      ProductRepository.kt             # implementa ProductRepositoryPort via JdbcTemplate
+    inbound/http/   # controllers + DTOs; DTO tem toCommand()
+    outbound/jpa/   # {Domain}Entity, Spring Data repository, {Domain}JpaRepositoryAdapter
 ```
 
-Decisoes chave:
-- JPA/ORM rejeitado para preservar pureza do dominio e valor didatico do JDBC.
-- `SimpleJdbcInsert` para INSERT, evitando verbosidade do KeyHolder.
-- Validacao vive no use case, reusavel por qualquer adaptador futuro (CLI, fila, batch).
+Convencoes de conversao (invariante em todos os dominios):
+- DTO HTTP -> command: `toCommand()` no DTO
+- Command -> entity JPA: `toEntity()` extension em `{Domain}Entity.kt`
+- Entity JPA -> domain: `toDomain()` em `{Domain}Entity`
+
+Decisoes fixas:
+- `domain/` e `application/` sem imports de `jakarta.persistence`, `org.hibernate` ou `org.springframework.data`.
+- Validacao vive no use case; adapter nao valida.
+- Leituras JPA com `@Query` JPQL explicito; sem derived queries.
+- Paginacao via `Slice` sem `COUNT(*)`.
 
 ## Local Command Rules
 

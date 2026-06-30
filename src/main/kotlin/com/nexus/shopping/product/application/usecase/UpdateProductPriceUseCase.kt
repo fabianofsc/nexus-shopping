@@ -1,8 +1,10 @@
 package com.nexus.shopping.product.application.usecase
 
+import com.nexus.shopping.product.application.command.UpdatePriceCommand
+import com.nexus.shopping.product.application.exception.ProductNotFoundException
+import com.nexus.shopping.product.application.exception.ProductValidationException
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.domain.Product
-import com.nexus.shopping.product.domain.ProductNotFoundException
 import java.math.BigDecimal
 import org.springframework.stereotype.Service
 

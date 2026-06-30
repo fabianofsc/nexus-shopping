@@ -26,13 +26,13 @@ This implementation introduces structured logging (ECS/JSON format) and per-requ
 
 ### Components
 
-**1. CorrelationIdProvider** (`src/main/kotlin/com/nexus/shopping/shared/observability/CorrelationIdProvider.kt`)
+**1. CorrelationIdProvider** (`src/main/kotlin/com/nexus/shopping/infra/correlation/CorrelationIdProvider.kt`)
 - Pure validation class (no Spring dependencies)
 - Generates UUID v4 for missing/blank/invalid correlation-IDs
 - Validates character set and 128-char maximum
 - Regex pattern: `^[a-zA-Z0-9._:\-]*$`
 
-**2. CorrelationIdFilter** (`src/main/kotlin/com/nexus/shopping/shared/observability/CorrelationIdFilter.kt`)
+**2. CorrelationIdFilter** (`src/main/kotlin/com/nexus/shopping/infra/http/CorrelationIdFilter.kt`)
 - Spring `@Component` servlet filter
 - Reads `X-Correlation-ID` header from requests
 - Injects resolved ID into MDC as `correlation.id`
@@ -128,9 +128,11 @@ X-Correlation-ID: trace-001-abc
 **Dependency Direction:** Adapters → Application → Domain
 
 ```
-shared/observability/
-  ├── CorrelationIdProvider.kt    (pure, reusable)
-  └── CorrelationIdFilter.kt      (@Component, adapter layer)
+infra/
+  ├── correlation/
+  │   └── CorrelationIdProvider.kt    (pure, reusable)
+  └── http/
+      └── CorrelationIdFilter.kt      (@Component, adapter layer)
 
 application.yml                    (Spring Boot config)
 ```
