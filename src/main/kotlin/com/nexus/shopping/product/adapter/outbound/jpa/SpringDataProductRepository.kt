@@ -1,12 +1,22 @@
 package com.nexus.shopping.product.adapter.outbound.jpa
 
+import java.math.BigDecimal
 import org.springframework.data.domain.Pageable
 import org.springframework.data.domain.Slice
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
 interface SpringDataProductRepository : JpaRepository<ProductEntity, Long> {
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE ProductEntity p SET p.priceAmount = :priceAmount, p.updatedAt = CURRENT_TIMESTAMP WHERE p.id = :id")
+    fun updatePriceById(
+        @Param("id") id: Long,
+        @Param("priceAmount") priceAmount: BigDecimal,
+    ): Int
+
 
     @Query(
         """

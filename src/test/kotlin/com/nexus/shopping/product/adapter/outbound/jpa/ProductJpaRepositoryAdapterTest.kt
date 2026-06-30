@@ -105,6 +105,30 @@ class ProductJpaRepositoryAdapterTest {
     }
 
     @Test
+    fun `updatePrice sets updatedAt to a non-null value not before createdAt`() {
+        val saved = repository.save(
+            CreateProductCommand(
+                brandId = 1L,
+                categoryId = 1L,
+                sku = "SKU-TIMESTAMP-001",
+                name = "Timestamp Product",
+                slug = "timestamp-product",
+                description = null,
+                status = "ACTIVE",
+                priceAmount = BigDecimal("10.00"),
+                currency = "BRL",
+                inventoryQuantity = 0,
+            ),
+        )
+
+        val updated = repository.updatePrice(id = saved.id, priceAmount = BigDecimal("20.00"))
+
+        assertNotNull(updated)
+        assertNotNull(updated!!.updatedAt)
+        assertTrue(!updated.updatedAt.isBefore(saved.createdAt))
+    }
+
+    @Test
     fun `findByName returns empty ProductPage when name contains only Char MAX_VALUE`() {
         val maxCharString = "￿"
         val result = repository.findByName(name = maxCharString, page = 0, size = 50)

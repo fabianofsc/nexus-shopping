@@ -45,11 +45,9 @@ class ProductJpaRepositoryAdapter(
 
     @Transactional
     override fun updatePrice(id: Long, priceAmount: BigDecimal): Product? {
-        val product = repository.findById(id).orElse(null) ?: return null
-
-        product.priceAmount = priceAmount
-
-        return repository.saveAndFlush(product).toDomain()
+        val updated = repository.updatePriceById(id, priceAmount)
+        if (updated == 0) return null
+        return repository.findById(id).orElse(null)?.toDomain()
     }
 
     private fun Slice<ProductEntity>.toProductPage(page: Int, size: Int): ProductPage {
