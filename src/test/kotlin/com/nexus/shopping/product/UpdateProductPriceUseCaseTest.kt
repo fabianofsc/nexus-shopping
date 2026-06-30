@@ -1,9 +1,11 @@
 package com.nexus.shopping.product.application.usecase
 
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
+import com.nexus.shopping.product.domain.Currency
 import com.nexus.shopping.product.domain.Product
 import com.nexus.shopping.product.domain.ProductNotFoundException
 import com.nexus.shopping.product.domain.ProductPage
+import com.nexus.shopping.product.domain.ProductStatus
 import java.math.BigDecimal
 import java.time.LocalDateTime
 import kotlin.test.Test
@@ -20,9 +22,9 @@ class UpdateProductPriceUseCaseTest {
         name = "Test Product",
         slug = "test-product",
         description = null,
-        status = "ACTIVE",
+        status = ProductStatus.ACTIVE,
         priceAmount = price,
-        currency = "BRL",
+        currency = Currency.BRL,
         inventoryQuantity = 0,
         createdAt = LocalDateTime.of(2026, 1, 1, 0, 0),
         updatedAt = LocalDateTime.of(2026, 1, 1, 0, 0),
