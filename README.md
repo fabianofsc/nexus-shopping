@@ -211,6 +211,24 @@ The automated tests validate:
 - The migrations stay portable between PostgreSQL and H2.
 - The read indexes are explicitly present and no `UNIQUE` constraints are introduced.
 
+## Lint
+
+Kotlin linting is configured with ktlint through Gradle. In the first adoption phase, lint is opt-in and does not run as part of `build`.
+
+Check Kotlin and Gradle Kotlin DSL style:
+
+```bash
+rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew ktlintCheck
+```
+
+Autoformat Kotlin and Gradle Kotlin DSL files locally:
+
+```bash
+rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew ktlintFormat
+```
+
+Run `ktlintFormat` only when the resulting diff is reviewed as a mechanical formatting change.
+
 ## Load Test with JMeter
 
 JMeter test plans are versioned at:

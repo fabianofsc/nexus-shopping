@@ -7,6 +7,7 @@ plugins {
     kotlin("plugin.spring") version "2.2.21"
     id("org.springframework.boot") version "4.1.0"
     id("io.spring.dependency-management") version "1.1.7"
+    id("org.jlleitschuh.gradle.ktlint") version "14.2.0"
 }
 
 group = "com.nexus.shopping"
@@ -54,4 +55,14 @@ tasks.withType<Test>().configureEach {
 
 tasks.named<BootBuildImage>("bootBuildImage") {
     imageName.set(providers.gradleProperty("imageName").orElse("nexus-shopping:local"))
+}
+
+gradle.projectsEvaluated {
+    tasks.named("check").configure {
+        setDependsOn(
+            getDependsOn().filterNot { dependency ->
+                dependency.toString().contains("ktlint", ignoreCase = true)
+            },
+        )
+    }
 }
