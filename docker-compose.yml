@@ -1,18 +1,51 @@
+# Bloco de configuracao compartilhado pelas 3 instancias da aplicacao.
+# Campos "x-" sao ignorados pelo compose e servem apenas como ancora YAML,
+# garantindo que app1/app2/app3 saiam do mesmo build e da mesma imagem.
+x-app: &app-base
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: ${APP_IMAGE:-nexus-shopping:local}
+  environment:
+    DB_URL: jdbc:postgresql://postgres:5432/nexus_shopping
+    DB_USERNAME: nexus
+    DB_PASSWORD: nexus
+    PRODUCT_SEED_COUNT: ${PRODUCT_SEED_COUNT:-10000000}
+  expose:
+    - "8080"
+  depends_on:
+    postgres:
+      condition: service_healthy
+  networks:
+    - backend
+  restart: unless-stopped
+
 services:
-  app:
-    image: ${APP_IMAGE:-fabianofsc/nexus-shopping:baseline}
-    platform: linux/amd64
-    container_name: nexus-shopping-app
-    environment:
-      DB_URL: jdbc:postgresql://postgres:5432/nexus_shopping
-      DB_USERNAME: nexus
-      DB_PASSWORD: nexus
-      PRODUCT_SEED_COUNT: ${PRODUCT_SEED_COUNT:-10000000}
+  app1:
+    <<: *app-base
+    hostname: app1
+
+  app2:
+    <<: *app-base
+    hostname: app2
+
+  app3:
+    <<: *app-base
+    hostname: app3
+
+  nginx:
+    image: nginx:stable-alpine
     ports:
-      - "8080:8080"
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      postgres:
-        condition: service_healthy
+      - app1
+      - app2
+      - app3
+    networks:
+      - backend
+    restart: unless-stopped
 
   postgres:
     image: postgres:16-alpine
@@ -25,11 +58,17 @@ services:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    networks:
+      - backend
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U nexus -d nexus_shopping"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+networks:
+  backend:
+    driver: bridge
 
 volumes:
   postgres-data:
