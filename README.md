@@ -138,10 +138,11 @@ make push-pagination
 Setup com 3 instancias da aplicacao atras de um NGINX (round-robin por padrao),
 para demonstrar balanceamento de carga sem Kubernetes.
 
-Guia completo (subir, testar, trocar algoritmo):
+Guia completo (subir, testar, trocar algoritmo) e roteiro de teste/verificacao:
 
 ```
-docs/load-balancing-nginx.md
+docs/load-balancing-nginx.md      # setup, topologia e algoritmos
+docs/load-balancing-test-plan.md  # roteiro de teste e verificacao
 ```
 
 ## Test
