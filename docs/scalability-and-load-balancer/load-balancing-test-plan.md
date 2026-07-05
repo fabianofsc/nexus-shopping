@@ -1,10 +1,21 @@
 # Roteiro de Teste - Load Balancing com NGINX
 
+> **Proposito:** procedimento executavel de teste e verificacao. Responde "como
+> provo, na pratica, que isto faz o que deveria?". E o documento de execucao,
+> para validar antes de mergear, numa aula pratica ou ao reproduzir um problema.
+>
+> **Conteudo:** objetivo e escopo do teste, pre-requisitos, passo a passo (subir
+> infra, smoke test, isolamento, distribuicao round-robin, troca de algoritmo),
+> saidas esperadas de cada passo, tabela de criterios de aceite e troubleshooting.
+>
+> **Documento companheiro:** `load-balancing-nginx.md` -- referencia de setup,
+> topologia e algoritmos.
+
 Procedimento para subir a infra, executar os testes e verificar que o NGINX esta
 de fato distribuindo as requisicoes entre as 3 instancias da aplicacao.
 
 Para a descricao da topologia, do `nginx.conf` e dos algoritmos, veja
-`docs/load-balancing-nginx.md`. Este documento foca no **processo de teste**.
+`load-balancing-nginx.md`. Este documento foca no **processo de teste**.
 
 ## 1. Objetivo e escopo
 

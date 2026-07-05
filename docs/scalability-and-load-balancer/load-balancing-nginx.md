@@ -1,5 +1,16 @@
 # Load Balancing com NGINX
 
+> **Proposito:** guia de referencia deste setup. Responde "o que existe aqui e
+> como esta montado?". E o documento de leitura para entender ou alterar a
+> configuracao.
+>
+> **Conteudo:** topologia, componentes (quais arquivos, com que papel), como
+> subir, o endpoint `/instance-info`, como testar a distribuicao, os algoritmos
+> de balanceamento (quando usar cada um) e como troca-los.
+>
+> **Documento companheiro:** `load-balancing-test-plan.md` -- roteiro passo a
+> passo para *validar* que o balanceamento funciona.
+
 Setup didatico de balanceamento de carga com NGINX roteando entre 3 instancias
 da aplicacao, sem Kubernetes. Objetivo: observar na pratica como um reverse proxy
 distribui requisicoes e como diferentes algoritmos mudam essa distribuicao.
