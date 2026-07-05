@@ -1,0 +1,23 @@
+# Mantem o contexto de build enxuto: so entra o necessario para compilar o jar.
+.git/
+.github/
+.gradle/
+.gradle-local/
+.kotlin/
+.idea/
+.worktrees/
+.superpowers/
+build/
+out/
+*.iml
+*.hprof
+*.log
+.DS_Store
+docs/
+load-tests/
+nginx/
+scripts/
+docker-compose.yml
+Dockerfile
+Makefile
+README.md
