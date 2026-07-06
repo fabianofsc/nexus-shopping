@@ -45,6 +45,7 @@ distribui requisicoes e como diferentes algoritmos mudam essa distribuicao.
 | Arquivo | Papel |
 | --- | --- |
 | `docker-compose.yml` | Define `app1/app2/app3`, `nginx`, `postgres` e a rede `backend`. |
+| `.env` | Seed exclusivo desta branch (`PRODUCT_SEED_COUNT`); carregado automaticamente pelo compose. |
 | `Dockerfile` | Build multi-stage (JDK 21 -> JRE 21) usado pelas 3 instancias. |
 | `nginx/nginx.conf` | Upstream `backend` + algoritmos de balanceamento (round-robin ativo). |
 | `src/.../infra/http/InstanceInfoController.kt` | Endpoint `GET /instance-info`. |
@@ -58,6 +59,22 @@ docker compose up -d --build
 
 Isso constroi a imagem a partir do `Dockerfile` e sobe banco, as 3 instancias e o NGINX.
 So a porta `8080` do host fica exposta (pelo NGINX).
+
+### Seed desta branch
+
+As 3 instancias rodam o Flyway no boot. Com um seed grande a migracao demora e as
+replicas brigam pelo advisory lock do Postgres (duas estouram o retry e reiniciam
+em loop ate a migracao terminar). Por isso esta branch usa um seed pequeno e
+exclusivo, definido no `.env` (`PRODUCT_SEED_COUNT=10000`): a migracao roda em
+fracao de segundo, o lock e liberado logo e as instancias sobem sem corrida --
+com dados suficientes para paginacao e filtros.
+
+Para um cenario de performance com volume grande, sobreponha sem editar o `.env`
+(ciente de que, com valor alto, a corrida pelo lock pode voltar):
+
+```bash
+PRODUCT_SEED_COUNT=10000000 docker compose up -d
+```
 
 Health:
 
@@ -76,11 +93,6 @@ curl -s http://localhost:8080/instance-info
 ```
 
 Repetindo o curl, o `hostname` deve alternar entre `app1`, `app2` e `app3`.
-O NGINX tambem devolve o header `X-Upstream` com o endereco da instancia:
-
-```bash
-curl -s -D - -o /dev/null http://localhost:8080/instance-info | grep -i x-upstream
-```
 
 ## Testar a distribuicao
 
