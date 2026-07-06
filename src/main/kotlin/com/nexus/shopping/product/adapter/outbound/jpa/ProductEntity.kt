@@ -44,7 +44,7 @@ class ProductEntity(
     @Column(name = "price_amount", nullable = false, precision = 12, scale = 2)
     var priceAmount: BigDecimal = BigDecimal.ZERO,
     @Enumerated(EnumType.STRING)
-    @Column(name = "currency", nullable = false, columnDefinition = "CHAR(3)")
+    @Column(name = "currency", nullable = false, length = 3)
     var currency: Currency = Currency.BRL,
     @Column(name = "inventory_quantity", nullable = false)
     var inventoryQuantity: Int = 0,

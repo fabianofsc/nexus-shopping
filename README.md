@@ -117,13 +117,12 @@ curl -X POST http://localhost:8080/products \
 
 ## Docker Image
 
-O projeto usa o task nativo do Spring Boot para geracao de imagem OCI via Cloud Native Buildpacks. Nao ha Dockerfile.
+O projeto usa o task nativo do Spring Boot para geracao de imagem OCI via Cloud Native Buildpacks (cenarios de performance no Docker Hub). Ha tambem um `Dockerfile` multi-stage usado pelo setup de load balancing (`docker compose build`).
 
-Build local:
+Build local com buildpacks:
 
 ```bash
 ./gradlew bootBuildImage --imageName nexus-shopping:local
-APP_IMAGE=nexus-shopping:local docker compose up -d postgres app
 ```
 
 Push dos cenarios para o Docker Hub:
@@ -132,6 +131,18 @@ Push dos cenarios para o Docker Hub:
 make push-baseline
 make push-indexes
 make push-pagination
+```
+
+## Load Balancing (NGINX)
+
+Setup com 3 instancias da aplicacao atras de um NGINX (round-robin por padrao),
+para demonstrar balanceamento de carga sem Kubernetes.
+
+Guia completo (subir, testar, trocar algoritmo) e roteiro de teste/verificacao:
+
+```
+docs/scalability-and-load-balancer/load-balancing-nginx.md      # setup, topologia e algoritmos
+docs/scalability-and-load-balancer/load-balancing-test-plan.md  # roteiro de teste e verificacao
 ```
 
 ## Test
