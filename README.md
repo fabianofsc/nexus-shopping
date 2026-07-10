@@ -1,5 +1,7 @@
 # Nexus Shopping Backend
 
+> **Nexus** (do latim *nectere*, "atar, ligar"): um ponto de conexao central. O nome reflete a arquitetura hexagonal do projeto -- o dominio como nexus entre adapters de entrada e saida -- e o dominio de negocio: um catalogo que conecta produtos, marcas e categorias.
+
 Backend REST API educacional construido com Kotlin, Java 21, Spring Boot 4, Actuator, Flyway, PostgreSQL e Spring Data JPA.
 
 O projeto evolui de forma incremental, cobrindo diferentes topicos de engenharia de software em aulas progressivas: performance de banco de dados, arquitetura hexagonal, tratamento de erros padronizado, logging estruturado, e outros. Cada topico e introduzido em uma branch separada e publicado como imagem Docker Hub para uso independente do codigo-fonte.
