@@ -84,6 +84,26 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
 
 ---
 
+### v3.0-scalability
+**Escalabilidade: NGINX Load Balancer distribuindo 3 instâncias**
+
+- **Branch:** `scalability-and-load-balancer`
+- **Commit:** (veja `git show v3.0-scalability`)
+- **Propósito:** Demonstrar escala horizontal com reverse proxy NGINX distribuindo tráfego entre 3 instâncias da aplicação
+- **Merged em:** 2026-07-05
+- **Mudanças:**
+  - Reverse proxy NGINX (`nginx/nginx.conf`) fazendo load balancing entre 3 réplicas da aplicação
+  - Endpoint `GET /instance-info` retornando hostname e timestamp — permite ver qual instância atendeu cada request
+  - Seed de dados local via `.env` para a branch
+- **Documentação:** [docs/scalability-and-load-balancer/load-balancing-nginx.md](docs/scalability-and-load-balancer/load-balancing-nginx.md), [docs/scalability-and-load-balancer/load-balancing-test-plan.md](docs/scalability-and-load-balancer/load-balancing-test-plan.md)
+- **Como clonar:**
+  ```bash
+  git clone --branch v3.0-scalability https://github.com/fabianofsc/nexus-shopping.git
+  ```
+- **Propósito de aprendizado:** Ver load balancing auto-hospedado (NGINX) distribuindo tráfego entre múltiplas instâncias na prática
+
+---
+
 ## 🔒 Proteção de Branches
 
 As branches que contêm essas tags estão protegidas no GitHub para evitar modificações acidentais:
@@ -111,6 +131,8 @@ v1.1-indexes (+ indexes)
 v1.2-pagination (+ paginação sem COUNT)
     ↓ (refatoração completa)
 v2.0-hexagonal (nova arquitetura)
+    ↓
+v3.0-scalability (NGINX load balancer, 3 instâncias)
 ```
 
 **Comparar performance:**
@@ -138,6 +160,7 @@ Use estas tags como pontos de estudo:
 2. **Comparar v1.0 vs v1.1:** Ver impacto de indexes em SQL
 3. **Comparar v1.1 vs v1.2:** Entender eliminar queries custosas
 4. **Estudar v2.0:** Aprender arquitetura hexagonal na prática
+5. **Estudar v3.0:** Ver load balancing com NGINX distribuindo tráfego entre instâncias
 
 Cada tag tem:
 - ✅ Código compilável e testável
@@ -178,6 +201,6 @@ git rev-parse v1.1-indexes
 
 ---
 
-**Última atualização:** 2026-06-30
+**Última atualização:** 2026-07-09
 **Responsible:** Fabiano Góes
-**Tags ativas:** v1.0-baseline, v1.1-indexes, v1.2-pagination, v2.0-hexagonal
+**Tags ativas:** v1.0-baseline, v1.1-indexes, v1.2-pagination, v2.0-hexagonal, v3.0-scalability
