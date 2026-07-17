@@ -1,9 +1,7 @@
 package com.nexus.shopping.product.application.usecase
 
 import com.nexus.shopping.product.application.command.CreateProductCommand
-import com.nexus.shopping.product.application.command.UpdatePriceCommand
 import com.nexus.shopping.product.application.exception.ProductNotFoundException
-import com.nexus.shopping.product.application.exception.ProductValidationException
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.domain.Currency
 import com.nexus.shopping.product.domain.Product
@@ -19,8 +17,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 @ExtendWith(OutputCaptureExtension::class)
-class UpdateProductPriceUseCaseTest {
-    private fun aProduct(price: BigDecimal) =
+class ProductGetByIdUseCaseTest {
+    private fun aProduct() =
         Product(
             id = 1L,
             brandId = 1L,
@@ -30,7 +28,7 @@ class UpdateProductPriceUseCaseTest {
             slug = "test-product",
             description = null,
             status = ProductStatus.ACTIVE,
-            priceAmount = price,
+            priceAmount = BigDecimal("19.90"),
             currency = Currency.BRL,
             inventoryQuantity = 0,
             createdAt = LocalDateTime.of(2026, 1, 1, 0, 0),
@@ -41,7 +39,7 @@ class UpdateProductPriceUseCaseTest {
 
     private val fakeRepo =
         object : ProductRepositoryPort {
-            override fun findById(id: Long): Product? = throw UnsupportedOperationException()
+            override fun findById(id: Long): Product? = repoReturn
 
             override fun findByCategoryId(
                 categoryId: Long,
@@ -60,41 +58,30 @@ class UpdateProductPriceUseCaseTest {
             override fun updatePrice(
                 id: Long,
                 priceAmount: BigDecimal,
-            ): Product? = repoReturn
+            ): Product? = throw UnsupportedOperationException()
         }
 
-    private val useCase = UpdateProductPriceUseCase(fakeRepo)
+    private val useCase = ProductGetByIdUseCase(fakeRepo)
 
     @Test
-    fun `returns updated product when price is valid and product exists`(output: CapturedOutput) {
-        repoReturn = aProduct(BigDecimal("99.90"))
-        val result = useCase.execute(UpdatePriceCommand(1L, BigDecimal("99.90")))
-        assertEquals(0, BigDecimal("99.90").compareTo(result.priceAmount))
-        assert(output.out.contains("product.update_price.started"))
-        assert(output.out.contains("product.update_price.completed"))
+    fun `returns product and logs flow when product exists`(output: CapturedOutput) {
+        repoReturn = aProduct()
+
+        val result = useCase.execute(1L)
+
+        assertEquals(1L, result.id)
+        assert(output.out.contains("product.get_by_id.started"))
+        assert(output.out.contains("product.get_by_id.completed"))
     }
 
     @Test
-    fun `throws ProductValidationException when priceAmount is zero`(output: CapturedOutput) {
-        assertFailsWith<ProductValidationException> {
-            useCase.execute(UpdatePriceCommand(1L, BigDecimal.ZERO))
-        }
-        assert(output.out.contains("product.update_price.validation_failed"))
-    }
-
-    @Test
-    fun `throws ProductValidationException when priceAmount is negative`() {
-        assertFailsWith<ProductValidationException> {
-            useCase.execute(UpdatePriceCommand(1L, BigDecimal("-1.00")))
-        }
-    }
-
-    @Test
-    fun `throws ProductNotFoundException when product does not exist`(output: CapturedOutput) {
+    fun `throws ProductNotFoundException and logs flow when product does not exist`(output: CapturedOutput) {
         repoReturn = null
+
         assertFailsWith<ProductNotFoundException> {
-            useCase.execute(UpdatePriceCommand(1L, BigDecimal("99.90")))
+            useCase.execute(1L)
         }
-        assert(output.out.contains("product.update_price.not_found"))
+        assert(output.out.contains("product.get_by_id.started"))
+        assert(output.out.contains("product.get_by_id.not_found"))
     }
 }

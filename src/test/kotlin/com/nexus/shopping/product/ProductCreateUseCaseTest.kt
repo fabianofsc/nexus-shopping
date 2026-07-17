@@ -7,14 +7,20 @@ import com.nexus.shopping.product.domain.Currency
 import com.nexus.shopping.product.domain.Product
 import com.nexus.shopping.product.domain.ProductPage
 import com.nexus.shopping.product.domain.ProductStatus
+import org.junit.jupiter.api.extension.ExtendWith
+import org.springframework.boot.test.system.CapturedOutput
+import org.springframework.boot.test.system.OutputCaptureExtension
 import java.math.BigDecimal
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
+@ExtendWith(OutputCaptureExtension::class)
 class ProductCreateUseCaseTest {
     private val fakeRepo =
         object : ProductRepositoryPort {
+            override fun findById(id: Long): Product? = throw UnsupportedOperationException()
+
             override fun findByCategoryId(
                 categoryId: Long,
                 page: Int,
@@ -63,16 +69,19 @@ class ProductCreateUseCaseTest {
         )
 
     @Test
-    fun `create valid product delegates to repository`() {
+    fun `create valid product delegates to repository`(output: CapturedOutput) {
         val result = useCase.create(validCommand())
         assertEquals("SKU-TEST", result.sku)
+        assert(output.out.contains("product.create.started"))
+        assert(output.out.contains("product.create.completed"))
     }
 
     @Test
-    fun `create with blank sku throws`() {
+    fun `create with blank sku throws`(output: CapturedOutput) {
         assertFailsWith<ProductValidationException> {
             useCase.create(validCommand().copy(sku = "  "))
         }
+        assert(output.out.contains("product.create.validation_failed"))
     }
 
     @Test

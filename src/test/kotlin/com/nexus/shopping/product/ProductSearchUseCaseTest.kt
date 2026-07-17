@@ -5,16 +5,22 @@ import com.nexus.shopping.product.application.exception.ProductValidationExcepti
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.domain.Product
 import com.nexus.shopping.product.domain.ProductPage
+import org.junit.jupiter.api.extension.ExtendWith
+import org.springframework.boot.test.system.CapturedOutput
+import org.springframework.boot.test.system.OutputCaptureExtension
 import java.math.BigDecimal
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
+@ExtendWith(OutputCaptureExtension::class)
 class ProductSearchUseCaseTest {
     private var lastCalledMethod: String? = null
 
     private val fakeRepo =
         object : ProductRepositoryPort {
+            override fun findById(id: Long): Product? = throw UnsupportedOperationException()
+
             override fun findByCategoryId(
                 categoryId: Long,
                 page: Int,
@@ -44,26 +50,31 @@ class ProductSearchUseCaseTest {
     private val useCase = ProductSearchUseCase(fakeRepo)
 
     @Test
-    fun `search by categoryId delegates to findByCategoryId`() {
+    fun `search by categoryId delegates to findByCategoryId`(output: CapturedOutput) {
         val result = useCase.search(categoryId = 42L, name = null, page = 0, size = 10)
         assertEquals("findByCategoryId", lastCalledMethod)
         assertEquals(0, result.page)
         assertEquals(10, result.size)
+        assert(output.out.contains("product.search.started"))
+        assert(output.out.contains("product.search.completed"))
     }
 
     @Test
-    fun `search by name delegates to findByName`() {
+    fun `search by name delegates to findByName`(output: CapturedOutput) {
         val result = useCase.search(categoryId = null, name = "notebook", page = 1, size = 20)
         assertEquals("findByName", lastCalledMethod)
         assertEquals(1, result.page)
         assertEquals(20, result.size)
+        assert(output.out.contains("product.search.started"))
+        assert(output.out.contains("product.search.completed"))
     }
 
     @Test
-    fun `search with both categoryId and name throws ProductValidationException`() {
+    fun `search with both categoryId and name throws ProductValidationException`(output: CapturedOutput) {
         assertFailsWith<ProductValidationException> {
             useCase.search(categoryId = 1L, name = "notebook", page = 0, size = 10)
         }
+        assert(output.out.contains("product.search.validation_failed"))
     }
 
     @Test
