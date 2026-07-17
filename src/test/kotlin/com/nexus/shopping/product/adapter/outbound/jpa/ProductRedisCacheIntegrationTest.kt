@@ -7,6 +7,7 @@ import org.mockito.Mockito.verify
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.cache.CacheManager
+import org.springframework.data.domain.PageRequest
 import org.springframework.data.redis.cache.RedisCacheManager
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean
@@ -60,7 +61,8 @@ class ProductRedisCacheIntegrationTest {
 
     @Test
     fun `production Redis cache manager stores product detail with string key and JSON value`() {
-        assertIs<RedisCacheManager>(cacheManager)
+        val redisCacheManager = assertIs<RedisCacheManager>(cacheManager)
+        assertTrue(redisCacheManager.isTransactionAware)
 
         val first = assertNotNull(productRepository.findById(1L))
 
@@ -80,7 +82,7 @@ class ProductRedisCacheIntegrationTest {
     @Test
     fun `production Redis cache manager stores search JSON with a short finite TTL`() {
         productRepository.findById(1L)
-        productRepository.findByName(name = "Product 1", page = 0, size = 3)
+        val first = productRepository.findByName(name = "Product 1", page = 0, size = 3)
 
         val detailKey = cacheKey(ProductCacheConfig.PRODUCT_DETAIL_CACHE)
         val searchKey = cacheKey(ProductCacheConfig.PRODUCT_SEARCH_CACHE)
@@ -93,6 +95,16 @@ class ProductRedisCacheIntegrationTest {
         assertTrue(searchValue.contains("\"priceAmount\""))
         assertTrue(detailTtl > searchTtl)
         assertTrue(searchTtl in 25_000..30_000, "PTTL de busca deveria ficar proximo de 30s, mas foi $searchTtl ms")
+
+        val second = productRepository.findByName(name = "Product 1", page = 0, size = 3)
+
+        assertEquals(first, second)
+        verify(springDataRepository, times(1)).findByNamePrefix(
+            "Product 1",
+            "Product 2",
+            "Product 1%",
+            PageRequest.of(0, 3),
+        )
     }
 
     private fun cacheKey(cacheName: String): String =

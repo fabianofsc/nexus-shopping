@@ -50,6 +50,7 @@ class ProductCacheConfig {
 
         return RedisCacheManager
             .builder(connectionFactory)
+            .transactionAware()
             .cacheDefaults(defaultConfiguration)
             .withInitialCacheConfigurations(
                 mapOf(
