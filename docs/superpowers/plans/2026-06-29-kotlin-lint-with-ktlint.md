@@ -14,7 +14,6 @@
 
 ## Global Constraints
 
-- Prefix every shell command with `rtk`.
 - Use the Gradle wrapper and local Gradle cache:
 
 ```bash
