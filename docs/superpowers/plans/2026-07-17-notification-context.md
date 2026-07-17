@@ -366,12 +366,6 @@ class PackageStructureArchitectureTest {
     }
 
     @Test
-    fun `notification http dto responses exist outside the domain package`() {
-        Class.forName("com.nexus.shopping.notification.adapter.inbound.http.dto.NotificationResponse")
-        Class.forName("com.nexus.shopping.notification.adapter.inbound.http.dto.NotificationPageResponse")
-    }
-
-    @Test
     fun `codebase does not use a shared package for cross cutting structure`() {
         val sourceRoots =
             listOf(
@@ -439,7 +433,7 @@ class NotificationValidationException(
 - [ ] **Step 4: Rodar o teste para confirmar sucesso**
 
 Run: `env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests "com.nexus.shopping.PackageStructureArchitectureTest"`
-Expected: FAIL ainda (por causa dos testes de DTO que dependem da Task 6), mas o teste `application exceptions use platform base exceptions` deve passar isoladamente. Confirmar rodando: `env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests "com.nexus.shopping.PackageStructureArchitectureTest.application exceptions use platform base exceptions"` -> `BUILD SUCCESSFUL`.
+Expected: `BUILD SUCCESSFUL` para toda a classe `PackageStructureArchitectureTest` (o teste dos DTOs HTTP de notification sera adicionado apenas na Task 10, quando `NotificationResponse`/`NotificationPageResponse` existirem).
 
 - [ ] **Step 5: Commit**
 
@@ -1637,6 +1631,7 @@ git commit -m "feat: add simulated LoggingEmailSenderAdapter"
 - Create: `src/main/kotlin/com/nexus/shopping/notification/adapter/inbound/http/dto/NotificationPageResponse.kt`
 - Create: `src/main/kotlin/com/nexus/shopping/notification/adapter/inbound/http/NotificationController.kt`
 - Test: `src/test/kotlin/com/nexus/shopping/notification/NotificationControllerTest.kt`
+- Modify: `src/test/kotlin/com/nexus/shopping/PackageStructureArchitectureTest.kt`
 
 **Interfaces:**
 - Consumes: `SendNotificationUseCase`, `GetNotificationByIdUseCase`, `ListNotificationsByCustomerUseCase`, `Notification`, `NotificationPage` (Tasks 1, 4, 5, 6).
@@ -2016,7 +2011,17 @@ class NotificationController(
 Run: `env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests "com.nexus.shopping.notification.NotificationControllerTest"`
 Expected: `BUILD SUCCESSFUL`, 6 testes passando.
 
-- [ ] **Step 6: Rodar PackageStructureArchitectureTest (agora que NotificationResponse/NotificationPageResponse existem)**
+- [ ] **Step 6: Adicionar o teste de DTOs HTTP ao PackageStructureArchitectureTest**
+
+Modificar `src/test/kotlin/com/nexus/shopping/PackageStructureArchitectureTest.kt`, adicionando o teste que ficou pendente da Task 2 (agora que `NotificationResponse`/`NotificationPageResponse` existem). Inserir logo apos o teste `customer http dto responses exist outside the domain package`:
+
+```kotlin
+    @Test
+    fun `notification http dto responses exist outside the domain package`() {
+        Class.forName("com.nexus.shopping.notification.adapter.inbound.http.dto.NotificationResponse")
+        Class.forName("com.nexus.shopping.notification.adapter.inbound.http.dto.NotificationPageResponse")
+    }
+```
 
 Run: `env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests "com.nexus.shopping.PackageStructureArchitectureTest"`
 Expected: `BUILD SUCCESSFUL`, todos os testes (incluindo os adicionados na Task 2) passando.
@@ -2024,7 +2029,7 @@ Expected: `BUILD SUCCESSFUL`, todos os testes (incluindo os adicionados na Task 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/main/kotlin/com/nexus/shopping/notification/adapter/inbound/http/dto/SendNotificationRequest.kt src/main/kotlin/com/nexus/shopping/notification/adapter/inbound/http/dto/NotificationResponse.kt src/main/kotlin/com/nexus/shopping/notification/adapter/inbound/http/dto/NotificationPageResponse.kt src/main/kotlin/com/nexus/shopping/notification/adapter/inbound/http/NotificationController.kt src/test/kotlin/com/nexus/shopping/notification/NotificationControllerTest.kt
+git add src/main/kotlin/com/nexus/shopping/notification/adapter/inbound/http/dto/SendNotificationRequest.kt src/main/kotlin/com/nexus/shopping/notification/adapter/inbound/http/dto/NotificationResponse.kt src/main/kotlin/com/nexus/shopping/notification/adapter/inbound/http/dto/NotificationPageResponse.kt src/main/kotlin/com/nexus/shopping/notification/adapter/inbound/http/NotificationController.kt src/test/kotlin/com/nexus/shopping/notification/NotificationControllerTest.kt src/test/kotlin/com/nexus/shopping/PackageStructureArchitectureTest.kt
 git commit -m "feat: add notification HTTP endpoints (POST, GET by id, GET by customer)"
 ```
 
