@@ -26,15 +26,36 @@ class CustomerMigrationContractTest {
             assertEquals(2, countRows(connection, "customers WHERE document_type = 'CNH'"))
             assertEquals(3, countRows(connection, "customers WHERE document_type = 'RG'"))
             assertEquals(2, countRows(connection, "customers WHERE document_type = 'CNPJ'"))
-            assertEquals(1, countRows(connection, "customers WHERE name = 'Benjamin Bryan Duarte' AND document = '02648629025' AND document_type = 'CPF'"))
-            assertEquals(1, countRows(connection, "customers WHERE name = 'Cláudia Elaine Eloá Galvão' AND document = '378149714' AND document_type = 'RG'"))
-            assertEquals(1, countRows(connection, "customers WHERE name = 'Maitê Yasmin Cardoso' AND document = '01879119000149' AND document_type = 'CNPJ'"))
+            assertEquals(
+                1,
+                countRows(
+                    connection,
+                    "customers WHERE name = 'Benjamin Bryan Duarte' AND document = '02648629025' AND document_type = 'CPF'",
+                ),
+            )
+            assertEquals(
+                1,
+                countRows(
+                    connection,
+                    "customers WHERE name = 'Cláudia Elaine Eloá Galvão' AND document = '378149714' AND document_type = 'RG'",
+                ),
+            )
+            assertEquals(
+                1,
+                countRows(
+                    connection,
+                    "customers WHERE name = 'Maitê Yasmin Cardoso' AND document = '01879119000149' AND document_type = 'CNPJ'",
+                ),
+            )
             assertEquals(1, countRows(connection, "customer_contacts WHERE email = 'benjamin-duarte86@lexos.com.br'"))
             assertEquals(1, countRows(connection, "customer_contacts WHERE email = 'maite.yasmin.cardoso@zoomfoccus.com.br'"))
             assertEquals(1, countRows(connection, "customer_addresses WHERE city = 'Brasília' AND zip_code = '71995275'"))
             assertEquals(1, countRows(connection, "customer_addresses WHERE city = 'Fortaleza' AND zip_code = '60416500'"))
             assertEquals(0, countRows(connection, "customer_contacts cc LEFT JOIN customers c ON c.id = cc.customer_id WHERE c.id IS NULL"))
-            assertEquals(0, countRows(connection, "customer_addresses ca LEFT JOIN customers c ON c.id = ca.customer_id WHERE c.id IS NULL"))
+            assertEquals(
+                0,
+                countRows(connection, "customer_addresses ca LEFT JOIN customers c ON c.id = ca.customer_id WHERE c.id IS NULL"),
+            )
         }
     }
 

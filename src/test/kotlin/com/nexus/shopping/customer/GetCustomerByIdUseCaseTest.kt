@@ -7,8 +7,8 @@ import com.nexus.shopping.customer.application.usecase.GetCustomerByIdUseCase
 import com.nexus.shopping.customer.domain.Address
 import com.nexus.shopping.customer.domain.Contact
 import com.nexus.shopping.customer.domain.Customer
-import com.nexus.shopping.customer.domain.DocumentType
 import com.nexus.shopping.customer.domain.CustomerStatus
+import com.nexus.shopping.customer.domain.DocumentType
 import java.time.LocalDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
