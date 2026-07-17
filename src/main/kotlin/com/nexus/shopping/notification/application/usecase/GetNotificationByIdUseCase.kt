@@ -3,6 +3,8 @@ package com.nexus.shopping.notification.application.usecase
 import com.nexus.shopping.notification.application.exception.NotificationNotFoundException
 import com.nexus.shopping.notification.application.port.outbound.NotificationRepositoryPort
 import com.nexus.shopping.notification.domain.Notification
+import com.nexus.shopping.platform.application.logging.infoWithContext
+import com.nexus.shopping.platform.application.logging.warnWithContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 

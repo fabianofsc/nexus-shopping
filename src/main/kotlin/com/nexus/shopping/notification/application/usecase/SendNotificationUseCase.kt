@@ -9,6 +9,8 @@ import com.nexus.shopping.notification.domain.NotificationChannel
 import com.nexus.shopping.notification.domain.NotificationMessageRenderer
 import com.nexus.shopping.notification.domain.NotificationStatus
 import com.nexus.shopping.notification.domain.NotificationType
+import com.nexus.shopping.platform.application.logging.infoWithContext
+import com.nexus.shopping.platform.application.logging.warnWithContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Instant
