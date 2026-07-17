@@ -131,10 +131,10 @@ O Flyway executa automaticamente ao iniciar a aplicacao e cria:
 - Seed de produtos configuravel via `PRODUCT_SEED_COUNT`
 - Indexes: `idx_products_category_id`, `idx_products_name`
 
-O default local e pequeno para boot rapido. Para cenarios de performance, use um volume grande explicitamente:
+O default da aplicacao e `10000000`, preservando o cenario de performance. Para boot rapido em desenvolvimento ou demos de load balancing, sobrescreva explicitamente:
 
 ```bash
-PRODUCT_SEED_COUNT=10000000 docker compose up -d --build
+PRODUCT_SEED_COUNT=1000 docker compose up -d --build
 ```
 
 Para resetar o volume local apos mudancas de migrations:
@@ -150,7 +150,7 @@ Aplicacao local com uma instancia:
 
 ```bash
 docker compose up -d postgres
-env GRADLE_USER_HOME=.gradle-local ./gradlew bootRun
+env PRODUCT_SEED_COUNT=1000 GRADLE_USER_HOME=.gradle-local ./gradlew bootRun
 ```
 
 Health:

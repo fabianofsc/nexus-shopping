@@ -9,7 +9,7 @@ spring:
   flyway:
     enabled: true
     placeholders:
-      productSeedCount: ${PRODUCT_SEED_COUNT:100}
+      productSeedCount: ${PRODUCT_SEED_COUNT:10000000}
   jpa:
     open-in-view: false
     hibernate:

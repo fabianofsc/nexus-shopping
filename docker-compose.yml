@@ -10,7 +10,7 @@ x-app: &app-base
     DB_URL: jdbc:postgresql://postgres:5432/nexus_shopping
     DB_USERNAME: nexus
     DB_PASSWORD: nexus
-    PRODUCT_SEED_COUNT: ${PRODUCT_SEED_COUNT:-100}
+    PRODUCT_SEED_COUNT: ${PRODUCT_SEED_COUNT:-10000000}
   expose:
     - "8080"
   depends_on:
