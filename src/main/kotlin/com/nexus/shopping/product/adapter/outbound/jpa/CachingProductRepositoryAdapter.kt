@@ -1,10 +1,10 @@
 package com.nexus.shopping.product.adapter.outbound.jpa
 
 import com.github.benmanes.caffeine.cache.Cache
+import com.nexus.shopping.platform.domain.PageResult
 import com.nexus.shopping.product.application.command.CreateProductCommand
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.domain.Product
-import com.nexus.shopping.product.domain.ProductPage
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Primary
 import org.springframework.stereotype.Repository
@@ -43,13 +43,13 @@ class CachingProductRepositoryAdapter(
         categoryId: Long,
         page: Int,
         size: Int,
-    ): ProductPage = delegate.findByCategoryId(categoryId, page, size)
+    ): PageResult<Product> = delegate.findByCategoryId(categoryId, page, size)
 
     override fun findByName(
         name: String,
         page: Int,
         size: Int,
-    ): ProductPage = delegate.findByName(name, page, size)
+    ): PageResult<Product> = delegate.findByName(name, page, size)
 
     override fun save(command: CreateProductCommand): Product = delegate.save(command)
 
