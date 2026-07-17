@@ -59,6 +59,12 @@ class PackageStructureArchitectureTest {
     }
 
     @Test
+    fun `notification http dto responses exist outside the domain package`() {
+        Class.forName("com.nexus.shopping.notification.adapter.inbound.http.dto.NotificationResponse")
+        Class.forName("com.nexus.shopping.notification.adapter.inbound.http.dto.NotificationPageResponse")
+    }
+
+    @Test
     fun `codebase does not use a shared package for cross cutting structure`() {
         val sourceRoots =
             listOf(
