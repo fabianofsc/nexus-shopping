@@ -95,6 +95,26 @@ Decomposicao de dominio primeiro.
 Distribuicao fisica depois.
 ```
 
+Mapa inicial dos contextos:
+
+```mermaid
+flowchart LR
+  Product["Product / Catalogo"]
+  Customer["Customer / Cliente"]
+  Cart["Cart / Carrinho"]
+  Order["Order / Pedido"]
+  Payment["Payment / Pagamento"]
+  Notification["Notification / Notificacao"]
+
+  Product -->|"dados de exibicao"| Cart
+  Customer -->|"customerId"| Cart
+  Cart -->|"checkout"| Order
+  Customer -->|"snapshot enviado pelo checkout"| Order
+  Order -->|"payment request"| Payment
+  Payment -->|"payment result"| Order
+  Order -->|"eventos de pedido"| Notification
+```
+
 Nesta etapa:
 
 - `Inventory` fica fora de escopo.
@@ -269,6 +289,51 @@ Regras:
 
 ## Fronteiras e visibilidade entre contextos
 
+Visao de ownership e snapshots:
+
+```mermaid
+flowchart TB
+  subgraph Catalogo["Product / Catalogo"]
+    Product["Product"]
+    Category["Category"]
+    Brand["Brand"]
+    Product --> Category
+    Product --> Brand
+  end
+
+  subgraph Cliente["Customer / Cliente"]
+    Customer["Customer"]
+    Address["Address"]
+    Contact["Contact"]
+    Customer --> Address
+    Customer --> Contact
+  end
+
+  subgraph Carrinho["Cart / Carrinho"]
+    Cart["Cart"]
+    CartItem["CartItem"]
+    ProductSummary["ProductSummary"]
+    Cart --> CartItem
+    Cart --> ProductSummary
+  end
+
+  subgraph Pedido["Order / Pedido"]
+    Order["Order"]
+    CustomerSnapshot["CustomerSnapshot"]
+    ShippingSnapshot["ShippingAddressSnapshot"]
+    OrderItemSnapshot["OrderItemSnapshot"]
+    Order --> CustomerSnapshot
+    Order --> ShippingSnapshot
+    Order --> OrderItemSnapshot
+  end
+
+  Product -. "resumo para exibicao" .-> ProductSummary
+  ProductSummary -. "snapshot definitivo" .-> OrderItemSnapshot
+  Customer -. "snapshot escolhido no checkout" .-> CustomerSnapshot
+  Address -. "endereco escolhido no checkout" .-> ShippingSnapshot
+  Cart -. "checkout" .-> Order
+```
+
 ### Customer nao e consultado por Order no checkout
 
 Decisao:
@@ -319,6 +384,32 @@ Motivo:
 ## Fluxo principal inicial
 
 Na primeira versao, o checkout cria a Order e a Order inicia o pagamento.
+
+Fluxo conceitual entre dominios:
+
+```mermaid
+flowchart LR
+  Client["Cliente"]
+  API["API"]
+  Cart["Cart ACTIVE"]
+  CheckedOut["Cart CHECKED_OUT"]
+  OrderWaiting["Order WAITING_PAYMENT"]
+  PaymentAttempt["PaymentAttempt REQUESTED"]
+  Payment{"Payment result"}
+  Confirmed["Order CONFIRMED"]
+  Failed["Order PAYMENT_FAILED"]
+  Processing["Order PAYMENT_PROCESSING"]
+
+  Client -->|"checkout"| API
+  API --> Cart
+  Cart --> CheckedOut
+  CheckedOut --> OrderWaiting
+  OrderWaiting --> PaymentAttempt
+  PaymentAttempt --> Payment
+  Payment -->|"approved"| Confirmed
+  Payment -->|"rejected"| Failed
+  Payment -->|"timeout/incerto"| Processing
+```
 
 ```mermaid
 sequenceDiagram
@@ -453,6 +544,23 @@ Ordem recomendada:
 6. Adicionar API Gateway.
 7. Adicionar Auth/Identity e propagacao de identidade.
 8. Separar bancos por servico quando a aula chegar em ownership de dados.
+
+Roadmap visual:
+
+```mermaid
+flowchart LR
+  A["1. Monolito modular"]
+  B["2. Extrair Payment"]
+  C["3. HTTP Order -> Payment"]
+  D["4. Timeout, retry e idempotencia"]
+  E["5. Broker para resultados de pagamento"]
+  F["6. Notification via eventos"]
+  G["7. API Gateway"]
+  H["8. Auth/Identity"]
+  I["9. Bancos por servico"]
+
+  A --> B --> C --> D --> E --> F --> G --> H --> I
+```
 
 Motivo para extrair Payment primeiro:
 
