@@ -1,5 +1,7 @@
 package com.nexus.shopping.product.application.usecase
 
+import com.nexus.shopping.platform.application.logging.infoWithContext
+import com.nexus.shopping.platform.application.logging.warnWithContext
 import com.nexus.shopping.product.application.command.UpdatePriceCommand
 import com.nexus.shopping.product.application.exception.ProductNotFoundException
 import com.nexus.shopping.product.application.exception.ProductValidationException

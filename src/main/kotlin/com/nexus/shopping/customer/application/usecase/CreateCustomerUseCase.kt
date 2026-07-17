@@ -5,6 +5,8 @@ import com.nexus.shopping.customer.application.exception.CustomerValidationExcep
 import com.nexus.shopping.customer.application.port.outbound.CustomerRepositoryPort
 import com.nexus.shopping.customer.domain.Customer
 import com.nexus.shopping.customer.domain.DocumentType
+import com.nexus.shopping.platform.application.logging.infoWithContext
+import com.nexus.shopping.platform.application.logging.warnWithContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
