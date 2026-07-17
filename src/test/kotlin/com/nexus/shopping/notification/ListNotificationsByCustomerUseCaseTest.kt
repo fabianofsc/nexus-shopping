@@ -54,6 +54,18 @@ class ListNotificationsByCustomerUseCaseTest {
     }
 
     @Test
+    fun `throws NotificationValidationException when customerId is zero or negative`() {
+        val useCase = ListNotificationsByCustomerUseCase(FakeNotificationRepositoryForList())
+
+        assertFailsWith<NotificationValidationException> {
+            useCase.list(customerId = 0L, page = 0, size = 50)
+        }
+        assertFailsWith<NotificationValidationException> {
+            useCase.list(customerId = -1L, page = 0, size = 50)
+        }
+    }
+
+    @Test
     fun `throws NotificationValidationException when page is negative`() {
         val useCase = ListNotificationsByCustomerUseCase(FakeNotificationRepositoryForList())
 

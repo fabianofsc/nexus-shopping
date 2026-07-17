@@ -23,6 +23,7 @@ class ListNotificationsByCustomerUseCase(
         )
 
         if (customerId == null) throwValidationFailed("Query parameter customerId is required.")
+        if (customerId <= 0) throwValidationFailed("Query parameter customerId must be greater than 0.")
         if (page < 0) throwValidationFailed("Query parameter page must be greater than or equal to 0.")
         if (size !in 1..500) throwValidationFailed("Query parameter size must be between 1 and 500.")
 

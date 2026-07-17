@@ -44,6 +44,13 @@ class SendNotificationUseCase(
         if (message.body.length > 2000) throwValidationFailed("body exceeds maximum length of 2000 characters.")
 
         val result = emailSender.send(command.recipientEmail, message.subject, message.body)
+        if (!result.success) {
+            logger.warnWithContext(
+                "notification.send.email_failed",
+                "notification.customer_id" to command.customerId,
+                "notification.failure_reason" to (result.failureReason ?: "unknown"),
+            )
+        }
 
         val notification =
             Notification(
