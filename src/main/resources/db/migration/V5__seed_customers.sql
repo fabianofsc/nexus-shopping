@@ -1,15 +1,15 @@
 INSERT INTO customers (name, document, document_type, status)
 VALUES
-    ('Benjamin Bryan Duarte', '10521980232', 'CPF', 'ACTIVE'),
-    ('Marli Cristiane Marlene Alves', '51461719801', 'CPF', 'ACTIVE'),
-    ('Pietra Isabela Maitê da Mata', '05749885720', 'CPF', 'ACTIVE'),
-    ('Enzo Kaique Rocha', '02380155488', 'CPF', 'ACTIVE'),
-    ('Iago Noah Vieira', '14787704907', 'CPF', 'ACTIVE'),
-    ('Cláudia Elaine Eloá Galvão', '06075013083', 'CPF', 'ACTIVE'),
-    ('Marina Giovanna Milena Araújo', '52397067005', 'CPF', 'ACTIVE'),
-    ('Marcos Vinicius André Mário Almeida', '34563391271', 'CPF', 'ACTIVE'),
-    ('Luzia Mariah Rebeca Rodrigues', '18746728732', 'CPF', 'ACTIVE'),
-    ('Maitê Yasmin Cardoso', '08330170985', 'CPF', 'ACTIVE');
+    ('Benjamin Bryan Duarte', '02648629025', 'CPF', 'ACTIVE'),
+    ('Marli Cristiane Marlene Alves', '58119974000', 'CPF', 'ACTIVE'),
+    ('Pietra Isabela Maitê da Mata', '58119974000', 'CPF', 'ACTIVE'),
+    ('Enzo Kaique Rocha', '18184222230', 'CNH', 'ACTIVE'),
+    ('Iago Noah Vieira', '71613090845', 'CNH', 'ACTIVE'),
+    ('Cláudia Elaine Eloá Galvão', '378149714', 'RG', 'ACTIVE'),
+    ('Marina Giovanna Milena Araújo', '108237126', 'RG', 'ACTIVE'),
+    ('Marcos Vinicius André Mário Almeida', '265206510', 'RG', 'ACTIVE'),
+    ('Luzia Mariah Rebeca Rodrigues', '34150598000117', 'CNPJ', 'ACTIVE'),
+    ('Maitê Yasmin Cardoso', '01879119000149', 'CNPJ', 'ACTIVE');
 
 INSERT INTO customer_contacts (customer_id, email, phone)
 VALUES
