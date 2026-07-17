@@ -35,6 +35,7 @@ help:
 	@printf '%s\n' 'Targets:'
 	@printf '%s\n' '  gradle-build       Run ./gradlew build'
 	@printf '%s\n' '  gradle-test        Run ./gradlew test'
+	@printf '%s\n' '  install-hooks      Enable pre-push ktlint guardrail (git config core.hooksPath)'
 	@printf '%s\n' '  boot-run           Run the app locally'
 	@printf '%s\n' '  image              Build OCI image with Spring Boot buildpacks'
 	@printf '%s\n' '  image-latest       Build nexus-shopping:latest from the pagination branch'
@@ -74,12 +75,19 @@ help:
 	@printf '%s\n' '  hub-reset-indexes  Reseta banco sem aguardar health (uso avancado)'
 	@printf '%s\n' '  hub-reset-pagination Reseta banco sem aguardar health (uso avancado)'
 
-.PHONY: gradle-build gradle-test boot-run boot-jar image
+.PHONY: gradle-build gradle-test install-hooks boot-run boot-jar image
 gradle-build:
 	rtk env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew build
 
 gradle-test:
 	rtk env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew test
+
+install-hooks:
+	git config core.hooksPath .githooks
+	@printf '%s\n' 'Pre-push ktlint guardrail enabled (git config core.hooksPath .githooks).'
+	@printf '%s\n' 'core.hooksPath is stored in the shared .git/config: this also enables the'
+	@printf '%s\n' 'hook for the main checkout and every other worktree of this clone.'
+	@printf '%s\n' 'Bypass a single push in an emergency with: git push --no-verify'
 
 boot-run:
 	rtk env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew bootRun
