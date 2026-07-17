@@ -4,6 +4,7 @@ import com.nexus.shopping.notification.application.exception.NotificationValidat
 import com.nexus.shopping.notification.application.port.outbound.NotificationRepositoryPort
 import com.nexus.shopping.notification.domain.Notification
 import com.nexus.shopping.notification.domain.NotificationPage
+import org.hibernate.exception.ConstraintViolationException
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Repository
@@ -18,7 +19,11 @@ class NotificationJpaRepositoryAdapter(
         try {
             repository.saveAndFlush(notification.toEntity()).toDomain()
         } catch (exception: DataIntegrityViolationException) {
-            throw NotificationValidationException("customerId ${notification.customerId} does not reference an existing customer.")
+            val constraintName = (exception.cause as? ConstraintViolationException)?.constraintName
+            if (constraintName != null && constraintName.contains("fk_notifications_customer", ignoreCase = true)) {
+                throw NotificationValidationException("customerId ${notification.customerId} does not reference an existing customer.")
+            }
+            throw exception
         }
 
     @Transactional(readOnly = true)
