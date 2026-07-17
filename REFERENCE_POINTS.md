@@ -75,7 +75,7 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
   - Zero imports de framework em `domain/` e `application/`
   - DTOs conversão: `DTO.toCommand()` → `Command.toEntity()` → `Entity.toDomain()`
   - Validação centralizada em use cases
-- **Documentação:** [docs/superpowers/specs/2026-06-30-hexagonal-architecture-design.md](docs/superpowers/specs/2026-06-30-hexagonal-architecture-design.md)
+- **Documentação:** [docs/superpowers/specs/2026-06-28-hexagonal-refactor-design.md](docs/superpowers/specs/2026-06-28-hexagonal-refactor-design.md)
 - **Como clonar:**
   ```bash
   git clone --branch v2.0-hexagonal https://github.com/fabianofsc/nexus-shopping.git
@@ -101,23 +101,6 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
   git clone --branch v3.0-scalability https://github.com/fabianofsc/nexus-shopping.git
   ```
 - **Propósito de aprendizado:** Ver load balancing auto-hospedado (NGINX) distribuindo tráfego entre múltiplas instâncias na prática
-
----
-
-## 🔒 Proteção de Branches
-
-As branches que contêm essas tags estão protegidas no GitHub para evitar modificações acidentais:
-
-- ✅ Require pull request reviews before merging
-- ✅ Require status checks to pass
-- ✅ Require branches to be up to date before merging
-- ✅ Restrict direct pushes (só via PR)
-
-**Para modificar uma branch protegida:**
-1. Criar uma branch nova baseada nela
-2. Fazer mudanças
-3. Abrir PR com justificativa
-4. Aprovar e fazer merge (requiere review)
 
 ---
 
@@ -167,22 +150,6 @@ Cada tag tem:
 - ✅ Documentação de design no `docs/superpowers/specs/`
 - ✅ Resultados de testes em `docs/load-test-results-*.md`
 - ✅ Histórico de mudanças em commits
-
----
-
-## 📝 Criando nova versão de referência
-
-Quando uma nova otimização ou arquitetura for estável:
-
-```bash
-# Após mesclar para main
-git checkout <branch-otimizacao>
-git tag -a v<major>.<minor>-<descritor> \
-  -m "Descrição clara da mudança. Testado <data>. Ver docs/..."
-git push origin v<major>.<minor>-<descritor>
-
-# Adicionar linha neste arquivo com documentação
-```
 
 ---
 
