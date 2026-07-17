@@ -23,6 +23,7 @@ docker compose up -d postgres
 ```
 
 By default the Flyway seed creates 10,000,000 products, 1,000 brands, and 500 categories. Each category receives about 20,000 products. The current endpoint is paginated with `page` and `size`.
+Product ids are generated from 1 through the configured product seed count.
 
 ## Run the Category Test
 
@@ -72,11 +73,36 @@ Open the HTML report:
 open build/jmeter-report/products-by-name/index.html
 ```
 
+## Run the Product Detail Test
+
+```bash
+mkdir -p build/jmeter-results build/jmeter-report
+jmeter -n \
+  -t load-tests/jmeter/product-by-id.jmx \
+  -l build/jmeter-results/product-by-id.jtl \
+  -e -o build/jmeter-report/product-by-id \
+  -Jthreads=10 \
+  -JrampUp=10 \
+  -Jduration=60 \
+  -Jhost=localhost \
+  -Jport=8080 \
+  -JhotSet=1000
+```
+
+Open the HTML report:
+
+```bash
+open build/jmeter-report/product-by-id/index.html
+```
+
+`hotSet` controls how many product ids are randomly selected during the test. A small hot set, such as `1000`, creates repeated hot-key reads where cache-aside should help; a large hot set, up to the total product count, approaches uniform access where cache has much less impact.
+
 ## Endpoints Under Test
 
 ```http
 GET /products?categoryId=1&page=0&size=50
 GET /products?name=Product%202999999&page=0&size=50
+GET /products/{id}
 ```
 
 The repository intentionally executes paginated reads:

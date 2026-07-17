@@ -15,6 +15,9 @@ class ProductJpaRepositoryAdapter(
     private val repository: SpringDataProductRepository,
 ) : ProductRepositoryPort {
     @Transactional(readOnly = true)
+    override fun findById(id: Long): Product? = repository.findById(id).orElse(null)?.toDomain()
+
+    @Transactional(readOnly = true)
     override fun findByCategoryId(
         categoryId: Long,
         page: Int,

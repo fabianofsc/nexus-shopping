@@ -15,6 +15,8 @@ class ProductSearchUseCaseTest {
 
     private val fakeRepo =
         object : ProductRepositoryPort {
+            override fun findById(id: Long): Product? = throw UnsupportedOperationException()
+
             override fun findByCategoryId(
                 categoryId: Long,
                 page: Int,
