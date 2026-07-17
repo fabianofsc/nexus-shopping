@@ -10,7 +10,6 @@
 
 ## Global Constraints
 
-- Todos os comandos shell prefixados com `rtk`
 - Gradle Wrapper com GRADLE_USER_HOME local: `env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build`
 - Manter compatibilidade H2 nos testes (sem RETURNING * em UPDATE)
 - Sem novos arquivos alem dos indicados

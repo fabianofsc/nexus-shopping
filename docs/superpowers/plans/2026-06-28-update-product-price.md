@@ -12,7 +12,6 @@
 
 ## Global Constraints
 
-- All shell commands must be prefixed with `rtk`
 - Use Gradle wrapper: `env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build`
 - No JPA/ORM — JDBC only
 - Unit test style: `kotlin.test` (`assertFailsWith`, `assertEquals`), hand-rolled fakes — no Mockito
