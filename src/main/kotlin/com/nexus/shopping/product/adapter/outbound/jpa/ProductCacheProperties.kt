@@ -6,5 +6,6 @@ import java.time.Duration
 @ConfigurationProperties(prefix = "nexus.cache.product")
 data class ProductCacheProperties(
     val ttl: Duration = Duration.ofMinutes(10),
+    val searchTtl: Duration = Duration.ofSeconds(30),
     val defaultTtl: Duration = Duration.ofMinutes(10),
 )

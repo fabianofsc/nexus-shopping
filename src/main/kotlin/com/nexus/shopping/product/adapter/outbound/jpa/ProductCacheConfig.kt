@@ -2,6 +2,10 @@ package com.nexus.shopping.product.adapter.outbound.jpa
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator
+import com.fasterxml.jackson.databind.json.JsonMapper
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.KotlinModule
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.cache.CacheManager
@@ -29,9 +33,10 @@ class ProductCacheConfig {
     )
     fun productRedisCacheManager(
         connectionFactory: RedisConnectionFactory,
-        objectMapper: ObjectMapper,
+        objectMapperProvider: ObjectProvider<ObjectMapper>,
         properties: ProductCacheProperties,
     ): CacheManager {
+        val objectMapper = objectMapperProvider.getIfAvailable(::fallbackObjectMapper)
         val defaultConfiguration =
             RedisCacheConfiguration
                 .defaultCacheConfig()
@@ -49,9 +54,17 @@ class ProductCacheConfig {
             .withInitialCacheConfigurations(
                 mapOf(
                     PRODUCT_DETAIL_CACHE to defaultConfiguration.entryTtl(properties.ttl),
+                    PRODUCT_SEARCH_CACHE to defaultConfiguration.entryTtl(properties.searchTtl),
                 ),
             ).build()
     }
+
+    private fun fallbackObjectMapper(): ObjectMapper =
+        JsonMapper
+            .builder()
+            .addModule(KotlinModule.Builder().build())
+            .addModule(JavaTimeModule())
+            .build()
 
     private fun cacheObjectMapper(objectMapper: ObjectMapper): ObjectMapper =
         objectMapper
@@ -62,6 +75,7 @@ class ProductCacheConfig {
                     .allowIfSubType("com.nexus.shopping.product.domain.")
                     .allowIfSubType("java.math.")
                     .allowIfSubType("java.time.")
+                    .allowIfSubType("java.util.")
                     .build(),
                 ObjectMapper.DefaultTyping.EVERYTHING,
                 "@class",

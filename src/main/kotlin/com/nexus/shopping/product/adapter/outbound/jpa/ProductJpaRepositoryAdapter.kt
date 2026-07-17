@@ -22,6 +22,10 @@ class ProductJpaRepositoryAdapter(
     override fun findById(id: Long): Product? = repository.findById(id).orElse(null)?.toDomain()
 
     @Transactional(readOnly = true)
+    @Cacheable(
+        cacheNames = [ProductCacheConfig.PRODUCT_SEARCH_CACHE],
+        key = "'category:' + #categoryId + ':page:' + #page + ':size:' + #size",
+    )
     override fun findByCategoryId(
         categoryId: Long,
         page: Int,
@@ -37,6 +41,10 @@ class ProductJpaRepositoryAdapter(
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(
+        cacheNames = [ProductCacheConfig.PRODUCT_SEARCH_CACHE],
+        key = "'name:' + #name + ':page:' + #page + ':size:' + #size",
+    )
     override fun findByName(
         name: String,
         page: Int,

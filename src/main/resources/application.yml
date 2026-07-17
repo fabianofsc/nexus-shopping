@@ -50,6 +50,7 @@ nexus:
   cache:
     product:
       ttl: 10m
+      search-ttl: 30s
       default-ttl: 10m
     redis:
       enabled: true

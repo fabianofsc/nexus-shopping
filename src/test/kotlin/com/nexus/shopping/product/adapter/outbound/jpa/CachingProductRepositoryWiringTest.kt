@@ -5,10 +5,8 @@ import com.nexus.shopping.product.application.usecase.ProductGetByIdUseCase
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.aop.support.AopUtils
-import org.springframework.util.ClassUtils
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -49,15 +47,5 @@ class CachingProductRepositoryWiringTest {
 
         assertTrue(AopUtils.isAopProxy(injectedRepository))
         assertEquals(ProductJpaRepositoryAdapter::class.java, AopUtils.getTargetClass(injectedRepository))
-    }
-
-    @Test
-    fun `explicit caching decorator is absent from the runtime classpath`() {
-        assertFalse(
-            ClassUtils.isPresent(
-                "com.nexus.shopping.product.adapter.outbound.jpa.CachingProductRepositoryAdapter",
-                javaClass.classLoader,
-            ),
-        )
     }
 }

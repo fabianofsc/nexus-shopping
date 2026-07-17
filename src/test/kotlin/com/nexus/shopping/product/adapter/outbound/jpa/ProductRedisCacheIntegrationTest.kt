@@ -1,6 +1,7 @@
 package com.nexus.shopping.product.adapter.outbound.jpa
 
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
+import org.mockito.Mockito.reset
 import org.mockito.Mockito.times
 import org.mockito.Mockito.verify
 import org.springframework.beans.factory.annotation.Autowired
@@ -14,6 +15,8 @@ import org.springframework.test.context.DynamicPropertySource
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import java.nio.charset.StandardCharsets.UTF_8
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -47,21 +50,60 @@ class ProductRedisCacheIntegrationTest {
     @MockitoSpyBean
     private lateinit var springDataRepository: SpringDataProductRepository
 
+    @BeforeTest
+    fun resetState() {
+        reset(springDataRepository)
+        assertNotNull(stringRedisTemplate.connectionFactory)
+            .connection
+            .use { connection -> connection.serverCommands().flushDb() }
+    }
+
     @Test
-    fun `production Redis cache manager deserializes product detail on cache hit`() {
+    fun `production Redis cache manager stores product detail with string key and JSON value`() {
         assertIs<RedisCacheManager>(cacheManager)
 
         val first = assertNotNull(productRepository.findById(1L))
 
-        val cachedValue = stringRedisTemplate.opsForValue().get("products:detail::1")
+        val cachedKey = cacheKey(ProductCacheConfig.PRODUCT_DETAIL_CACHE)
+        val cachedValue = stringRedisTemplate.opsForValue().get(cachedKey)
         assertNotNull(cachedValue)
-        assertTrue(cachedValue.startsWith("{") || cachedValue.startsWith("["))
+        assertTrue(cachedValue.startsWith("{"))
+        assertTrue(cachedValue.contains("\"name\""))
+        assertTrue(cachedValue.contains("\"priceAmount\""))
 
         val cached = assertNotNull(productRepository.findById(1L))
 
         assertEquals(first, cached)
         verify(springDataRepository, times(1)).findById(1L)
     }
+
+    @Test
+    fun `production Redis cache manager stores search JSON with a short finite TTL`() {
+        productRepository.findById(1L)
+        productRepository.findByName(name = "Product 1", page = 0, size = 3)
+
+        val detailKey = cacheKey(ProductCacheConfig.PRODUCT_DETAIL_CACHE)
+        val searchKey = cacheKey(ProductCacheConfig.PRODUCT_SEARCH_CACHE)
+        val searchValue = assertNotNull(stringRedisTemplate.opsForValue().get(searchKey))
+        val detailTtl = pttl(detailKey)
+        val searchTtl = pttl(searchKey)
+
+        assertTrue(searchValue.startsWith("{"))
+        assertTrue(searchValue.contains("\"name\""))
+        assertTrue(searchValue.contains("\"priceAmount\""))
+        assertTrue(detailTtl > searchTtl)
+        assertTrue(searchTtl in 25_000..30_000, "PTTL de busca deveria ficar proximo de 30s, mas foi $searchTtl ms")
+    }
+
+    private fun cacheKey(cacheName: String): String =
+        assertNotNull(stringRedisTemplate.keys("$cacheName::*").singleOrNull())
+
+    private fun pttl(key: String): Long =
+        assertNotNull(
+            stringRedisTemplate.execute { connection ->
+                connection.keyCommands().pTtl(key.toByteArray(UTF_8))
+            },
+        )
 
     private companion object {
         @Container
