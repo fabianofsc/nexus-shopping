@@ -56,6 +56,7 @@ env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gra
 - Nunca fazer merge de branch sem confirmacao explicita do usuario para aquele merge especifico.
 - Toda execucao de spec/plan deve acontecer em uma **git worktree isolada**, nunca diretamente na branch de acumulacao.
 - Ao final de toda execucao de spec/plan, perguntar ao usuario: merge local, abrir PR, manter branch ou descartar.
+- Todo comentario de code review (corpo do review e comentarios inline) deve terminar com uma linha de assinatura da ferramenta que o gerou: `🤖 Generated with Claude Code` ou `🤖 Generated with Codex`.
 - Ao final de toda atualizacao do CLAUDE.md, verificar se o total de linhas fica abaixo de 200; mover conteudo para `docs/agents/` com @import se necessario.
 
 Branches atuais:
