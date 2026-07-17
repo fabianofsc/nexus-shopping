@@ -85,6 +85,8 @@ gradle-test:
 install-hooks:
 	git config core.hooksPath .githooks
 	@printf '%s\n' 'Pre-push ktlint guardrail enabled (git config core.hooksPath .githooks).'
+	@printf '%s\n' 'core.hooksPath is stored in the shared .git/config: this also enables the'
+	@printf '%s\n' 'hook for the main checkout and every other worktree of this clone.'
 	@printf '%s\n' 'Bypass a single push in an emergency with: git push --no-verify'
 
 boot-run:
