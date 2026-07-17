@@ -61,7 +61,11 @@ class PackageStructureArchitectureTest {
     @Test
     fun `notification http dto responses exist outside the domain package`() {
         Class.forName("com.nexus.shopping.notification.adapter.inbound.http.dto.NotificationResponse")
-        Class.forName("com.nexus.shopping.notification.adapter.inbound.http.dto.NotificationPageResponse")
+    }
+
+    @Test
+    fun `platform provides a generic page response reused across bounded contexts`() {
+        Class.forName("com.nexus.shopping.platform.adapter.inbound.http.dto.PageResponse")
     }
 
     @Test

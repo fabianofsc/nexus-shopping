@@ -1,6 +1,5 @@
 package com.nexus.shopping.notification.adapter.inbound.http
 
-import com.nexus.shopping.notification.adapter.inbound.http.dto.NotificationPageResponse
 import com.nexus.shopping.notification.adapter.inbound.http.dto.NotificationResponse
 import com.nexus.shopping.notification.adapter.inbound.http.dto.SendNotificationRequest
 import com.nexus.shopping.notification.adapter.inbound.http.dto.toCommand
@@ -8,6 +7,7 @@ import com.nexus.shopping.notification.adapter.inbound.http.dto.toResponse
 import com.nexus.shopping.notification.application.usecase.GetNotificationByIdUseCase
 import com.nexus.shopping.notification.application.usecase.ListNotificationsByCustomerUseCase
 import com.nexus.shopping.notification.application.usecase.SendNotificationUseCase
+import com.nexus.shopping.platform.adapter.inbound.http.dto.PageResponse
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -41,5 +41,5 @@ class NotificationController(
         @RequestParam(required = false) customerId: Long?,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "50") size: Int,
-    ): NotificationPageResponse = listNotificationsByCustomerUseCase.list(customerId, page, size).toResponse()
+    ): PageResponse<NotificationResponse> = listNotificationsByCustomerUseCase.list(customerId, page, size).toResponse()
 }

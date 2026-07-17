@@ -1,6 +1,8 @@
 package com.nexus.shopping.notification.adapter.inbound.http.dto
 
 import com.nexus.shopping.notification.domain.Notification
+import com.nexus.shopping.notification.domain.NotificationPage
+import com.nexus.shopping.platform.adapter.inbound.http.dto.PageResponse
 import java.time.Instant
 
 data class NotificationResponse(
@@ -30,4 +32,13 @@ fun Notification.toResponse(): NotificationResponse =
         referenceId = referenceId,
         createdAt = requireNotNull(createdAt) { "Notification.createdAt must be available before mapping to response." },
         sentAt = sentAt,
+    )
+
+fun NotificationPage.toResponse(): PageResponse<NotificationResponse> =
+    PageResponse(
+        content = content.map { it.toResponse() },
+        page = page,
+        size = size,
+        count = count,
+        hasNext = hasNext,
     )
