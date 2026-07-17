@@ -1,6 +1,7 @@
 package com.nexus.shopping.customer.adapter.outbound.jpa
 
 import com.nexus.shopping.customer.application.command.CreateCustomerCommand
+import com.nexus.shopping.customer.application.exception.CustomerValidationException
 import com.nexus.shopping.customer.domain.Address
 import com.nexus.shopping.customer.domain.Contact
 import com.nexus.shopping.customer.domain.Customer
@@ -132,7 +133,12 @@ fun CreateCustomerCommand.toEntity(): CustomerEntity {
         CustomerEntity(
             name = name,
             document = document,
-            documentType = DocumentType.valueOf(documentType),
+            documentType =
+                try {
+                    DocumentType.valueOf(documentType)
+                } catch (e: IllegalArgumentException) {
+                    throw CustomerValidationException("Invalid document type: $documentType")
+                },
             status = CustomerStatus.ACTIVE,
         )
     customer.contact =

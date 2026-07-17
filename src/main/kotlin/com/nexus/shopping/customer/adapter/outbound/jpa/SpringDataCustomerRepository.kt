@@ -9,6 +9,8 @@ interface SpringDataCustomerRepository : JpaRepository<CustomerEntity, Long> {
     @Query(
         """
         SELECT c FROM CustomerEntity c
+        LEFT JOIN FETCH c.contact
+        LEFT JOIN FETCH c.address
         WHERE c.id = :id
         """,
     )

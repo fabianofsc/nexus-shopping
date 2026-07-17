@@ -13,7 +13,10 @@ class CreateCustomerUseCase(
     private val customerRepository: CustomerRepositoryPort,
 ) {
     fun create(command: CreateCustomerCommand): Customer {
-        logger.info("customer.create.started")
+        logger.infoWithContext(
+            "customer.create.started",
+            "customer.document_type" to command.documentType,
+        )
 
         requireNotBlank(command.name, "name")
         requireMaxLength(command.name, "name", 160)
@@ -41,7 +44,11 @@ class CreateCustomerUseCase(
         requireMaxLength(command.country, "country", 2)
 
         val customer = customerRepository.save(command)
-        logger.info("customer.create.completed customer.id={}", customer.id)
+        logger.infoWithContext(
+            "customer.create.completed",
+            "customer.id" to customer.id,
+            "customer.document_type" to customer.documentType,
+        )
         return customer
     }
 
@@ -73,7 +80,7 @@ class CreateCustomerUseCase(
     }
 
     private fun throwValidationFailed(message: String): Nothing {
-        logger.warn("customer.create.validation_failed validation.error={}", message)
+        logger.warnWithContext("customer.create.validation_failed", "validation.error" to message)
         throw CustomerValidationException(message)
     }
 

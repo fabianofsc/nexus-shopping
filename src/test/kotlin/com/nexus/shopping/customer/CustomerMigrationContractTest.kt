@@ -26,6 +26,7 @@ class CustomerMigrationContractTest {
             assertEquals(2, countRows(connection, "customers WHERE document_type = 'CNH'"))
             assertEquals(3, countRows(connection, "customers WHERE document_type = 'RG'"))
             assertEquals(2, countRows(connection, "customers WHERE document_type = 'CNPJ'"))
+            assertEquals(10, countRows(connection, "(SELECT DISTINCT document FROM customers) distinct_documents"))
             assertEquals(
                 1,
                 countRows(
@@ -51,6 +52,20 @@ class CustomerMigrationContractTest {
             assertEquals(1, countRows(connection, "customer_contacts WHERE email = 'maite.yasmin.cardoso@zoomfoccus.com.br'"))
             assertEquals(1, countRows(connection, "customer_addresses WHERE city = 'Brasília' AND zip_code = '71995275'"))
             assertEquals(1, countRows(connection, "customer_addresses WHERE city = 'Fortaleza' AND zip_code = '60416500'"))
+            assertEquals(
+                1,
+                countRows(
+                    connection,
+                    "INFORMATION_SCHEMA.INDEXES WHERE TABLE_NAME = 'CUSTOMER_CONTACTS' AND INDEX_NAME = 'IDX_CUSTOMER_CONTACTS_CUSTOMER_ID'",
+                ),
+            )
+            assertEquals(
+                1,
+                countRows(
+                    connection,
+                    "INFORMATION_SCHEMA.INDEXES WHERE TABLE_NAME = 'CUSTOMER_ADDRESSES' AND INDEX_NAME = 'IDX_CUSTOMER_ADDRESSES_CUSTOMER_ID'",
+                ),
+            )
             assertEquals(0, countRows(connection, "customer_contacts cc LEFT JOIN customers c ON c.id = cc.customer_id WHERE c.id IS NULL"))
             assertEquals(
                 0,

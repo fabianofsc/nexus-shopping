@@ -2,7 +2,7 @@ INSERT INTO customers (name, document, document_type, status)
 VALUES
     ('Benjamin Bryan Duarte', '02648629025', 'CPF', 'ACTIVE'),
     ('Marli Cristiane Marlene Alves', '58119974000', 'CPF', 'ACTIVE'),
-    ('Pietra Isabela Maitê da Mata', '58119974000', 'CPF', 'ACTIVE'),
+    ('Pietra Isabela Maitê da Mata', '58119974001', 'CPF', 'ACTIVE'),
     ('Enzo Kaique Rocha', '18184222230', 'CNH', 'ACTIVE'),
     ('Iago Noah Vieira', '71613090845', 'CNH', 'ACTIVE'),
     ('Cláudia Elaine Eloá Galvão', '378149714', 'RG', 'ACTIVE'),

@@ -11,9 +11,15 @@ class GetCustomerByIdUseCase(
     private val customerRepository: CustomerRepositoryPort,
 ) {
     fun execute(id: Long): Customer {
-        logger.info("customer.get_by_id.started customer.id={}", id)
-        val customer = customerRepository.findById(id) ?: throw CustomerNotFoundException("Customer $id not found.")
-        logger.info("customer.get_by_id.completed customer.id={}", customer.id)
+        logger.infoWithContext("customer.get_by_id.started", "customer.id" to id)
+
+        val customer = customerRepository.findById(id)
+        if (customer == null) {
+            logger.warnWithContext("customer.get_by_id.not_found", "customer.id" to id)
+            throw CustomerNotFoundException("Customer $id not found.")
+        }
+
+        logger.infoWithContext("customer.get_by_id.completed", "customer.id" to customer.id)
         return customer
     }
 

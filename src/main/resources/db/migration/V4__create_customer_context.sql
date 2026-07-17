@@ -29,3 +29,6 @@ CREATE TABLE customer_addresses (
     zip_code VARCHAR(20) NOT NULL,
     country VARCHAR(2) NOT NULL
 );
+
+CREATE INDEX idx_customer_contacts_customer_id ON customer_contacts (customer_id);
+CREATE INDEX idx_customer_addresses_customer_id ON customer_addresses (customer_id);
