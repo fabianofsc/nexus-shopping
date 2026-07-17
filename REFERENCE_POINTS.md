@@ -138,6 +138,31 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
 
 ---
 
+### v3.3-cache-aside
+**Cache-aside LOCAL (Caffeine) no detalhe de produto**
+
+- **Branch:** `add-product-cache-aside` (PR #17)
+- **Commit:** (veja `git show v3.3-cache-aside`)
+- **Propósito:** Caso limpo de cache-aside LOCAL (in-process) sobre `GET /products/{id}`, implementado à mão como decorator explícito da arquitetura hexagonal — base da aula de Cache. A incoerência entre instâncias é **intencional** (demonstrada na aula rodando este código com múltiplas instâncias); não é resolvida aqui.
+- **Base:** `v3.2-product-detail`
+- **Mudanças:**
+  - Dependência `com.github.ben-manes.caffeine:caffeine` (gerenciada pelo BOM do Spring Boot); sem `spring-boot-starter-cache`/`@EnableCaching`
+  - `CachingProductRepositoryAdapter` (`@Primary`) decora o `ProductJpaRepositoryAdapter` e implementa `ProductRepositoryPort`:
+    - `findById`: cache-aside explícito com as 4 operações visíveis (`getIfPresent` → miss → `delegate.findById` → `put`), log **HIT/MISS**, nunca cacheia `null`
+    - `updatePrice`: delega ao JPA e **invalida localmente** (`cache.invalidate(id)`) — invalidação LOCAL apenas
+    - `findByCategoryId` / `findByName` / `save`: pass-through direto (não cacheados)
+  - Config `nexus.cache.product.max-size` (10000) e `.ttl` (10m) via `application.yml` (`ProductCacheProperties` + `@Configuration` construindo `Cache<Long, Product>`)
+  - Domínio e use cases permanecem cache-unaware; contrato dos endpoints inalterado
+- **Guardrails (fora de escopo, reservado à v3.4):** sem `@Cacheable`/`@CacheEvict`/Spring Cache abstraction, sem Redis/spring-data-redis, sem cache da busca paginada
+- **Imagem Docker Hub:** não publicada
+- **Como clonar:**
+  ```bash
+  git clone --branch v3.3-cache-aside https://github.com/fabianofsc/nexus-shopping.git
+  ```
+- **Propósito de aprendizado:** Ver cache-aside explícito reduzir o custo de leituras quentes repetidas por chave, e observar (na aula) o limite da abordagem LOCAL — incoerência entre instâncias
+
+---
+
 ## 📊 Relação entre versões
 
 ```
@@ -206,6 +231,6 @@ git rev-parse v1.1-indexes
 
 ---
 
-**Última atualização:** 2026-07-16
+**Última atualização:** 2026-07-17
 **Responsible:** Fabiano Góes
-**Tags ativas:** v1.0-baseline, v1.1-indexes, v1.2-pagination, v2.0-hexagonal, v3.0-scalability, v3.1-load-balancer-cloud, v3.2-product-detail
+**Tags ativas:** v1.0-baseline, v1.1-indexes, v1.2-pagination, v2.0-hexagonal, v3.0-scalability, v3.1-load-balancer-cloud, v3.2-product-detail, v3.3-cache-aside
