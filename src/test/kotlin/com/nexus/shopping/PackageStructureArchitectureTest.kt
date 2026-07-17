@@ -13,9 +13,15 @@ class PackageStructureArchitectureTest {
             Class.forName("com.nexus.shopping.product.application.exception.ProductValidationException")
         val productNotFoundException =
             Class.forName("com.nexus.shopping.product.application.exception.ProductNotFoundException")
+        val customerValidationException =
+            Class.forName("com.nexus.shopping.customer.application.exception.CustomerValidationException")
+        val customerNotFoundException =
+            Class.forName("com.nexus.shopping.customer.application.exception.CustomerNotFoundException")
 
         assertTrue(validationException.isAssignableFrom(productValidationException))
         assertTrue(notFoundException.isAssignableFrom(productNotFoundException))
+        assertTrue(validationException.isAssignableFrom(customerValidationException))
+        assertTrue(notFoundException.isAssignableFrom(customerNotFoundException))
     }
 
     @Test
@@ -37,6 +43,11 @@ class PackageStructureArchitectureTest {
     fun `product http dto responses exist outside the domain package`() {
         Class.forName("com.nexus.shopping.product.adapter.inbound.http.dto.ProductResponse")
         Class.forName("com.nexus.shopping.product.adapter.inbound.http.dto.ProductPageResponse")
+    }
+
+    @Test
+    fun `customer http dto responses exist outside the domain package`() {
+        Class.forName("com.nexus.shopping.customer.adapter.inbound.http.dto.CustomerResponse")
     }
 
     @Test
