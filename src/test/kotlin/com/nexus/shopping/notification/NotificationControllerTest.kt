@@ -135,6 +135,29 @@ class NotificationControllerTest {
     }
 
     @Test
+    fun `POST notifications with non-existent customerId returns 400 problem details instead of 500`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val body =
+            """
+            {
+              "customerId": 999999,
+              "recipientEmail": "ghost@example.com",
+              "type": "ORDER_CONFIRMED",
+              "templateParams": { "orderId": "1", "amount": "1.00" }
+            }
+            """.trimIndent()
+
+        val response = post(port, body)
+
+        assertExceptionDetail(
+            response = response,
+            expectedStatus = 400,
+            expectedTitle = "Bad Request",
+            expectedInstance = "/notifications",
+        )
+    }
+
+    @Test
     fun `GET notification by id returns 200`() {
         val port = environment.getRequiredProperty("local.server.port")
         val body =
@@ -207,5 +230,31 @@ class NotificationControllerTest {
         assertTrue(page["content"].isArray)
         assertTrue(page["content"].size() >= 1)
         assertEquals(false, page["hasNext"].asBoolean())
+    }
+
+    @Test
+    fun `GET notifications by customerId reports hasNext true when more rows exist than the page size`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        repeat(3) { index ->
+            val body =
+                """
+                {
+                  "customerId": 4,
+                  "recipientEmail": "quarto-$index@example.com",
+                  "type": "ORDER_CONFIRMED",
+                  "templateParams": { "orderId": "$index", "amount": "1.00" }
+                }
+                """.trimIndent()
+            post(port, body)
+        }
+
+        val response = get(port, "/notifications?customerId=4&page=0&size=2")
+
+        assertEquals(200, response.statusCode())
+        val page = mapper.readTree(response.body())
+        assertEquals(0, page["page"].asInt())
+        assertEquals(2, page["size"].asInt())
+        assertEquals(2, page["content"].size())
+        assertEquals(true, page["hasNext"].asBoolean())
     }
 }

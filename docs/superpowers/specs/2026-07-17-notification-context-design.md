@@ -193,3 +193,4 @@ Espelhando o padrao de Customer:
 - Sem retry de e-mail falho (o ADR nao pede isso agora).
 - Sem idempotencia de disparo (ainda nao ha orquestrador de checkout chamando isso).
 - `templateParams` ausente para uma chave exigida pelo template lanca `NotificationValidationException` (400).
+- Ordem `send()` antes de `save()`: em caso de falha do `save()` apos um `send()` bem-sucedido, o envio nao tem registro de auditoria persistido; aceito nesta fase porque `LoggingEmailSenderAdapter` nao falha e a unica falha concreta de `save()` (FK de `customerId`) ja e tratada antes do envio ser considerado bem-sucedido pelo cliente da API — revisitar (com porta de update + status `PENDING`) quando um `EmailSenderPort` real for introduzido.
