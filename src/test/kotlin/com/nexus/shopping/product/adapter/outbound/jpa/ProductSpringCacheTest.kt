@@ -11,6 +11,7 @@ import org.mockito.Mockito.`when`
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.cache.CacheManager
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Slice
 import org.springframework.data.domain.SliceImpl
@@ -21,6 +22,7 @@ import java.util.Optional
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
@@ -52,6 +54,11 @@ class ProductSpringCacheTest {
         reset(springDataRepository)
         cacheManager.getCache("products:detail")?.clear()
         cacheManager.getCache("products:search")?.clear()
+    }
+
+    @Test
+    fun `disabled Redis cache uses an explicit in-memory cache manager`() {
+        assertIs<ConcurrentMapCacheManager>(cacheManager)
     }
 
     @Test
