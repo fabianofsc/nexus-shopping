@@ -70,7 +70,7 @@ Branches atuais:
 ## Database And Migrations
 
 - Migrations: `src/main/resources/db/migration`.
-- Tabelas: `brands`, `categories`, `products`. Seed: `PRODUCT_SEED_COUNT` (default `10000000`).
+- Tabelas: `brands`, `categories`, `products`. Seed: `PRODUCT_SEED_COUNT` (default `1000`; usar `10000000` explicitamente nas aulas de performance).
 - Manter migrations portaveis entre PostgreSQL e H2 salvo instrucao explicita do usuario.
 - Evitar tipos/funcoes exclusivos do PostgreSQL em migrations usadas por testes.
 - Indexes atuais:

@@ -15,7 +15,7 @@ Options:
   --reset-db  Stop the stack and remove the Postgres volume before starting.
 
 Environment:
-  PRODUCT_SEED_COUNT  Defaults to 10000000.
+  PRODUCT_SEED_COUNT  Defaults to 1000.
   APP_IMAGE           Defaults to nexus-shopping:<branch-slug>.
   GRADLE_USER_HOME    Defaults to .gradle-local inside the project.
 USAGE
@@ -82,7 +82,7 @@ git switch "$branch"
 
 branch_slug="$(echo "$branch" | tr '/_' '--' | tr -cd '[:alnum:]-')"
 export APP_IMAGE="${APP_IMAGE:-nexus-shopping:${branch_slug}}"
-export PRODUCT_SEED_COUNT="${PRODUCT_SEED_COUNT:-10000000}"
+export PRODUCT_SEED_COUNT="${PRODUCT_SEED_COUNT:-1000}"
 export GRADLE_USER_HOME="${GRADLE_USER_HOME:-$project_root/.gradle-local}"
 
 echo "Building OCI image with Spring Boot buildpacks: $APP_IMAGE"
@@ -108,7 +108,7 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/nexus_shopping
       DB_USERNAME: nexus
       DB_PASSWORD: nexus
-      PRODUCT_SEED_COUNT: ${PRODUCT_SEED_COUNT:-10000000}
+      PRODUCT_SEED_COUNT: ${PRODUCT_SEED_COUNT:-1000}
     ports:
       - "8080:8080"
     depends_on:

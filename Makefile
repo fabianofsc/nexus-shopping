@@ -6,7 +6,8 @@ GRADLE_USER_HOME ?= $(CURDIR)/.gradle-local
 APP_IMAGE ?= nexus-shopping:latest
 LATEST_BRANCH ?= main
 LATEST_IMAGE ?= nexus-shopping:latest
-PRODUCT_SEED_COUNT ?= 10000000
+PRODUCT_SEED_COUNT ?= 1000
+LOAD_PRODUCT_SEED_COUNT ?= 10000000
 
 DOCKER_HUB_REPO ?= fabianofsc/nexus-shopping
 HUB_BASELINE_IMAGE ?= $(DOCKER_HUB_REPO):baseline
@@ -187,22 +188,22 @@ jmeter-all: jmeter-category jmeter-name
 
 .PHONY: load-baseline load-indexes load-pagination load-latest
 load-baseline:
-	rtk make stack-reset-baseline
+	rtk make stack-reset-baseline PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT)
 	rtk make wait-health
 	rtk make jmeter-all SCENARIO=baseline
 
 load-indexes:
-	rtk make stack-reset-indexes
+	rtk make stack-reset-indexes PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT)
 	rtk make wait-health
 	rtk make jmeter-all SCENARIO=indexes
 
 load-pagination:
-	rtk make stack-reset-pagination
+	rtk make stack-reset-pagination PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT)
 	rtk make wait-health
 	rtk make jmeter-all SCENARIO=pagination
 
 load-latest:
-	rtk make stack-reset-latest
+	rtk make stack-reset-latest PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT)
 	rtk make wait-health
 	rtk make jmeter-all SCENARIO=latest
 
@@ -236,33 +237,33 @@ push-all: push-baseline push-indexes push-pagination
 
 .PHONY: start-baseline start-indexes start-pagination
 start-baseline:
-	rtk env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose down -v
-	rtk env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose up -d postgres app
+	rtk env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose down -v
+	rtk env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose up -d postgres app
 	rtk make wait-health HOST=$(HOST) PORT=$(PORT)
 
 start-indexes:
 	rtk docker compose stop app
-	rtk env APP_IMAGE=$(HUB_INDEXES_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose up -d app
+	rtk env APP_IMAGE=$(HUB_INDEXES_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose up -d app
 	rtk make wait-health HOST=$(HOST) PORT=$(PORT)
 
 start-pagination:
 	rtk docker compose stop app
-	rtk env APP_IMAGE=$(HUB_PAGINATION_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose up -d app
+	rtk env APP_IMAGE=$(HUB_PAGINATION_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose up -d app
 	rtk make wait-health HOST=$(HOST) PORT=$(PORT)
 
 # hub-reset-* = reseta banco sem aguardar health (uso avancado)
 .PHONY: hub-reset-baseline hub-reset-indexes hub-reset-pagination
 hub-reset-baseline:
-	rtk env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose down -v
-	rtk env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose up -d postgres app
+	rtk env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose down -v
+	rtk env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose up -d postgres app
 
 hub-reset-indexes:
-	rtk env APP_IMAGE=$(HUB_INDEXES_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose down -v
-	rtk env APP_IMAGE=$(HUB_INDEXES_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose up -d postgres app
+	rtk env APP_IMAGE=$(HUB_INDEXES_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose down -v
+	rtk env APP_IMAGE=$(HUB_INDEXES_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose up -d postgres app
 
 hub-reset-pagination:
-	rtk env APP_IMAGE=$(HUB_PAGINATION_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose down -v
-	rtk env APP_IMAGE=$(HUB_PAGINATION_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose up -d postgres app
+	rtk env APP_IMAGE=$(HUB_PAGINATION_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose down -v
+	rtk env APP_IMAGE=$(HUB_PAGINATION_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose up -d postgres app
 
 # load-hub-* = start-* + jmeter-all (atalho para rodar tudo em sequencia)
 .PHONY: load-hub-baseline load-hub-indexes load-hub-pagination

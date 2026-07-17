@@ -131,10 +131,10 @@ O Flyway executa automaticamente ao iniciar a aplicacao e cria:
 - Seed de produtos configuravel via `PRODUCT_SEED_COUNT`
 - Indexes: `idx_products_category_id`, `idx_products_name`
 
-O default da aplicacao e `10000000`, preservando o cenario de performance. Para boot rapido em desenvolvimento ou demos de load balancing, sobrescreva explicitamente:
+O default da aplicacao e `1000`, para boot rapido em desenvolvimento e demos locais. Para cenarios de performance, sobrescreva explicitamente:
 
 ```bash
-PRODUCT_SEED_COUNT=1000 docker compose up -d --build
+PRODUCT_SEED_COUNT=10000000 docker compose up -d --build
 ```
 
 Para resetar o volume local apos mudancas de migrations:
@@ -182,7 +182,7 @@ curl -X POST http://localhost:8080/products \
 Stack local com NGINX e 3 instancias:
 
 ```bash
-PRODUCT_SEED_COUNT=10000 docker compose up -d --build
+PRODUCT_SEED_COUNT=1000 docker compose up -d --build
 ./scripts/test-lb.sh 30
 ```
 

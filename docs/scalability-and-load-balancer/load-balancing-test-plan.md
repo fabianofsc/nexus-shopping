@@ -52,8 +52,8 @@ subir infra  ->  smoke test  ->  teste de isolamento  ->  teste de distribuicao
 
 ## 4. Subir a infra
 
-O seed padrao e de 10.000.000 produtos; para testar o balanceamento isso e
-desnecessario e lento. Use um seed reduzido:
+O seed padrao local e pequeno para testar o balanceamento sem esperar a carga
+massiva da aula de performance. Use um valor reduzido explicitamente:
 
 ```bash
 PRODUCT_SEED_COUNT=1000 docker compose up -d --build
@@ -215,5 +215,6 @@ docker compose down -v         # remove tambem o volume (reseta o banco)
 - **Flyway checksum mismatch apos alterar migration**: uma migration ja aplicada foi
   editada. Resete o volume: `docker compose down -v && docker compose up -d --build`.
 
-- **Teste muito lento no primeiro `up`**: o seed padrao e 10M de produtos. Use
-  `PRODUCT_SEED_COUNT=1000` conforme a secao 4.
+- **Teste muito lento no primeiro `up`**: confirme se voce nao sobrescreveu
+  `PRODUCT_SEED_COUNT` com um valor grande. Use `PRODUCT_SEED_COUNT=1000`
+  conforme a secao 4.
