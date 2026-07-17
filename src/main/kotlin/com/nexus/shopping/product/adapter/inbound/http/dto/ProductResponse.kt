@@ -1,5 +1,7 @@
 package com.nexus.shopping.product.adapter.inbound.http.dto
 
+import com.nexus.shopping.platform.adapter.inbound.http.dto.PageResponse
+import com.nexus.shopping.platform.domain.PageResult
 import com.nexus.shopping.product.domain.Product
 import java.math.BigDecimal
 import java.time.LocalDateTime
@@ -35,4 +37,13 @@ fun Product.toResponse() =
         inventoryQuantity = inventoryQuantity,
         createdAt = createdAt,
         updatedAt = updatedAt,
+    )
+
+fun PageResult<Product>.toResponse(): PageResponse<ProductResponse> =
+    PageResponse(
+        content = content.map { it.toResponse() },
+        page = page,
+        size = size,
+        count = count,
+        hasNext = hasNext,
     )

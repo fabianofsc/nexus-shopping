@@ -1,5 +1,6 @@
 package com.nexus.shopping.product.application.usecase
 
+import com.nexus.shopping.platform.domain.PageResult
 import com.nexus.shopping.product.application.command.CreateProductCommand
 import com.nexus.shopping.product.application.command.UpdatePriceCommand
 import com.nexus.shopping.product.application.exception.ProductNotFoundException
@@ -7,7 +8,6 @@ import com.nexus.shopping.product.application.exception.ProductValidationExcepti
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.domain.Currency
 import com.nexus.shopping.product.domain.Product
-import com.nexus.shopping.product.domain.ProductPage
 import com.nexus.shopping.product.domain.ProductStatus
 import java.math.BigDecimal
 import java.time.LocalDateTime
@@ -43,13 +43,13 @@ class UpdateProductPriceUseCaseTest {
                 categoryId: Long,
                 page: Int,
                 size: Int,
-            ): ProductPage = throw UnsupportedOperationException()
+            ): PageResult<Product> = throw UnsupportedOperationException()
 
             override fun findByName(
                 name: String,
                 page: Int,
                 size: Int,
-            ): ProductPage = throw UnsupportedOperationException()
+            ): PageResult<Product> = throw UnsupportedOperationException()
 
             override fun save(command: CreateProductCommand): Product = throw UnsupportedOperationException()
 

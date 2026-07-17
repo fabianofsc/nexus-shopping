@@ -1,10 +1,10 @@
 package com.nexus.shopping.product.application.usecase
 
+import com.nexus.shopping.platform.domain.PageResult
 import com.nexus.shopping.product.application.command.CreateProductCommand
 import com.nexus.shopping.product.application.exception.ProductValidationException
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.domain.Product
-import com.nexus.shopping.product.domain.ProductPage
 import java.math.BigDecimal
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -21,18 +21,18 @@ class ProductSearchUseCaseTest {
                 categoryId: Long,
                 page: Int,
                 size: Int,
-            ): ProductPage {
+            ): PageResult<Product> {
                 lastCalledMethod = "findByCategoryId"
-                return ProductPage(content = emptyList(), page = page, size = size, count = 0, hasNext = false)
+                return PageResult(content = emptyList(), page = page, size = size, count = 0, hasNext = false)
             }
 
             override fun findByName(
                 name: String,
                 page: Int,
                 size: Int,
-            ): ProductPage {
+            ): PageResult<Product> {
                 lastCalledMethod = "findByName"
-                return ProductPage(content = emptyList(), page = page, size = size, count = 0, hasNext = false)
+                return PageResult(content = emptyList(), page = page, size = size, count = 0, hasNext = false)
             }
 
             override fun save(command: CreateProductCommand): Product = throw UnsupportedOperationException()

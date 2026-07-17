@@ -1,9 +1,9 @@
 package com.nexus.shopping.product.adapter.outbound.jpa
 
+import com.nexus.shopping.platform.domain.PageResult
 import com.nexus.shopping.product.application.command.CreateProductCommand
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.domain.Product
-import com.nexus.shopping.product.domain.ProductPage
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.cache.annotation.Caching
@@ -30,7 +30,7 @@ class ProductJpaRepositoryAdapter(
         categoryId: Long,
         page: Int,
         size: Int,
-    ): ProductPage {
+    ): PageResult<Product> {
         val products =
             repository.findByCategoryId(
                 categoryId = categoryId,
@@ -49,9 +49,9 @@ class ProductJpaRepositoryAdapter(
         name: String,
         page: Int,
         size: Int,
-    ): ProductPage {
+    ): PageResult<Product> {
         val upperBound = nextLexicographicValue(name)
-        if (upperBound == name) return ProductPage(emptyList(), page, size, 0, false)
+        if (upperBound == name) return PageResult(emptyList(), page, size, 0, false)
         val products =
             repository.findByNamePrefix(
                 name = name,
@@ -86,10 +86,10 @@ class ProductJpaRepositoryAdapter(
     private fun Slice<ProductEntity>.toProductPage(
         page: Int,
         size: Int,
-    ): ProductPage {
+    ): PageResult<Product> {
         val productContent = content.map { it.toDomain() }
 
-        return ProductPage(
+        return PageResult(
             content = productContent,
             page = page,
             size = size,

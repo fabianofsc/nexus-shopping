@@ -1,9 +1,9 @@
-package com.nexus.shopping.product.application.usecase
+package com.nexus.shopping.platform.application.logging
 
 import org.slf4j.Logger
 import org.slf4j.MDC
 
-internal fun Logger.infoWithContext(
+fun Logger.infoWithContext(
     message: String,
     vararg context: Pair<String, Any?>,
 ) {
@@ -12,7 +12,7 @@ internal fun Logger.infoWithContext(
     }
 }
 
-internal fun Logger.warnWithContext(
+fun Logger.warnWithContext(
     message: String,
     vararg context: Pair<String, Any?>,
 ) {

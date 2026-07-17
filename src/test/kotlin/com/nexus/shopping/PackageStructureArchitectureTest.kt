@@ -17,11 +17,17 @@ class PackageStructureArchitectureTest {
             Class.forName("com.nexus.shopping.customer.application.exception.CustomerValidationException")
         val customerNotFoundException =
             Class.forName("com.nexus.shopping.customer.application.exception.CustomerNotFoundException")
+        val notificationValidationException =
+            Class.forName("com.nexus.shopping.notification.application.exception.NotificationValidationException")
+        val notificationNotFoundException =
+            Class.forName("com.nexus.shopping.notification.application.exception.NotificationNotFoundException")
 
         assertTrue(validationException.isAssignableFrom(productValidationException))
         assertTrue(notFoundException.isAssignableFrom(productNotFoundException))
         assertTrue(validationException.isAssignableFrom(customerValidationException))
         assertTrue(notFoundException.isAssignableFrom(customerNotFoundException))
+        assertTrue(validationException.isAssignableFrom(notificationValidationException))
+        assertTrue(notFoundException.isAssignableFrom(notificationNotFoundException))
     }
 
     @Test
@@ -37,17 +43,45 @@ class PackageStructureArchitectureTest {
                 .readText()
 
         assertFalse(handlerSource.contains("com.nexus.shopping.product"))
+        assertFalse(handlerSource.contains("com.nexus.shopping.customer"))
+        assertFalse(handlerSource.contains("com.nexus.shopping.notification"))
     }
 
     @Test
     fun `product http dto responses exist outside the domain package`() {
         Class.forName("com.nexus.shopping.product.adapter.inbound.http.dto.ProductResponse")
-        Class.forName("com.nexus.shopping.product.adapter.inbound.http.dto.ProductPageResponse")
     }
 
     @Test
     fun `customer http dto responses exist outside the domain package`() {
         Class.forName("com.nexus.shopping.customer.adapter.inbound.http.dto.CustomerResponse")
+    }
+
+    @Test
+    fun `notification http dto responses exist outside the domain package`() {
+        Class.forName("com.nexus.shopping.notification.adapter.inbound.http.dto.NotificationResponse")
+    }
+
+    @Test
+    fun `platform provides a generic page response reused across bounded contexts`() {
+        Class.forName("com.nexus.shopping.platform.adapter.inbound.http.dto.PageResponse")
+    }
+
+    @Test
+    fun `platform provides a generic page result domain type reused across bounded contexts`() {
+        Class.forName("com.nexus.shopping.platform.domain.PageResult")
+    }
+
+    @Test
+    fun `platform provides a shared logging context helper reused across bounded contexts`() {
+        val loggerContextSource =
+            java.nio.file.Path
+                .of("src/main/kotlin/com/nexus/shopping/platform/application/logging/LoggerContext.kt")
+                .toFile()
+                .readText()
+
+        assertTrue(loggerContextSource.contains("fun Logger.infoWithContext"))
+        assertTrue(loggerContextSource.contains("fun Logger.warnWithContext"))
     }
 
     @Test

@@ -1,11 +1,11 @@
 package com.nexus.shopping.product.application.usecase
 
+import com.nexus.shopping.platform.domain.PageResult
 import com.nexus.shopping.product.application.command.CreateProductCommand
 import com.nexus.shopping.product.application.exception.ProductValidationException
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.domain.Currency
 import com.nexus.shopping.product.domain.Product
-import com.nexus.shopping.product.domain.ProductPage
 import com.nexus.shopping.product.domain.ProductStatus
 import java.math.BigDecimal
 import kotlin.test.Test
@@ -21,13 +21,13 @@ class ProductCreateUseCaseTest {
                 categoryId: Long,
                 page: Int,
                 size: Int,
-            ) = ProductPage(content = emptyList(), page = page, size = size, count = 0, hasNext = false)
+            ): PageResult<Product> = PageResult(content = emptyList(), page = page, size = size, count = 0, hasNext = false)
 
             override fun findByName(
                 name: String,
                 page: Int,
                 size: Int,
-            ) = ProductPage(content = emptyList(), page = page, size = size, count = 0, hasNext = false)
+            ): PageResult<Product> = PageResult(content = emptyList(), page = page, size = size, count = 0, hasNext = false)
 
             override fun save(command: CreateProductCommand): Product =
                 Product(

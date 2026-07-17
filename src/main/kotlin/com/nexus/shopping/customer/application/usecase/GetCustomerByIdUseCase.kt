@@ -3,6 +3,8 @@ package com.nexus.shopping.customer.application.usecase
 import com.nexus.shopping.customer.application.exception.CustomerNotFoundException
 import com.nexus.shopping.customer.application.port.outbound.CustomerRepositoryPort
 import com.nexus.shopping.customer.domain.Customer
+import com.nexus.shopping.platform.application.logging.infoWithContext
+import com.nexus.shopping.platform.application.logging.warnWithContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 

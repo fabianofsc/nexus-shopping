@@ -86,6 +86,7 @@ class ProductCacheConfig {
             .activateDefaultTypingAsProperty(
                 BasicPolymorphicTypeValidator
                     .builder()
+                    .allowIfSubType("com.nexus.shopping.platform.domain.")
                     .allowIfSubType("com.nexus.shopping.product.domain.")
                     .allowIfSubType("java.math.")
                     .allowIfSubType("java.time.")

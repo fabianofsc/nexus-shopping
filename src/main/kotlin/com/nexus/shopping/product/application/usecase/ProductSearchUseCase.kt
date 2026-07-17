@@ -1,8 +1,11 @@
 package com.nexus.shopping.product.application.usecase
 
+import com.nexus.shopping.platform.application.logging.infoWithContext
+import com.nexus.shopping.platform.application.logging.warnWithContext
+import com.nexus.shopping.platform.domain.PageResult
 import com.nexus.shopping.product.application.exception.ProductValidationException
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
-import com.nexus.shopping.product.domain.ProductPage
+import com.nexus.shopping.product.domain.Product
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
@@ -15,7 +18,7 @@ class ProductSearchUseCase(
         name: String?,
         page: Int,
         size: Int,
-    ): ProductPage {
+    ): PageResult<Product> {
         logger.infoWithContext(
             "product.search.started",
             "product.search.filter" to filterType(categoryId, name),
