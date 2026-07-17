@@ -1,0 +1,10 @@
+{
+  "AWSEBDockerrunVersion": "1",
+  "Image": {
+    "Name": "fabianofsc/nexus-shopping:latest",
+    "Update": "true"
+  },
+  "Ports": [
+    { "ContainerPort": "8080" }
+  ]
+}
