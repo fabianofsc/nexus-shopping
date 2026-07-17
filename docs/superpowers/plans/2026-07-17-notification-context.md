@@ -1544,6 +1544,8 @@ git commit -m "feat: add notification JPA adapter with slice pagination"
 **Files:**
 - Create: `src/main/kotlin/com/nexus/shopping/notification/adapter/outbound/email/LoggingEmailSenderAdapter.kt`
 - Test: `src/test/kotlin/com/nexus/shopping/notification/adapter/outbound/email/LoggingEmailSenderAdapterTest.kt`
+- Delete: `src/test/kotlin/com/nexus/shopping/notification/adapter/NotificationTestConfiguration.kt`
+- Delete: `src/test/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`
 
 **Interfaces:**
 - Consumes: `EmailSenderPort`, `EmailSendResult` (Task 3).
@@ -1614,11 +1616,25 @@ class LoggingEmailSenderAdapter : EmailSenderPort {
 Run: `env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests "com.nexus.shopping.notification.adapter.outbound.email.LoggingEmailSenderAdapterTest"`
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Remover o stub de contexto (real beans agora existem para ambos os ports)**
+
+Task 4 introduziu um stub temporario (`NotificationTestConfiguration.kt` + `AutoConfiguration.imports`) para manter verdes os testes `@SpringBootTest` existentes (`CustomerControllerTest`, `HealthEndpointTest`, `ProductControllerTest` etc.) enquanto `NotificationRepositoryPort` (Task 8: `NotificationJpaRepositoryAdapter`) e `EmailSenderPort` (esta task: `LoggingEmailSenderAdapter`) ainda nao tinham beans reais. Agora que ambos existem, o stub `@Primary` passa a ser um risco: ele continuaria sombreando os adapters reais em qualquer `@SpringBootTest` futuro (incluindo o `NotificationControllerTest` da Task 10), escondendo cobertura de integracao real. Remover:
+
+```bash
+git rm src/test/kotlin/com/nexus/shopping/notification/adapter/NotificationTestConfiguration.kt
+git rm src/test/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
+```
+
+Run: `env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build`
+Expected: `BUILD SUCCESSFUL`, sem `NoSuchBeanDefinitionException` em nenhum contexto (confirma que os testes `@SpringBootTest` pre-existentes continuam verdes usando os beans reais).
+
+- [ ] **Step 6: Commit**
 
 ```bash
 git add src/main/kotlin/com/nexus/shopping/notification/adapter/outbound/email/LoggingEmailSenderAdapter.kt src/test/kotlin/com/nexus/shopping/notification/adapter/outbound/email/LoggingEmailSenderAdapterTest.kt
-git commit -m "feat: add simulated LoggingEmailSenderAdapter"
+git rm src/test/kotlin/com/nexus/shopping/notification/adapter/NotificationTestConfiguration.kt
+git rm src/test/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
+git commit -m "feat: add simulated LoggingEmailSenderAdapter and remove interim test stub for notification ports"
 ```
 
 ---
@@ -2052,7 +2068,7 @@ Run:
 env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
-Expected: `BUILD SUCCESSFUL`, sem falhas de compilacao, teste ou ktlint.
+Expected: `BUILD SUCCESSFUL`, sem falhas de compilacao, teste ou ktlint. Esta execucao tambem serve como confirmacao final de que a remocao do `NotificationTestConfiguration` (Task 9) nao quebrou nenhum `@SpringBootTest` pre-existente fora do contexto `notification`.
 
 - [ ] **Step 2: Confirmar explicitamente o PackageStructureArchitectureTest**
 
