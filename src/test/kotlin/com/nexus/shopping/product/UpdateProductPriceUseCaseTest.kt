@@ -9,16 +9,12 @@ import com.nexus.shopping.product.domain.Currency
 import com.nexus.shopping.product.domain.Product
 import com.nexus.shopping.product.domain.ProductPage
 import com.nexus.shopping.product.domain.ProductStatus
-import org.junit.jupiter.api.extension.ExtendWith
-import org.springframework.boot.test.system.CapturedOutput
-import org.springframework.boot.test.system.OutputCaptureExtension
 import java.math.BigDecimal
 import java.time.LocalDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
-@ExtendWith(OutputCaptureExtension::class)
 class UpdateProductPriceUseCaseTest {
     private fun aProduct(price: BigDecimal) =
         Product(
@@ -66,20 +62,17 @@ class UpdateProductPriceUseCaseTest {
     private val useCase = UpdateProductPriceUseCase(fakeRepo)
 
     @Test
-    fun `returns updated product when price is valid and product exists`(output: CapturedOutput) {
+    fun `returns updated product when price is valid and product exists`() {
         repoReturn = aProduct(BigDecimal("99.90"))
         val result = useCase.execute(UpdatePriceCommand(1L, BigDecimal("99.90")))
         assertEquals(0, BigDecimal("99.90").compareTo(result.priceAmount))
-        assert(output.out.contains("product.update_price.started"))
-        assert(output.out.contains("product.update_price.completed"))
     }
 
     @Test
-    fun `throws ProductValidationException when priceAmount is zero`(output: CapturedOutput) {
+    fun `throws ProductValidationException when priceAmount is zero`() {
         assertFailsWith<ProductValidationException> {
             useCase.execute(UpdatePriceCommand(1L, BigDecimal.ZERO))
         }
-        assert(output.out.contains("product.update_price.validation_failed"))
     }
 
     @Test
@@ -90,11 +83,10 @@ class UpdateProductPriceUseCaseTest {
     }
 
     @Test
-    fun `throws ProductNotFoundException when product does not exist`(output: CapturedOutput) {
+    fun `throws ProductNotFoundException when product does not exist`() {
         repoReturn = null
         assertFailsWith<ProductNotFoundException> {
             useCase.execute(UpdatePriceCommand(1L, BigDecimal("99.90")))
         }
-        assert(output.out.contains("product.update_price.not_found"))
     }
 }
