@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Pre-push guardrail: blocks pushes that would fail CI's ktlint check.
+#
+# Install once per clone:
+#   git config core.hooksPath .githooks
+# or:
+#   make install-hooks
+# Note: core.hooksPath lives in the shared .git/config, so installing it from
+# any worktree enables the hook for the main checkout and every other worktree
+# of this clone too.
+#
+# Bypass in an emergency with: git push --no-verify
+
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+# Use the main checkout's .gradle-local (not this worktree's) so every
+# worktree shares one warm Gradle cache instead of a cold one each.
+main_repo_root="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+cd "$repo_root"
+
+echo "pre-push: running ktlintCheck (blocks push on failure; bypass with 'git push --no-verify')"
+
+if ! env GRADLE_USER_HOME="$main_repo_root/.gradle-local" ./gradlew ktlintCheck --console=plain; then
+    echo ""
+    echo "pre-push: ktlintCheck failed. Fix violations with:"
+    echo "  env GRADLE_USER_HOME=$main_repo_root/.gradle-local ./gradlew ktlintFormat"
+    echo "then commit the formatting fix and push again."
+    exit 1
+fi

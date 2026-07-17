@@ -47,6 +47,7 @@ env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gra
 
 - Docker Compose: `docker compose up -d postgres` / `docker compose down -v`
 - Busca de arquivos/texto com `rg` / `rg --files`.
+- Guardrail de lint pre-push (`make install-hooks`, uma vez por clone): bloqueia `git push` se `ktlintCheck` falhar. Bypass pontual: `git push --no-verify`.
 - Nao commitar outputs de build nem relatorios HTML do JMeter em `build/`.
 
 ## Git Workflow
