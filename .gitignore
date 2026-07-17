@@ -9,4 +9,5 @@ out/
 jmeter.log
 *.hprof
 *.hprof
+*.pem
 docs/assets/*.html
