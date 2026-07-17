@@ -48,8 +48,7 @@ class RedisTestConfiguration {
         doAnswer { invocation ->
             entries[invocation.getArgument<String>(0)] = invocation.getArgument(1)
             null
-        }
-            .`when`(valueOperations)
+        }.`when`(valueOperations)
             .set(anyString(), any(Product::class.java), any(Duration::class.java))
 
         return valueOperations

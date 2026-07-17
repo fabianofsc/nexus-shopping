@@ -10,9 +10,9 @@ import org.springframework.cache.CacheManager
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.redis.cache.RedisCacheManager
 import org.springframework.data.redis.core.StringRedisTemplate
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers

@@ -2,9 +2,9 @@ package com.nexus.shopping.product.adapter.outbound.jpa
 
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.application.usecase.ProductGetByIdUseCase
+import org.springframework.aop.support.AopUtils
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.aop.support.AopUtils
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue

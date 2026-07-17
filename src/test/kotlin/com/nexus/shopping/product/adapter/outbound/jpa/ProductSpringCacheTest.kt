@@ -224,9 +224,23 @@ class ProductSpringCacheTest {
         `when`(springDataRepository.updatePriceById(1L, BigDecimal("88.80"))).thenReturn(1)
         `when`(springDataRepository.findById(1L)).thenReturn(Optional.of(updated))
 
-        assertEquals(BigDecimal("19.90"), productRepository.findByCategoryId(1L, 0, 2).content.single().priceAmount)
+        assertEquals(
+            BigDecimal("19.90"),
+            productRepository
+                .findByCategoryId(1L, 0, 2)
+                .content
+                .single()
+                .priceAmount,
+        )
         productRepository.updatePrice(1L, BigDecimal("88.80"))
-        assertEquals(BigDecimal("88.80"), productRepository.findByCategoryId(1L, 0, 2).content.single().priceAmount)
+        assertEquals(
+            BigDecimal("88.80"),
+            productRepository
+                .findByCategoryId(1L, 0, 2)
+                .content
+                .single()
+                .priceAmount,
+        )
 
         verify(springDataRepository, times(2)).findByCategoryId(1L, PageRequest.of(0, 2))
     }
@@ -277,19 +291,18 @@ class ProductSpringCacheTest {
         id: Long = 1L,
         name: String = "Product 1",
         price: BigDecimal = BigDecimal("19.90"),
-    ) =
-        ProductEntity(
-            id = id,
-            brandId = 1L,
-            categoryId = 1L,
-            sku = "SKU-1",
-            name = name,
-            slug = "product-$id",
-            status = ProductStatus.ACTIVE,
-            priceAmount = price,
-            currency = Currency.BRL,
-            inventoryQuantity = 1,
-            createdAt = LocalDateTime.of(2026, 1, 1, 0, 0),
-            updatedAt = LocalDateTime.of(2026, 1, 1, 0, 0),
-        )
+    ) = ProductEntity(
+        id = id,
+        brandId = 1L,
+        categoryId = 1L,
+        sku = "SKU-1",
+        name = name,
+        slug = "product-$id",
+        status = ProductStatus.ACTIVE,
+        priceAmount = price,
+        currency = Currency.BRL,
+        inventoryQuantity = 1,
+        createdAt = LocalDateTime.of(2026, 1, 1, 0, 0),
+        updatedAt = LocalDateTime.of(2026, 1, 1, 0, 0),
+    )
 }
