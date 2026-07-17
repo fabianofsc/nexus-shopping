@@ -17,11 +17,17 @@ class PackageStructureArchitectureTest {
             Class.forName("com.nexus.shopping.customer.application.exception.CustomerValidationException")
         val customerNotFoundException =
             Class.forName("com.nexus.shopping.customer.application.exception.CustomerNotFoundException")
+        val notificationValidationException =
+            Class.forName("com.nexus.shopping.notification.application.exception.NotificationValidationException")
+        val notificationNotFoundException =
+            Class.forName("com.nexus.shopping.notification.application.exception.NotificationNotFoundException")
 
         assertTrue(validationException.isAssignableFrom(productValidationException))
         assertTrue(notFoundException.isAssignableFrom(productNotFoundException))
         assertTrue(validationException.isAssignableFrom(customerValidationException))
         assertTrue(notFoundException.isAssignableFrom(customerNotFoundException))
+        assertTrue(validationException.isAssignableFrom(notificationValidationException))
+        assertTrue(notFoundException.isAssignableFrom(notificationNotFoundException))
     }
 
     @Test
@@ -37,6 +43,8 @@ class PackageStructureArchitectureTest {
                 .readText()
 
         assertFalse(handlerSource.contains("com.nexus.shopping.product"))
+        assertFalse(handlerSource.contains("com.nexus.shopping.customer"))
+        assertFalse(handlerSource.contains("com.nexus.shopping.notification"))
     }
 
     @Test
@@ -48,6 +56,12 @@ class PackageStructureArchitectureTest {
     @Test
     fun `customer http dto responses exist outside the domain package`() {
         Class.forName("com.nexus.shopping.customer.adapter.inbound.http.dto.CustomerResponse")
+    }
+
+    @Test
+    fun `notification http dto responses exist outside the domain package`() {
+        Class.forName("com.nexus.shopping.notification.adapter.inbound.http.dto.NotificationResponse")
+        Class.forName("com.nexus.shopping.notification.adapter.inbound.http.dto.NotificationPageResponse")
     }
 
     @Test
