@@ -1,0 +1,275 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1120" viewBox="0 0 1800 1120" role="img" aria-labelledby="title desc">
+  <title id="title">Nexus Shopping - Mapa de Bounded Contexts</title>
+  <desc id="desc">Mapa de contextos do Nexus Shopping inspirado no conceito de Bounded Context, com Catalogo, Cliente, Carrinho, Pedido, Pagamento e Notificacao.</desc>
+  <defs>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="8" dy="12" stdDeviation="5" flood-color="#111111" flood-opacity="0.26"/>
+    </filter>
+
+    <filter id="roughen">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="1" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.1" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+
+    <linearGradient id="catalogBox" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#fff7ef"/>
+      <stop offset="100%" stop-color="#f7d7bd"/>
+    </linearGradient>
+
+    <linearGradient id="customerBox" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f3fbf8"/>
+      <stop offset="100%" stop-color="#bce2d9"/>
+    </linearGradient>
+
+    <linearGradient id="cartBox" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f8fbff"/>
+      <stop offset="100%" stop-color="#cbdcf7"/>
+    </linearGradient>
+
+    <linearGradient id="orderBox" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#fff9ef"/>
+      <stop offset="100%" stop-color="#f3c991"/>
+    </linearGradient>
+
+    <linearGradient id="paymentBox" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f7f2ff"/>
+      <stop offset="100%" stop-color="#d6c4f4"/>
+    </linearGradient>
+
+    <linearGradient id="notificationBox" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#fff6fa"/>
+      <stop offset="100%" stop-color="#f3c1d5"/>
+    </linearGradient>
+
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="10" refY="7" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L11,7 L2,12" fill="none" stroke="#1d1d1d" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+
+    <style>
+      .page {
+        fill: #fffefb;
+      }
+
+      .context-boundary {
+        fill: none;
+        stroke: #111;
+        stroke-width: 7;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 38 34 7 34;
+        filter: url(#roughen);
+      }
+
+      .context-title {
+        font-family: "Comic Sans MS", "Trebuchet MS", Arial, sans-serif;
+        font-size: 44px;
+        font-style: italic;
+        font-weight: 700;
+        letter-spacing: 0;
+      }
+
+      .box {
+        stroke: #111;
+        stroke-width: 4;
+        rx: 18;
+        filter: url(#softShadow);
+      }
+
+      .box-label {
+        font-family: "Trebuchet MS", Arial, sans-serif;
+        font-size: 28px;
+        font-weight: 800;
+        fill: #101010;
+        text-anchor: middle;
+        dominant-baseline: middle;
+        letter-spacing: 0;
+      }
+
+      .small-label {
+        font-size: 24px;
+      }
+
+      .note-label {
+        font-family: "Trebuchet MS", Arial, sans-serif;
+        font-size: 19px;
+        font-weight: 700;
+        fill: #3a3a3a;
+        text-anchor: middle;
+        dominant-baseline: middle;
+        letter-spacing: 0;
+      }
+
+      .line {
+        fill: none;
+        stroke: #1d1d1d;
+        stroke-width: 5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .dashed-line {
+        fill: none;
+        stroke: #1d1d1d;
+        stroke-width: 4;
+        stroke-dasharray: 12 12;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .relation-label-bg {
+        fill: #fffefb;
+        stroke: none;
+      }
+
+      .legend-title {
+        font-family: "Trebuchet MS", Arial, sans-serif;
+        font-size: 24px;
+        font-weight: 800;
+        fill: #111;
+      }
+
+      .legend-text {
+        font-family: "Trebuchet MS", Arial, sans-serif;
+        font-size: 18px;
+        font-weight: 700;
+        fill: #333;
+      }
+    </style>
+  </defs>
+
+  <rect class="page" width="1800" height="1120"/>
+
+  <!-- Bounded Contexts -->
+  <path class="context-boundary" d="M72,96 C184,24 492,35 652,95 C767,138 778,300 726,420 C661,572 439,598 257,548 C92,502 20,376 44,225 C51,178 26,130 72,96 Z"/>
+  <text class="context-title" x="354" y="116" fill="#a17862">Catalogo</text>
+
+  <path class="context-boundary" d="M776,65 C924,16 1137,51 1227,153 C1309,246 1290,434 1207,518 C1111,615 871,601 765,495 C672,402 667,168 776,65 Z"/>
+  <text class="context-title" x="991" y="116" fill="#4e8d86">Cliente</text>
+
+  <path class="context-boundary" d="M96,575 C218,515 505,515 636,596 C759,671 758,925 636,1013 C503,1111 209,1071 91,970 C-5,886 4,629 96,575 Z"/>
+  <text class="context-title" x="354" y="637" fill="#5e77a6">Carrinho</text>
+
+  <path class="context-boundary" d="M682,540 C838,477 1111,508 1232,621 C1342,724 1304,956 1171,1038 C1037,1121 795,1088 686,982 C576,875 551,594 682,540 Z"/>
+  <text class="context-title" x="955" y="608" fill="#ae7d38">Pedido</text>
+
+  <path class="context-boundary" d="M1235,130 C1392,62 1665,91 1742,211 C1816,326 1772,559 1660,635 C1539,718 1300,689 1209,582 C1110,468 1111,188 1235,130 Z"/>
+  <text class="context-title" x="1493" y="180" fill="#8266a9">Pagamento</text>
+
+  <path class="context-boundary" d="M1283,695 C1408,636 1666,658 1741,776 C1816,895 1714,1057 1551,1082 C1394,1107 1231,1048 1199,930 C1169,816 1197,737 1283,695 Z"/>
+  <text class="context-title" x="1499" y="749" fill="#b55e80">Notificacao</text>
+
+  <!-- Catalog model -->
+  <rect class="box" x="210" y="180" width="270" height="115" fill="url(#catalogBox)"/>
+  <text class="box-label" x="345" y="237">Product</text>
+
+  <rect class="box" x="96" y="365" width="240" height="112" fill="url(#catalogBox)"/>
+  <text class="box-label" x="216" y="421">Category</text>
+
+  <rect class="box" x="438" y="364" width="220" height="112" fill="url(#catalogBox)"/>
+  <text class="box-label" x="548" y="420">Brand</text>
+
+  <path class="line" d="M345,295 L345,329 L216,329 L216,365"/>
+  <path class="line" d="M345,295 L345,329 L548,329 L548,364"/>
+
+  <!-- Customer model -->
+  <rect class="box" x="879" y="180" width="270" height="115" fill="url(#customerBox)"/>
+  <text class="box-label" x="1014" y="237">Customer</text>
+
+  <rect class="box" x="728" y="370" width="245" height="112" fill="url(#customerBox)"/>
+  <text class="box-label" x="850" y="426">Address</text>
+
+  <rect class="box" x="1060" y="370" width="220" height="112" fill="url(#customerBox)"/>
+  <text class="box-label small-label" x="1170" y="426">Contact</text>
+
+  <path class="line" d="M1014,295 L1014,331 L850,331 L850,370"/>
+  <path class="line" d="M1014,295 L1014,331 L1170,331 L1170,370"/>
+
+  <!-- Cart model -->
+  <rect class="box" x="207" y="695" width="270" height="115" fill="url(#cartBox)"/>
+  <text class="box-label" x="342" y="752">Cart</text>
+
+  <rect class="box" x="82" y="883" width="245" height="112" fill="url(#cartBox)"/>
+  <text class="box-label" x="205" y="939">Cart Item</text>
+
+  <rect class="box" x="407" y="882" width="245" height="112" fill="url(#cartBox)"/>
+  <text class="box-label small-label" x="530" y="924">Product</text>
+  <text class="box-label small-label" x="530" y="956">Summary</text>
+
+  <path class="line" d="M342,810 L342,847 L205,847 L205,883"/>
+  <path class="line" d="M342,810 L342,847 L530,847 L530,882"/>
+
+  <!-- Order model -->
+  <rect class="box" x="842" y="674" width="270" height="115" fill="url(#orderBox)"/>
+  <text class="box-label" x="977" y="731">Order</text>
+
+  <rect class="box" x="655" y="866" width="270" height="112" fill="url(#orderBox)"/>
+  <text class="box-label small-label" x="790" y="906">Customer</text>
+  <text class="box-label small-label" x="790" y="939">Snapshot</text>
+
+  <rect class="box" x="1000" y="866" width="270" height="112" fill="url(#orderBox)"/>
+  <text class="box-label small-label" x="1135" y="906">Order Item</text>
+  <text class="box-label small-label" x="1135" y="939">Snapshot</text>
+
+  <path class="line" d="M977,789 L977,829 L790,829 L790,866"/>
+  <path class="line" d="M977,789 L977,829 L1135,829 L1135,866"/>
+
+  <!-- Payment model -->
+  <rect class="box" x="1374" y="258" width="280" height="115" fill="url(#paymentBox)"/>
+  <text class="box-label" x="1514" y="315">Payment</text>
+
+  <rect class="box" x="1210" y="476" width="290" height="112" fill="url(#paymentBox)"/>
+  <text class="box-label small-label" x="1355" y="516">Payment</text>
+  <text class="box-label small-label" x="1355" y="549">Attempt</text>
+
+  <rect class="box" x="1548" y="475" width="230" height="112" fill="url(#paymentBox)"/>
+  <text class="box-label small-label" x="1663" y="515">Provider</text>
+  <text class="box-label small-label" x="1663" y="548">Transaction</text>
+
+  <path class="line" d="M1514,373 L1514,425 L1355,425 L1355,476"/>
+  <path class="line" d="M1514,373 L1514,425 L1663,425 L1663,475"/>
+
+  <!-- Notification model -->
+  <rect class="box" x="1372" y="821" width="285" height="115" fill="url(#notificationBox)"/>
+  <text class="box-label" x="1514" y="878">Notification</text>
+
+  <rect class="box" x="1224" y="966" width="245" height="96" fill="url(#notificationBox)"/>
+  <text class="box-label small-label" x="1346" y="1014">Recipient</text>
+
+  <rect class="box" x="1551" y="966" width="225" height="96" fill="url(#notificationBox)"/>
+  <text class="box-label small-label" x="1663" y="998">Message</text>
+  <text class="box-label small-label" x="1663" y="1028">Template</text>
+
+  <path class="line" d="M1514,936 L1514,952 L1346,952 L1346,966"/>
+  <path class="line" d="M1514,936 L1514,952 L1663,952 L1663,966"/>
+
+  <!-- Cross-context relationships -->
+  <path class="dashed-line" marker-end="url(#arrow)" d="M480,238 C620,239 739,238 879,237"/>
+  <rect class="relation-label-bg" x="611" y="204" width="140" height="30" rx="8"/>
+  <text class="note-label" x="681" y="219">consulta</text>
+
+  <path class="dashed-line" marker-end="url(#arrow)" d="M477,733 C565,711 726,707 842,726"/>
+  <rect class="relation-label-bg" x="604" y="682" width="156" height="30" rx="8"/>
+  <text class="note-label" x="682" y="697">checkout</text>
+
+  <path class="dashed-line" marker-end="url(#arrow)" d="M925,905 C1056,797 1179,643 1272,588"/>
+  <rect class="relation-label-bg" x="1022" y="728" width="230" height="30" rx="8"/>
+  <text class="note-label" x="1137" y="743">payment request</text>
+
+  <path class="dashed-line" marker-end="url(#arrow)" d="M1500,588 C1399,687 1256,766 1112,735"/>
+  <rect class="relation-label-bg" x="1268" y="661" width="212" height="30" rx="8"/>
+  <text class="note-label" x="1374" y="676">payment result</text>
+
+  <path class="dashed-line" marker-end="url(#arrow)" d="M1112,753 C1227,797 1290,838 1372,864"/>
+  <rect class="relation-label-bg" x="1193" y="796" width="148" height="30" rx="8"/>
+  <text class="note-label" x="1267" y="811">eventos</text>
+
+  <path class="dashed-line" marker-end="url(#arrow)" d="M973,482 C928,606 850,759 807,866"/>
+  <rect class="relation-label-bg" x="812" y="629" width="174" height="30" rx="8"/>
+  <text class="note-label" x="899" y="644">snapshot</text>
+
+  <path class="dashed-line" marker-end="url(#arrow)" d="M530,882 C606,817 743,757 842,742"/>
+  <rect class="relation-label-bg" x="620" y="796" width="184" height="30" rx="8"/>
+  <text class="note-label" x="712" y="811">item snapshot</text>
+
+  <!-- The visible diagram intentionally omits a formal legend to keep the hand-drawn context-map style. -->
+</svg>
