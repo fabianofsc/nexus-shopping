@@ -32,15 +32,18 @@ class GetNotificationByIdUseCaseTest {
     @Test
     fun `returns notification when found`() {
         val notifications = mapOf(1L to sampleNotification(1L))
-        val fakeRepo = object : NotificationRepositoryPort {
-            override fun save(notification: Notification): Notification = throw UnsupportedOperationException()
-            override fun findById(id: Long): Notification? = notifications[id]
-            override fun findByCustomerId(
-                customerId: Long,
-                page: Int,
-                size: Int,
-            ): NotificationPage = throw UnsupportedOperationException()
-        }
+        val fakeRepo =
+            object : NotificationRepositoryPort {
+                override fun save(notification: Notification): Notification = throw UnsupportedOperationException()
+
+                override fun findById(id: Long): Notification? = notifications[id]
+
+                override fun findByCustomerId(
+                    customerId: Long,
+                    page: Int,
+                    size: Int,
+                ): NotificationPage = throw UnsupportedOperationException()
+            }
         val useCase = GetNotificationByIdUseCase(fakeRepo)
 
         val notification = useCase.execute(1L)
@@ -51,15 +54,18 @@ class GetNotificationByIdUseCaseTest {
 
     @Test
     fun `throws NotificationNotFoundException when not found`() {
-        val fakeRepo = object : NotificationRepositoryPort {
-            override fun save(notification: Notification): Notification = throw UnsupportedOperationException()
-            override fun findById(id: Long): Notification? = null
-            override fun findByCustomerId(
-                customerId: Long,
-                page: Int,
-                size: Int,
-            ): NotificationPage = throw UnsupportedOperationException()
-        }
+        val fakeRepo =
+            object : NotificationRepositoryPort {
+                override fun save(notification: Notification): Notification = throw UnsupportedOperationException()
+
+                override fun findById(id: Long): Notification? = null
+
+                override fun findByCustomerId(
+                    customerId: Long,
+                    page: Int,
+                    size: Int,
+                ): NotificationPage = throw UnsupportedOperationException()
+            }
         val useCase = GetNotificationByIdUseCase(fakeRepo)
 
         assertFailsWith<NotificationNotFoundException> {
