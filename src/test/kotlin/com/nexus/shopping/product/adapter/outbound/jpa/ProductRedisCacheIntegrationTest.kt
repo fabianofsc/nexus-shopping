@@ -107,8 +107,16 @@ class ProductRedisCacheIntegrationTest {
         )
     }
 
-    private fun cacheKey(cacheName: String): String =
-        assertNotNull(stringRedisTemplate.keys("$cacheName::*").singleOrNull())
+    private fun cacheKey(cacheName: String): String {
+        val deadline = System.nanoTime() + 2_000_000_000L
+        do {
+            val key = stringRedisTemplate.keys("$cacheName::*").singleOrNull()
+            if (key != null) return key
+            Thread.sleep(25)
+        } while (System.nanoTime() < deadline)
+
+        return assertNotNull(stringRedisTemplate.keys("$cacheName::*").singleOrNull())
+    }
 
     private fun pttl(key: String): Long =
         assertNotNull(
