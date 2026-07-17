@@ -27,11 +27,11 @@ class CachingProductRepositoryAdapter(
     override fun findById(id: Long): Product? {
         val cached = cache.getIfPresent(id)
         if (cached != null) {
-            logger.debug("cache HIT id={}", id)
+            logger.info("cache HIT id={}", id)
             return cached
         }
 
-        logger.debug("cache MISS id={}", id)
+        logger.info("cache MISS id={}", id)
         val product = delegate.findById(id)
         if (product != null) {
             cache.put(id, product)
