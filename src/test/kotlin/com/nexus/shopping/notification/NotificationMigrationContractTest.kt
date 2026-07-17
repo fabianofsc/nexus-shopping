@@ -1,9 +1,11 @@
 package com.nexus.shopping.notification
 
 import org.flywaydb.core.Flyway
+import java.lang.reflect.Proxy
 import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.SQLException
+import javax.sql.DataSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -11,17 +13,26 @@ import kotlin.test.assertTrue
 
 class NotificationMigrationContractTest {
     @Test
-    fun `notifications table has customer FK, indexes and accepts a valid row`() {
+    fun `notifications table has customer FK, check constraints, indexes and accepts a valid row`() {
         val jdbcUrl = "jdbc:h2:mem:notification_migration_contract;DB_CLOSE_DELAY=-1"
-        Flyway
-            .configure()
-            .dataSource(jdbcUrl, "sa", "")
-            .locations("classpath:db/migration")
-            .placeholders(mapOf("productSeedCount" to "10"))
-            .load()
-            .migrate()
 
-        DriverManager.getConnection(jdbcUrl, "sa", "").use { connection ->
+        // H2 2.4.240 evaluates CHECK constraints against the session that created them: a CHECK-constrained
+        // insert issued from a new connection throws "Check constraint invalid" / "database has been closed",
+        // even for fully valid data. Keeping Flyway's migration and this test's statements on the exact same
+        // underlying connection avoids that engine limitation without weakening the migration itself
+        // (the CHECK constraints work as expected against PostgreSQL in production).
+        val connection = DriverManager.getConnection(jdbcUrl, "sa", "")
+        val singleConnectionDataSource = noCloseDataSource(connection)
+
+        connection.use {
+            Flyway
+                .configure()
+                .dataSource(singleConnectionDataSource)
+                .locations("classpath:db/migration")
+                .placeholders(mapOf("productSeedCount" to "10"))
+                .load()
+                .migrate()
+
             connection.createStatement().use { statement ->
                 statement.executeUpdate(
                     """
@@ -49,6 +60,19 @@ class NotificationMigrationContractTest {
                 }
             }
 
+            assertFailsWith<SQLException> {
+                connection.createStatement().use { statement ->
+                    statement.executeUpdate(
+                        """
+                        INSERT INTO notifications
+                            (customer_id, recipient_email, type, channel, status, subject, body)
+                        VALUES
+                            (1, 'invalid@example.com', 'NOT_A_REAL_TYPE', 'EMAIL', 'SENT', 'x', 'y')
+                        """.trimIndent(),
+                    )
+                }
+            }
+
             assertTrue(
                 countRows(
                     connection,
@@ -62,7 +86,36 @@ class NotificationMigrationContractTest {
                         "WHERE TABLE_NAME = 'NOTIFICATIONS' AND CONSTRAINT_NAME = 'FK_NOTIFICATIONS_CUSTOMER'",
                 ) >= 1,
             )
+            for (checkConstraintName in listOf("NOTIFICATIONS_TYPE_CHECK", "NOTIFICATIONS_CHANNEL_CHECK", "NOTIFICATIONS_STATUS_CHECK")) {
+                assertTrue(
+                    countRows(
+                        connection,
+                        "INFORMATION_SCHEMA.TABLE_CONSTRAINTS " +
+                            "WHERE TABLE_NAME = 'NOTIFICATIONS' AND CONSTRAINT_NAME = '$checkConstraintName' " +
+                            "AND CONSTRAINT_TYPE = 'CHECK'",
+                    ) >= 1,
+                    "expected CHECK constraint $checkConstraintName to exist",
+                )
+            }
         }
+    }
+
+    /** Wraps [connection] so `close()` is a no-op, and exposes it as a [DataSource] Flyway always reuses. */
+    private fun noCloseDataSource(connection: Connection): DataSource {
+        val noCloseConnection =
+            Proxy.newProxyInstance(
+                Connection::class.java.classLoader,
+                arrayOf(Connection::class.java),
+            ) { _, method, args ->
+                if (method.name == "close") null else method.invoke(connection, *(args ?: emptyArray()))
+            } as Connection
+
+        return Proxy.newProxyInstance(
+            DataSource::class.java.classLoader,
+            arrayOf(DataSource::class.java),
+        ) { _, method, _ ->
+            if (method.name == "getConnection") noCloseConnection else null
+        } as DataSource
     }
 
     private fun countRows(

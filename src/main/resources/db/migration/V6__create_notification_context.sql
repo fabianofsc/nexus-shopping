@@ -10,6 +10,9 @@ CREATE TABLE notifications (
     reference_id BIGINT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     sent_at TIMESTAMP,
+    CONSTRAINT notifications_type_check CHECK (type IN ('ORDER_CONFIRMED', 'ORDER_PAYMENT_FAILED', 'ORDER_CANCELLED')),
+    CONSTRAINT notifications_channel_check CHECK (channel IN ('EMAIL')),
+    CONSTRAINT notifications_status_check CHECK (status IN ('SENT', 'FAILED')),
     CONSTRAINT fk_notifications_customer FOREIGN KEY (customer_id) REFERENCES customers (id)
 );
 
