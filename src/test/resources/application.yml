@@ -1,0 +1,4 @@
+management:
+  health:
+    redis:
+      enabled: false

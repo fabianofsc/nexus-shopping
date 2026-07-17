@@ -1,31 +1,31 @@
 package com.nexus.shopping.product.adapter.outbound.jpa
 
-import com.github.benmanes.caffeine.cache.Cache
 import com.nexus.shopping.product.application.command.CreateProductCommand
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.domain.Product
 import com.nexus.shopping.product.domain.ProductPage
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Primary
+import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.stereotype.Repository
 import java.math.BigDecimal
 
 /**
- * Cache-aside (LOCAL, Caffeine, in-process) decorator around [ProductJpaRepositoryAdapter].
+ * Cache-aside (Redis, distributed) decorator around [ProductJpaRepositoryAdapter].
  *
- * Only [findById] is cached. Cache invalidation on write is local to this instance only:
- * with multiple application instances each keeps its own cache, so a write on one instance
- * does not invalidate the cache on the others. That staleness window is intentional for this
- * teaching fixture and must not be solved here (no shared/distributed cache).
+ * Only [findById] is cached. The detail key is shared by all application instances, so writes
+ * invalidate the same cache entry used by every instance.
  */
 @Primary
 @Repository
 class CachingProductRepositoryAdapter(
     private val delegate: ProductJpaRepositoryAdapter,
-    private val cache: Cache<Long, Product>,
+    private val redisTemplate: RedisTemplate<String, Product>,
+    private val properties: ProductCacheProperties,
 ) : ProductRepositoryPort {
     override fun findById(id: Long): Product? {
-        val cached = cache.getIfPresent(id)
+        val cacheKey = detailCacheKey(id)
+        val cached = redisTemplate.opsForValue().get(cacheKey)
         if (cached != null) {
             logger.info("cache HIT id={}", id)
             return cached
@@ -34,7 +34,7 @@ class CachingProductRepositoryAdapter(
         logger.info("cache MISS id={}", id)
         val product = delegate.findById(id)
         if (product != null) {
-            cache.put(id, product)
+            redisTemplate.opsForValue().set(cacheKey, product, properties.ttl)
         }
         return product
     }
@@ -58,9 +58,11 @@ class CachingProductRepositoryAdapter(
         priceAmount: BigDecimal,
     ): Product? {
         val updated = delegate.updatePrice(id, priceAmount)
-        cache.invalidate(id)
+        redisTemplate.delete(detailCacheKey(id))
         return updated
     }
+
+    private fun detailCacheKey(id: Long): String = "products:detail::$id"
 
     private companion object {
         private val logger = LoggerFactory.getLogger(CachingProductRepositoryAdapter::class.java)

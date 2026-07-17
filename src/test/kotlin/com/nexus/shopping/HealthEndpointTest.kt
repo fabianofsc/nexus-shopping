@@ -1,6 +1,7 @@
 package com.nexus.shopping
 
 import com.fasterxml.jackson.databind.json.JsonMapper
+import com.nexus.shopping.support.RedisIntegrationTest
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -24,7 +25,7 @@ import kotlin.test.assertEquals
         "management.endpoint.health.show-details=always",
     ],
 )
-class HealthEndpointTest {
+class HealthEndpointTest : RedisIntegrationTest() {
     @Autowired
     private lateinit var environment: Environment
 

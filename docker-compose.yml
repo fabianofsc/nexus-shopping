@@ -11,10 +11,14 @@ x-app: &app-base
     DB_USERNAME: nexus
     DB_PASSWORD: nexus
     PRODUCT_SEED_COUNT: ${PRODUCT_SEED_COUNT:-1000}
+    SPRING_DATA_REDIS_HOST: redis
+    SPRING_DATA_REDIS_PORT: 6379
   expose:
     - "8080"
   depends_on:
     postgres:
+      condition: service_healthy
+    redis:
       condition: service_healthy
   networks:
     - backend
@@ -62,6 +66,18 @@ services:
       - backend
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U nexus -d nexus_shopping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5

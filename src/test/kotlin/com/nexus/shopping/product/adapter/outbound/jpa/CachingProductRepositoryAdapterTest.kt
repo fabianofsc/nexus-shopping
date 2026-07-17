@@ -1,17 +1,27 @@
 package com.nexus.shopping.product.adapter.outbound.jpa
 
-import com.github.benmanes.caffeine.cache.Cache
-import com.github.benmanes.caffeine.cache.Caffeine
 import com.nexus.shopping.product.domain.Currency
 import com.nexus.shopping.product.domain.Product
 import com.nexus.shopping.product.domain.ProductStatus
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.verify
+import org.mockito.Mockito.verifyNoMoreInteractions
+import org.mockito.Mockito.`when`
+import org.springframework.data.redis.connection.RedisConnectionFactory
+import org.springframework.data.redis.core.RedisTemplate
+import org.springframework.data.redis.core.ValueOperations
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer
+import org.springframework.data.redis.serializer.RedisSerializer
+import org.springframework.data.redis.serializer.StringRedisSerializer
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Proxy
 import java.math.BigDecimal
+import java.time.Duration
 import java.time.LocalDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * [SpringDataProductRepository] is a Spring Data JPA interface with many inherited abstract
@@ -52,6 +62,7 @@ private class CountingProductJpaRepositoryAdapter : ProductJpaRepositoryAdapter(
     }
 }
 
+@Suppress("DEPRECATION", "UNCHECKED_CAST")
 class CachingProductRepositoryAdapterTest {
     private fun aProduct(id: Long = 1L) =
         Product(
@@ -70,58 +81,84 @@ class CachingProductRepositoryAdapterTest {
             updatedAt = LocalDateTime.of(2026, 1, 1, 0, 0),
         )
 
-    private fun newCache(): Cache<Long, Product> = Caffeine.newBuilder().maximumSize(100).build()
+    private fun redisTemplate(): RedisTemplate<String, Product> = mock(RedisTemplate::class.java) as RedisTemplate<String, Product>
 
     @Test
-    fun `first findById is a MISS and calls the delegate once`() {
+    fun `findById returns cached product from Redis without hitting delegate`() {
+        val delegate = CountingProductJpaRepositoryAdapter()
+        val redisTemplate = redisTemplate()
+        val valueOperations = mock(ValueOperations::class.java) as ValueOperations<String, Product>
+        `when`(redisTemplate.opsForValue()).thenReturn(valueOperations)
+        `when`(valueOperations.get("products:detail::1")).thenReturn(aProduct())
+        val adapter = CachingProductRepositoryAdapter(delegate, redisTemplate, ProductCacheProperties(ttl = Duration.ofMinutes(10)))
+
+        val result = adapter.findById(1L)
+
+        assertEquals(aProduct(), result)
+        assertEquals(0, delegate.findByIdCalls)
+    }
+
+    @Test
+    fun `findById populates Redis with configured TTL after delegate miss`() {
         val delegate = CountingProductJpaRepositoryAdapter().apply { findByIdResult = aProduct() }
-        val adapter = CachingProductRepositoryAdapter(delegate, newCache())
+        val redisTemplate = redisTemplate()
+        val valueOperations = mock(ValueOperations::class.java) as ValueOperations<String, Product>
+        `when`(redisTemplate.opsForValue()).thenReturn(valueOperations)
+        `when`(valueOperations.get("products:detail::1")).thenReturn(null)
+        val ttl = Duration.ofMinutes(10)
+        val adapter = CachingProductRepositoryAdapter(delegate, redisTemplate, ProductCacheProperties(ttl = ttl))
 
         val result = adapter.findById(1L)
 
         assertEquals(aProduct(), result)
         assertEquals(1, delegate.findByIdCalls)
+        verify(valueOperations).set("products:detail::1", aProduct(), ttl)
     }
 
     @Test
-    fun `second findById for the same id is a HIT and does not call the delegate again`() {
-        val delegate = CountingProductJpaRepositoryAdapter().apply { findByIdResult = aProduct() }
-        val adapter = CachingProductRepositoryAdapter(delegate, newCache())
+    fun `findById does not cache null delegate result`() {
+        val delegate = CountingProductJpaRepositoryAdapter().apply { findByIdResult = null }
+        val redisTemplate = redisTemplate()
+        val valueOperations = mock(ValueOperations::class.java) as ValueOperations<String, Product>
+        `when`(redisTemplate.opsForValue()).thenReturn(valueOperations)
+        `when`(valueOperations.get("products:detail::1")).thenReturn(null)
+        val adapter = CachingProductRepositoryAdapter(delegate, redisTemplate, ProductCacheProperties())
 
-        adapter.findById(1L)
         val result = adapter.findById(1L)
 
-        assertEquals(aProduct(), result)
+        assertNull(result)
         assertEquals(1, delegate.findByIdCalls)
+        verify(valueOperations).get("products:detail::1")
+        verifyNoMoreInteractions(valueOperations)
     }
 
     @Test
-    fun `updatePrice invalidates the cache so the next findById is a MISS`() {
-        val delegate = CountingProductJpaRepositoryAdapter().apply { findByIdResult = aProduct() }
-        val adapter = CachingProductRepositoryAdapter(delegate, newCache())
-        adapter.findById(1L)
+    fun `updatePrice deletes Redis detail cache entry`() {
+        val delegate = CountingProductJpaRepositoryAdapter()
+        val redisTemplate = redisTemplate()
+        val adapter = CachingProductRepositoryAdapter(delegate, redisTemplate, ProductCacheProperties())
 
         val updatedProduct = aProduct().copy(priceAmount = BigDecimal("29.90"))
         delegate.updatePriceResult = updatedProduct
-        delegate.findByIdResult = updatedProduct
-        adapter.updatePrice(1L, BigDecimal("29.90"))
-        val result = adapter.findById(1L)
+        val result = adapter.updatePrice(1L, BigDecimal("29.90"))
 
-        assertEquals(2, delegate.findByIdCalls)
+        assertEquals(updatedProduct, result)
         assertEquals(1, delegate.updatePriceCalls)
-        assertEquals(BigDecimal("29.90"), result?.priceAmount)
+        verify(redisTemplate).delete("products:detail::1")
     }
 
     @Test
-    fun `findById result is not cached when the product does not exist`() {
-        val delegate = CountingProductJpaRepositoryAdapter().apply { findByIdResult = null }
-        val adapter = CachingProductRepositoryAdapter(delegate, newCache())
+    fun `product Redis template serializes keys as strings and values as JSON`() {
+        val connectionFactory = mock(RedisConnectionFactory::class.java)
+        val redisTemplate = ProductCacheConfig().productRedisTemplate(connectionFactory)
 
-        val first = adapter.findById(1L)
-        val second = adapter.findById(1L)
+        assertTrue(redisTemplate.keySerializer is StringRedisSerializer)
+        assertTrue(redisTemplate.hashKeySerializer is StringRedisSerializer)
+        assertTrue(redisTemplate.valueSerializer is GenericJackson2JsonRedisSerializer)
+        assertTrue(redisTemplate.hashValueSerializer is GenericJackson2JsonRedisSerializer)
+        val valueSerializer = redisTemplate.valueSerializer as RedisSerializer<Any>
+        val serialized = valueSerializer.serialize(aProduct())
 
-        assertNull(first)
-        assertNull(second)
-        assertEquals(2, delegate.findByIdCalls)
+        assertEquals(aProduct(), valueSerializer.deserialize(serialized))
     }
 }

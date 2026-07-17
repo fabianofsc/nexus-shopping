@@ -1,5 +1,6 @@
 package com.nexus.shopping.infra.http
 
+import com.nexus.shopping.support.RedisIntegrationTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.slf4j.MDC
@@ -28,7 +29,7 @@ import kotlin.test.assertNull
         "spring.flyway.enabled=false",
     ],
 )
-class CorrelationIdFilterTest {
+class CorrelationIdFilterTest : RedisIntegrationTest() {
     @Autowired
     private lateinit var environment: Environment
 

@@ -2,6 +2,7 @@ package com.nexus.shopping.product.adapter.outbound.jpa
 
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.application.usecase.ProductGetByIdUseCase
+import com.nexus.shopping.support.RedisIntegrationTest
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import kotlin.test.Test
@@ -23,7 +24,7 @@ import kotlin.test.assertIs
         "spring.jpa.hibernate.ddl-auto=none",
     ],
 )
-class CachingProductRepositoryWiringTest {
+class CachingProductRepositoryWiringTest : RedisIntegrationTest() {
     @Autowired
     private lateinit var productRepositoryPort: ProductRepositoryPort
 
