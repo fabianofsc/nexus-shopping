@@ -35,10 +35,10 @@ class ProductSearchUseCase(
 
         val result =
             when {
-            categoryId != null -> productRepository.findByCategoryId(categoryId, page, size)
-            !name.isNullOrBlank() -> productRepository.findByName(name, page, size)
-            else -> throwValidationFailed("Query parameter categoryId or name is required.")
-        }
+                categoryId != null -> productRepository.findByCategoryId(categoryId, page, size)
+                !name.isNullOrBlank() -> productRepository.findByName(name, page, size)
+                else -> throwValidationFailed("Query parameter categoryId or name is required.")
+            }
 
         logger.infoWithContext(
             "product.search.completed",
