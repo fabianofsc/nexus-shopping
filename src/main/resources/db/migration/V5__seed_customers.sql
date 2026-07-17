@@ -1,28 +1,28 @@
 INSERT INTO customers (name, document, document_type, status)
 VALUES
-    ('Galveihad', '02648629025', 'CPF', 'ACTIVE'),
-    ('Aegco', '58119974000', 'CPF', 'ACTIVE'),
-    ('Onhodir', '58119974000', 'CPF', 'ACTIVE'),
-    ('Elvuor', '18184222230', 'CNH', 'ACTIVE'),
-    ('Halpo', '71613090845', 'CNH', 'ACTIVE'),
-    ('Aranthir', '378149714', 'RG', 'ACTIVE'),
-    ('Cibaendîr', '108237126', 'RG', 'ACTIVE'),
-    ('Faourthir', '265206510', 'RG', 'ACTIVE'),
-    ('Dagonwa', '34150598000117', 'CNPJ', 'ACTIVE'),
-    ('Waurod', '01879119000149', 'CNPJ', 'ACTIVE');
+    ('Benjamin Bryan Duarte', '10521980232', 'CPF', 'ACTIVE'),
+    ('Marli Cristiane Marlene Alves', '51461719801', 'CPF', 'ACTIVE'),
+    ('Pietra Isabela Maitê da Mata', '05749885720', 'CPF', 'ACTIVE'),
+    ('Enzo Kaique Rocha', '02380155488', 'CPF', 'ACTIVE'),
+    ('Iago Noah Vieira', '14787704907', 'CPF', 'ACTIVE'),
+    ('Cláudia Elaine Eloá Galvão', '06075013083', 'CPF', 'ACTIVE'),
+    ('Marina Giovanna Milena Araújo', '52397067005', 'CPF', 'ACTIVE'),
+    ('Marcos Vinicius André Mário Almeida', '34563391271', 'CPF', 'ACTIVE'),
+    ('Luzia Mariah Rebeca Rodrigues', '18746728732', 'CPF', 'ACTIVE'),
+    ('Maitê Yasmin Cardoso', '08330170985', 'CPF', 'ACTIVE');
 
 INSERT INTO customer_contacts (customer_id, email, phone)
 VALUES
-    (1, 'galveihad.1@hotmail.com', '+5511999990001'),
-    (2, 'aegco.2@microsoft.com', '+5511999990002'),
-    (3, 'onhodir.3@microsoft.com', '+5511999990003'),
-    (4, 'elvuor.4@hotmail.com', '+5511999990004'),
-    (5, 'halpo.5@gmail.com', '+5511999990005'),
-    (6, 'aranthir.6@hotmail.com', '+5511999990006'),
-    (7, 'cibaendir.7@hotmail.com', '+5511999990007'),
-    (8, 'faourthir.8@gmail.com', '+5511999990008'),
-    (9, 'dagonwa.9@hotmail.com', '+5511999990009'),
-    (10, 'waurod.10@proton.me', '+5511999990010');
+    (1, 'benjamin-duarte86@lexos.com.br', '+5549983253446'),
+    (2, 'marli_alves@brunofaria.com', '+5561998656938'),
+    (3, 'pietraisabeladamata@corp.globo.com', '+5541989739924'),
+    (4, 'enzo_kaique_rocha@babo.adv.br', '+5519981645847'),
+    (5, 'iago_noah_vieira@fcacomputers.com.br', '+5527986188066'),
+    (6, 'claudiaelainegalvao@athos.srv.br', '+5579995737583'),
+    (7, 'marina.giovanna.araujo@acquire.com.br', '+5585991735780'),
+    (8, 'marcos_almeida@pmi.com', '+5551992796027'),
+    (9, 'luzia-rodrigues81@likaleal.com.br', '+5521982894808'),
+    (10, 'maite.yasmin.cardoso@zoomfoccus.com.br', '+5585998238693');
 
 INSERT INTO customer_addresses (
     customer_id,
@@ -36,13 +36,13 @@ INSERT INTO customer_addresses (
     country
 )
 VALUES
-    (1, 'Rua Customer 1', '101', NULL, 'Centro', 'Sao Paulo', 'SP', '01001001', 'BR'),
-    (2, 'Rua Customer 2', '102', NULL, 'Centro', 'Sao Paulo', 'SP', '01001002', 'BR'),
-    (3, 'Rua Customer 3', '103', NULL, 'Centro', 'Sao Paulo', 'SP', '01001003', 'BR'),
-    (4, 'Rua Customer 4', '104', NULL, 'Centro', 'Sao Paulo', 'SP', '01001004', 'BR'),
-    (5, 'Rua Customer 5', '105', NULL, 'Centro', 'Sao Paulo', 'SP', '01001005', 'BR'),
-    (6, 'Rua Customer 6', '106', NULL, 'Centro', 'Sao Paulo', 'SP', '01001006', 'BR'),
-    (7, 'Rua Customer 7', '107', NULL, 'Centro', 'Sao Paulo', 'SP', '01001007', 'BR'),
-    (8, 'Rua Customer 8', '108', NULL, 'Centro', 'Sao Paulo', 'SP', '01001008', 'BR'),
-    (9, 'Rua Customer 9', '109', NULL, 'Centro', 'Sao Paulo', 'SP', '01001009', 'BR'),
-    (10, 'Rua Customer 10', '110', NULL, 'Centro', 'Sao Paulo', 'SP', '01001010', 'BR');
+    (1, 'Rua Concórdia', '736', NULL, 'Petrópolis', 'Lages', 'SC', '88505334', 'BR'),
+    (2, 'Conjunto SHA Conjunto 5 Chácara 43', '786', NULL, 'Setor Habitacional Arniqueira (Águas Claras)', 'Brasília', 'DF', '71995275', 'BR'),
+    (3, 'Rua Rosa Cordeiro Bitencourt', '903', NULL, 'Vila São Vicente', 'Paranaguá', 'PR', '83209208', 'BR'),
+    (4, 'Travessa Cristóvão Donati', '669', NULL, 'Piracicamirim', 'Piracicaba', 'SP', '13418605', 'BR'),
+    (5, 'Rua Espírito Santo', '987', NULL, 'Areinha', 'Viana', 'ES', '29137147', 'BR'),
+    (6, 'Rua Rafael de Aguiar', '557', NULL, 'Pereira Lobo', 'Aracaju', 'SE', '49052220', 'BR'),
+    (7, 'Rua 541D', '416', NULL, 'Conjunto Ceará', 'Fortaleza', 'CE', '60531490', 'BR'),
+    (8, 'Rua Antônio Saber', '964', NULL, 'Jardim Itu Sabará', 'Porto Alegre', 'RS', '91220640', 'BR'),
+    (9, 'Rua Cecília Meireles', '270', NULL, 'Parada Angélica', 'Duque de Caxias', 'RJ', '25272298', 'BR'),
+    (10, 'Rua Eugênia', '994', NULL, 'Bom Futuro', 'Fortaleza', 'CE', '60416500', 'BR');
