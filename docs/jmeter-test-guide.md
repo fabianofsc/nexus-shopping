@@ -70,6 +70,33 @@ O wrapper do projeto encontra o JMeter instalado em `/opt/jmeter` automaticament
 
 > Essas instrucoes valem tambem para Windows com WSL 2 (Windows Subsystem for Linux). Ative o WSL 2, instale o Ubuntu pela Microsoft Store e siga os passos do Linux acima dentro do terminal Ubuntu.
 
+### Troubleshooting: `jmeter: command not found`
+
+Os comandos `make jmeter-*` usam o wrapper do projeto e nao dependem desta configuracao. Se voce quiser executar `jmeter` diretamente, pode adiciona-lo ao `PATH` apenas na sessao atual:
+
+```bash
+export PATH="$PATH:/opt/jmeter/bin"
+jmeter --version
+```
+
+Para manter a configuracao depois de fechar o terminal, escolha somente o arquivo correspondente ao seu shell.
+
+Bash, inclusive o shell padrao de muitas instalacoes WSL:
+
+```bash
+echo 'export PATH="$PATH:/opt/jmeter/bin"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+Zsh:
+
+```bash
+echo 'export PATH="$PATH:/opt/jmeter/bin"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+Confirme o shell atual com `echo $SHELL`. Se o JMeter estiver instalado em outro diretorio, prefira informar sua raiz ao wrapper, por exemplo: `JMETER_HOME=/caminho/do/jmeter scripts/jmeter.sh --version`.
+
 ### Verificar instalacao
 
 ```bash
