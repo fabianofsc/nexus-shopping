@@ -35,6 +35,11 @@ class CustomerMigrationContractTest {
             assertEquals(1, countRows(connection, "customers WHERE document = '265206510' AND document_type = 'RG'"))
             assertEquals(1, countRows(connection, "customers WHERE document = '34150598000117' AND document_type = 'CNPJ'"))
             assertEquals(1, countRows(connection, "customers WHERE document = '01879119000149' AND document_type = 'CNPJ'"))
+            assertEquals(1, countRows(connection, "customers WHERE name = 'Galveihad'"))
+            assertEquals(1, countRows(connection, "customers WHERE name = 'Cibaendîr'"))
+            assertEquals(1, countRows(connection, "customer_contacts WHERE email = 'galveihad.1@hotmail.com'"))
+            assertEquals(1, countRows(connection, "customer_contacts WHERE email = 'cibaendir.7@hotmail.com'"))
+            assertEquals(1, countRows(connection, "customer_contacts WHERE email = 'waurod.10@proton.me'"))
             assertEquals(0, countRows(connection, "customer_contacts cc LEFT JOIN customers c ON c.id = cc.customer_id WHERE c.id IS NULL"))
             assertEquals(0, countRows(connection, "customer_addresses ca LEFT JOIN customers c ON c.id = ca.customer_id WHERE c.id IS NULL"))
         }
