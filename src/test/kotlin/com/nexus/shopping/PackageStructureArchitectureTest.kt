@@ -50,7 +50,6 @@ class PackageStructureArchitectureTest {
     @Test
     fun `product http dto responses exist outside the domain package`() {
         Class.forName("com.nexus.shopping.product.adapter.inbound.http.dto.ProductResponse")
-        Class.forName("com.nexus.shopping.product.adapter.inbound.http.dto.ProductPageResponse")
     }
 
     @Test

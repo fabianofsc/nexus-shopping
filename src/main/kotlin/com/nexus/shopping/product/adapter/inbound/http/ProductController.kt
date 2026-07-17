@@ -1,7 +1,7 @@
 package com.nexus.shopping.product.adapter.inbound.http
 
+import com.nexus.shopping.platform.adapter.inbound.http.dto.PageResponse
 import com.nexus.shopping.product.adapter.inbound.http.dto.CreateProductRequest
-import com.nexus.shopping.product.adapter.inbound.http.dto.ProductPageResponse
 import com.nexus.shopping.product.adapter.inbound.http.dto.ProductResponse
 import com.nexus.shopping.product.adapter.inbound.http.dto.UpdatePriceRequest
 import com.nexus.shopping.product.adapter.inbound.http.dto.toCommand
@@ -35,7 +35,7 @@ class ProductController(
         @RequestParam(required = false) name: String?,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "50") size: Int,
-    ): ProductPageResponse = productSearchUseCase.search(categoryId, name, page, size).toResponse()
+    ): PageResponse<ProductResponse> = productSearchUseCase.search(categoryId, name, page, size).toResponse()
 
     @GetMapping("/{id}")
     fun getById(
