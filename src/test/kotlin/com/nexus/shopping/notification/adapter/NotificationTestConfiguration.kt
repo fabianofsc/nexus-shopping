@@ -10,6 +10,11 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
 import java.time.Instant
 
+// TEMPORARY: interim stub so existing @SpringBootTest suites (CustomerControllerTest,
+// HealthEndpointTest, ProductControllerTest, etc.) stay green while notification's real
+// adapters (Task 8: NotificationJpaRepositoryAdapter, Task 9: LoggingEmailSenderAdapter)
+// don't exist yet. Deleted in Task 9 once both real beans are wired — see
+// docs/superpowers/plans/2026-07-17-notification-context.md, Task 9, Step 5.
 @TestConfiguration
 class NotificationTestConfiguration {
     @Bean
