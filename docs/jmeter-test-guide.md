@@ -61,12 +61,12 @@ sudo apt-get install -y default-jre
 wget https://downloads.apache.org/jmeter/binaries/apache-jmeter-5.6.3.tgz
 tar -xzf apache-jmeter-5.6.3.tgz
 sudo mv apache-jmeter-5.6.3 /opt/jmeter
-echo 'export PATH=$PATH:/opt/jmeter/bin' >> ~/.bashrc
-source ~/.bashrc
 
 # Make
 sudo apt-get install -y make
 ```
+
+O wrapper do projeto encontra o JMeter instalado em `/opt/jmeter` automaticamente. Nao e necessario alterar `PATH`, `~/.bashrc` ou `~/.zshrc`.
 
 > Essas instrucoes valem tambem para Windows com WSL 2 (Windows Subsystem for Linux). Ative o WSL 2, instale o Ubuntu pela Microsoft Store e siga os passos do Linux acima dentro do terminal Ubuntu.
 
@@ -75,9 +75,10 @@ sudo apt-get install -y make
 ```bash
 docker --version
 docker compose version
-jmeter --version
 make --version
 ```
+
+No macOS, verifique o JMeter instalado pelo Homebrew com `jmeter --version`. No Linux ou WSL, use `/opt/jmeter/bin/jmeter --version`.
 
 Todos os comandos devem retornar uma versao sem erro.
 
@@ -88,7 +89,10 @@ Clone o repositorio uma unica vez:
 ```bash
 git clone https://github.com/fabianofsc/nexus-shopping.git
 cd nexus-shopping
+scripts/jmeter.sh --version
 ```
+
+O ultimo comando valida que o wrapper consegue encontrar e executar o JMeter sem depender do shell utilizado.
 
 O roteiro completo usa dois comandos por cenario: um para preparar o ambiente e outro para executar os testes.
 
