@@ -104,6 +104,40 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
 
 ---
 
+### v3.1-load-balancer-cloud
+**Escalabilidade na nuvem: Load Balancer gerenciado (AWS ALB + Auto Scaling Group)**
+
+- **Commit:** mesmo de `v3.0-scalability` (veja `git show v3.1-load-balancer-cloud`)
+- **Propósito:** Marcar o estado do código usado na demonstração do Load Balancer gerenciado na AWS (Application Load Balancer + Auto Scaling Group). A evolução é de **infraestrutura** (AWS), não de código de aplicação — por isso a tag aponta para o mesmo commit de `v3.0`.
+- **Merged em:** 2026-07-09 (tag criada a partir da `main`)
+- **Imagem Docker Hub:** `:load-balancer-cloud` não publicada (mesma limitação de CI do v3.0)
+- **Como clonar:**
+  ```bash
+  git clone --branch v3.1-load-balancer-cloud https://github.com/fabianofsc/nexus-shopping.git
+  ```
+- **Propósito de aprendizado:** Ver load balancing gerenciado na nuvem (ALB) e elasticidade automática (ASG) — contraste com o NGINX auto-hospedado de v3.0
+
+---
+
+### v3.2-product-detail
+**Endpoint de detalhe de produto (leitura por chave única) + carga JMeter para cache**
+
+- **Branch:** `codex/get-product-by-id` (PR #14)
+- **Commit:** (veja `git show v3.2-product-detail`)
+- **Propósito:** Preparar a fixture para a aula de Cache — adicionar uma leitura por registro único (`GET /products/{id}`), o caso limpo de cache-aside (hot key), e o plano de carga para medir p95 antes/depois do cache
+- **Merged em:** 2026-07-16
+- **Mudanças:**
+  - `GET /products/{id}` (`getById`) no `ProductController`, com `findById` no `ProductRepositoryPort` e no adapter JPA, `ProductGetByIdUseCase` e 404 via `ProductNotFoundException`
+  - `load-tests/jmeter/product-by-id.jmx` com a knob `hotSet` (`id = __Random(1, hotSet)`): `hotSet` pequeno = alta repetição (cache brilha); grande = acesso uniforme (cache inútil) — demonstra ganho **e** limite do cache
+- **Imagem Docker Hub:** não publicada
+- **Como clonar:**
+  ```bash
+  git clone --branch v3.2-product-detail https://github.com/fabianofsc/nexus-shopping.git
+  ```
+- **Propósito de aprendizado:** Base para cache-aside — leitura quente e repetida por chave única
+
+---
+
 ## 📊 Relação entre versões
 
 ```
@@ -116,6 +150,10 @@ v1.2-pagination (+ paginação sem COUNT)
 v2.0-hexagonal (nova arquitetura)
     ↓
 v3.0-scalability (NGINX load balancer, 3 instâncias)
+    ↓
+v3.1-load-balancer-cloud (LB gerenciado AWS: ALB + Auto Scaling — mesmo commit de v3.0)
+    ↓
+v3.2-product-detail (GET /products/{id} + carga JMeter para cache)
 ```
 
 **Comparar performance:**
@@ -168,6 +206,6 @@ git rev-parse v1.1-indexes
 
 ---
 
-**Última atualização:** 2026-07-09
+**Última atualização:** 2026-07-16
 **Responsible:** Fabiano Góes
-**Tags ativas:** v1.0-baseline, v1.1-indexes, v1.2-pagination, v2.0-hexagonal, v3.0-scalability
+**Tags ativas:** v1.0-baseline, v1.1-indexes, v1.2-pagination, v2.0-hexagonal, v3.0-scalability, v3.1-load-balancer-cloud, v3.2-product-detail
