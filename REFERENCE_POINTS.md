@@ -185,7 +185,7 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
   curl http://localhost:8080/products/1
   curl http://localhost:8080/products?name=Product%201&page=0&size=3
   ```
-  Repita as requisicoes pelo NGINX e confira nos logs das tres apps que o Redis compartilhado atende as mesmas chaves, mesmo quando a requisicao cai em outra instancia.
+  Repita as requisicoes pelo NGINX, faca um `PATCH` em uma instancia e confirme que a proxima leitura em outra instancia reflete o valor atualizado porque a store de cache e compartilhada.
 - **Inspecao do Redis:**
   ```bash
   docker compose exec redis redis-cli --raw keys '*products*'
