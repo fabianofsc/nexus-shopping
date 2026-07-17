@@ -10,19 +10,18 @@
 
 ## Local Command Rules
 
-- Always prefix shell commands with `rtk`.
 - Use the Gradle wrapper, not a system Gradle:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
-- Use Docker Compose through `rtk`:
+- Use Docker Compose:
 
 ```bash
-rtk docker compose up -d postgres
-rtk docker compose down -v
-rtk docker compose ps
+docker compose up -d postgres
+docker compose down -v
+docker compose ps
 ```
 
 - Use `rg`/`rg --files` for search.
@@ -107,7 +106,7 @@ OFFSET ?
 - Main verification command:
 
 ```bash
-rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
+env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
 - Tests use H2 and small Flyway seed placeholders.
@@ -124,25 +123,25 @@ rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local .
 - To start a scenario without building locally:
 
 ```bash
-rtk make start-baseline     # resets DB, pulls baseline image, waits health
-rtk make start-indexes      # swaps image, keeps DB, waits health
-rtk make start-pagination   # swaps image, keeps DB, waits health
+make start-baseline     # resets DB, pulls baseline image, waits health
+make start-indexes      # swaps image, keeps DB, waits health
+make start-pagination   # swaps image, keeps DB, waits health
 ```
 
 - To reset the DB explicitly for any scenario:
 
 ```bash
-rtk make hub-reset-baseline
-rtk make hub-reset-indexes
-rtk make hub-reset-pagination
+make hub-reset-baseline
+make hub-reset-indexes
+make hub-reset-pagination
 ```
 
 - To build and push images manually:
 
 ```bash
-rtk make push-baseline
-rtk make push-indexes
-rtk make push-pagination
+make push-baseline
+make push-indexes
+make push-pagination
 ```
 
 ## JMeter
@@ -161,9 +160,9 @@ scripts/jmeter.sh
 - Use Makefile targets instead of invoking JMeter directly:
 
 ```bash
-rtk make jmeter-all SCENARIO=baseline
-rtk make jmeter-category SCENARIO=indexes
-rtk make jmeter-name SCENARIO=pagination
+make jmeter-all SCENARIO=baseline
+make jmeter-category SCENARIO=indexes
+make jmeter-name SCENARIO=pagination
 ```
 
 - If JMeter reports `java.net.SocketException: Operation not permitted`, rerun with elevated permission because local high-concurrency HTTP may be sandbox-blocked.
