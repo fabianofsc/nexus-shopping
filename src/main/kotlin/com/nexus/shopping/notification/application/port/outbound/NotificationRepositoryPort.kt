@@ -1,7 +1,7 @@
 package com.nexus.shopping.notification.application.port.outbound
 
 import com.nexus.shopping.notification.domain.Notification
-import com.nexus.shopping.notification.domain.NotificationPage
+import com.nexus.shopping.platform.domain.PageResult
 
 interface NotificationRepositoryPort {
     fun save(notification: Notification): Notification
@@ -12,5 +12,5 @@ interface NotificationRepositoryPort {
         customerId: Long,
         page: Int,
         size: Int,
-    ): NotificationPage
+    ): PageResult<Notification>
 }

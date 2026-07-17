@@ -3,7 +3,7 @@ package com.nexus.shopping.notification.adapter.outbound.jpa
 import com.nexus.shopping.notification.application.exception.NotificationValidationException
 import com.nexus.shopping.notification.application.port.outbound.NotificationRepositoryPort
 import com.nexus.shopping.notification.domain.Notification
-import com.nexus.shopping.notification.domain.NotificationPage
+import com.nexus.shopping.platform.domain.PageResult
 import org.hibernate.exception.ConstraintViolationException
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.PageRequest
@@ -34,11 +34,11 @@ class NotificationJpaRepositoryAdapter(
         customerId: Long,
         page: Int,
         size: Int,
-    ): NotificationPage {
+    ): PageResult<Notification> {
         val slice = repository.findByCustomerId(customerId, PageRequest.of(page, size))
         val content = slice.content.map { it.toDomain() }
 
-        return NotificationPage(
+        return PageResult(
             content = content,
             page = page,
             size = size,

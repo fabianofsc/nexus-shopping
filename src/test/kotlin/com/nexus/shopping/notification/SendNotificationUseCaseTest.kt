@@ -7,8 +7,8 @@ import com.nexus.shopping.notification.application.port.outbound.EmailSenderPort
 import com.nexus.shopping.notification.application.port.outbound.NotificationRepositoryPort
 import com.nexus.shopping.notification.application.usecase.SendNotificationUseCase
 import com.nexus.shopping.notification.domain.Notification
-import com.nexus.shopping.notification.domain.NotificationPage
 import com.nexus.shopping.notification.domain.NotificationStatus
+import com.nexus.shopping.platform.domain.PageResult
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -31,7 +31,7 @@ private class FakeNotificationRepository : NotificationRepositoryPort {
         customerId: Long,
         page: Int,
         size: Int,
-    ): NotificationPage = throw UnsupportedOperationException()
+    ): PageResult<Notification> = throw UnsupportedOperationException()
 }
 
 private class FakeEmailSender(

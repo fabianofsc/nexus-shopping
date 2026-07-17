@@ -69,6 +69,23 @@ class PackageStructureArchitectureTest {
     }
 
     @Test
+    fun `platform provides a generic page result domain type reused across bounded contexts`() {
+        Class.forName("com.nexus.shopping.platform.domain.PageResult")
+    }
+
+    @Test
+    fun `platform provides a shared logging context helper reused across bounded contexts`() {
+        val loggerContextSource =
+            java.nio.file.Path
+                .of("src/main/kotlin/com/nexus/shopping/platform/application/logging/LoggerContext.kt")
+                .toFile()
+                .readText()
+
+        assertTrue(loggerContextSource.contains("fun Logger.infoWithContext"))
+        assertTrue(loggerContextSource.contains("fun Logger.warnWithContext"))
+    }
+
+    @Test
     fun `codebase does not use a shared package for cross cutting structure`() {
         val sourceRoots =
             listOf(

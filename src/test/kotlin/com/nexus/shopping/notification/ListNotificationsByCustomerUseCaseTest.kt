@@ -4,7 +4,7 @@ import com.nexus.shopping.notification.application.exception.NotificationValidat
 import com.nexus.shopping.notification.application.port.outbound.NotificationRepositoryPort
 import com.nexus.shopping.notification.application.usecase.ListNotificationsByCustomerUseCase
 import com.nexus.shopping.notification.domain.Notification
-import com.nexus.shopping.notification.domain.NotificationPage
+import com.nexus.shopping.platform.domain.PageResult
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -22,11 +22,11 @@ private class FakeNotificationRepositoryForList : NotificationRepositoryPort {
         customerId: Long,
         page: Int,
         size: Int,
-    ): NotificationPage {
+    ): PageResult<Notification> {
         lastCustomerId = customerId
         lastPage = page
         lastSize = size
-        return NotificationPage(content = emptyList(), page = page, size = size, count = 0, hasNext = false)
+        return PageResult(content = emptyList(), page = page, size = size, count = 0, hasNext = false)
     }
 }
 

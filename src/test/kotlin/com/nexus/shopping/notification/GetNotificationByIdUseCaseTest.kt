@@ -5,9 +5,9 @@ import com.nexus.shopping.notification.application.port.outbound.NotificationRep
 import com.nexus.shopping.notification.application.usecase.GetNotificationByIdUseCase
 import com.nexus.shopping.notification.domain.Notification
 import com.nexus.shopping.notification.domain.NotificationChannel
-import com.nexus.shopping.notification.domain.NotificationPage
 import com.nexus.shopping.notification.domain.NotificationStatus
 import com.nexus.shopping.notification.domain.NotificationType
+import com.nexus.shopping.platform.domain.PageResult
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -42,7 +42,7 @@ class GetNotificationByIdUseCaseTest {
                     customerId: Long,
                     page: Int,
                     size: Int,
-                ): NotificationPage = throw UnsupportedOperationException()
+                ): PageResult<Notification> = throw UnsupportedOperationException()
             }
         val useCase = GetNotificationByIdUseCase(fakeRepo)
 
@@ -64,7 +64,7 @@ class GetNotificationByIdUseCaseTest {
                     customerId: Long,
                     page: Int,
                     size: Int,
-                ): NotificationPage = throw UnsupportedOperationException()
+                ): PageResult<Notification> = throw UnsupportedOperationException()
             }
         val useCase = GetNotificationByIdUseCase(fakeRepo)
 
