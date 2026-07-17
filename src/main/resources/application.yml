@@ -41,3 +41,9 @@ logging:
     level: "%5p"
   charset:
     console: UTF-8
+
+nexus:
+  cache:
+    product:
+      max-size: 10000
+      ttl: 10m
