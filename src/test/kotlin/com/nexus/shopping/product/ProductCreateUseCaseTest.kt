@@ -15,6 +15,8 @@ import kotlin.test.assertFailsWith
 class ProductCreateUseCaseTest {
     private val fakeRepo =
         object : ProductRepositoryPort {
+            override fun findById(id: Long): Product? = throw UnsupportedOperationException()
+
             override fun findByCategoryId(
                 categoryId: Long,
                 page: Int,

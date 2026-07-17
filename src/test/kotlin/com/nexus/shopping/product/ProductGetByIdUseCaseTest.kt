@@ -1,9 +1,7 @@
 package com.nexus.shopping.product.application.usecase
 
 import com.nexus.shopping.product.application.command.CreateProductCommand
-import com.nexus.shopping.product.application.command.UpdatePriceCommand
 import com.nexus.shopping.product.application.exception.ProductNotFoundException
-import com.nexus.shopping.product.application.exception.ProductValidationException
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.domain.Currency
 import com.nexus.shopping.product.domain.Product
@@ -15,8 +13,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
-class UpdateProductPriceUseCaseTest {
-    private fun aProduct(price: BigDecimal) =
+class ProductGetByIdUseCaseTest {
+    private fun aProduct() =
         Product(
             id = 1L,
             brandId = 1L,
@@ -26,7 +24,7 @@ class UpdateProductPriceUseCaseTest {
             slug = "test-product",
             description = null,
             status = ProductStatus.ACTIVE,
-            priceAmount = price,
+            priceAmount = BigDecimal("19.90"),
             currency = Currency.BRL,
             inventoryQuantity = 0,
             createdAt = LocalDateTime.of(2026, 1, 1, 0, 0),
@@ -37,7 +35,7 @@ class UpdateProductPriceUseCaseTest {
 
     private val fakeRepo =
         object : ProductRepositoryPort {
-            override fun findById(id: Long): Product? = throw UnsupportedOperationException()
+            override fun findById(id: Long): Product? = repoReturn
 
             override fun findByCategoryId(
                 categoryId: Long,
@@ -56,37 +54,26 @@ class UpdateProductPriceUseCaseTest {
             override fun updatePrice(
                 id: Long,
                 priceAmount: BigDecimal,
-            ): Product? = repoReturn
+            ): Product? = throw UnsupportedOperationException()
         }
 
-    private val useCase = UpdateProductPriceUseCase(fakeRepo)
+    private val useCase = ProductGetByIdUseCase(fakeRepo)
 
     @Test
-    fun `returns updated product when price is valid and product exists`() {
-        repoReturn = aProduct(BigDecimal("99.90"))
-        val result = useCase.execute(UpdatePriceCommand(1L, BigDecimal("99.90")))
-        assertEquals(0, BigDecimal("99.90").compareTo(result.priceAmount))
-    }
+    fun `returns product when product exists`() {
+        repoReturn = aProduct()
 
-    @Test
-    fun `throws ProductValidationException when priceAmount is zero`() {
-        assertFailsWith<ProductValidationException> {
-            useCase.execute(UpdatePriceCommand(1L, BigDecimal.ZERO))
-        }
-    }
+        val result = useCase.execute(1L)
 
-    @Test
-    fun `throws ProductValidationException when priceAmount is negative`() {
-        assertFailsWith<ProductValidationException> {
-            useCase.execute(UpdatePriceCommand(1L, BigDecimal("-1.00")))
-        }
+        assertEquals(1L, result.id)
     }
 
     @Test
     fun `throws ProductNotFoundException when product does not exist`() {
         repoReturn = null
+
         assertFailsWith<ProductNotFoundException> {
-            useCase.execute(UpdatePriceCommand(1L, BigDecimal("99.90")))
+            useCase.execute(1L)
         }
     }
 }

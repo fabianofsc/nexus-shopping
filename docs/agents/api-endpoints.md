@@ -3,6 +3,7 @@
 - Health: `GET /actuator/health`
 - Busca por categoria: `GET /products?categoryId=1&page=0&size=50`
 - Busca por nome: `GET /products?name=Product%209999999&page=0&size=50`
+- Detalhe de produto: `GET /products/{id}` retorna `200 OK` com o produto ou `404 Not Found`.
 - O endpoint aceita `categoryId` OU `name`, nunca ambos.
 - Paginacao: `page` default `0`, `size` default `50`, range valido `1..500`.
 - Resposta e um slice sem COUNT:

@@ -47,6 +47,19 @@ class ProductControllerTest {
         return httpClient.send(request, HttpResponse.BodyHandlers.ofString())
     }
 
+    private fun getById(
+        port: String,
+        id: Long,
+    ): HttpResponse<String> {
+        val request =
+            HttpRequest
+                .newBuilder()
+                .uri(URI.create("http://localhost:$port/products/$id"))
+                .GET()
+                .build()
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+    }
+
     private fun post(
         port: String,
         body: String,
@@ -185,6 +198,38 @@ class ProductControllerTest {
             expectedDetail = "Invalid request.",
         )
         assertNoInternalDetailsLeaked(response.body())
+    }
+
+    @Test
+    fun `GET product by id returns 200 with product`() {
+        val port = environment.getRequiredProperty("local.server.port")
+
+        val response = getById(port, 1L)
+
+        assertEquals(200, response.statusCode())
+        val product = mapper.readTree(response.body())
+        assertEquals(1L, product["id"].asLong())
+        assertEquals(1L, product["brandId"].asLong())
+        assertEquals(1L, product["categoryId"].asLong())
+        assertEquals("SKU-1", product["sku"].asText())
+        assertEquals("Product 1", product["name"].asText())
+        assertEquals("ACTIVE", product["status"].asText())
+        assertEquals("BRL", product["currency"].asText())
+    }
+
+    @Test
+    fun `GET product by id with non-existent id returns 404 problem details`() {
+        val port = environment.getRequiredProperty("local.server.port")
+
+        val response = getById(port, 9999999999L)
+
+        assertExceptionDetail(
+            response = response,
+            expectedStatus = 404,
+            expectedTitle = "Not Found",
+            expectedInstance = "/products/9999999999",
+            expectedDetail = "Product 9999999999 not found.",
+        )
     }
 
     @Test

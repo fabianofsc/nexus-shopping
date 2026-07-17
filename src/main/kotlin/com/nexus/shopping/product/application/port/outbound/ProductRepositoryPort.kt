@@ -6,6 +6,8 @@ import com.nexus.shopping.product.domain.ProductPage
 import java.math.BigDecimal
 
 interface ProductRepositoryPort {
+    fun findById(id: Long): Product?
+
     fun findByCategoryId(
         categoryId: Long,
         page: Int,

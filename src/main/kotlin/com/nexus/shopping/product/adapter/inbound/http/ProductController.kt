@@ -7,6 +7,7 @@ import com.nexus.shopping.product.adapter.inbound.http.dto.UpdatePriceRequest
 import com.nexus.shopping.product.adapter.inbound.http.dto.toCommand
 import com.nexus.shopping.product.adapter.inbound.http.dto.toResponse
 import com.nexus.shopping.product.application.usecase.ProductCreateUseCase
+import com.nexus.shopping.product.application.usecase.ProductGetByIdUseCase
 import com.nexus.shopping.product.application.usecase.ProductSearchUseCase
 import com.nexus.shopping.product.application.usecase.UpdateProductPriceUseCase
 import org.springframework.http.HttpStatus
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController
 class ProductController(
     private val productSearchUseCase: ProductSearchUseCase,
     private val productCreateUseCase: ProductCreateUseCase,
+    private val productGetByIdUseCase: ProductGetByIdUseCase,
     private val updateProductPriceUseCase: UpdateProductPriceUseCase,
 ) {
     @GetMapping
@@ -34,6 +36,11 @@ class ProductController(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "50") size: Int,
     ): ProductPageResponse = productSearchUseCase.search(categoryId, name, page, size).toResponse()
+
+    @GetMapping("/{id}")
+    fun getById(
+        @PathVariable id: Long,
+    ): ProductResponse = productGetByIdUseCase.execute(id).toResponse()
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
