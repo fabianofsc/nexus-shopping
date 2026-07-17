@@ -6,6 +6,7 @@ data class Customer(
     val id: Long,
     val name: String,
     val document: String,
+    val documentType: DocumentType,
     val status: CustomerStatus,
     val contact: Contact,
     val address: Address,

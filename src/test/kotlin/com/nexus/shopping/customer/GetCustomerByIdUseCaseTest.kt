@@ -7,6 +7,7 @@ import com.nexus.shopping.customer.application.usecase.GetCustomerByIdUseCase
 import com.nexus.shopping.customer.domain.Address
 import com.nexus.shopping.customer.domain.Contact
 import com.nexus.shopping.customer.domain.Customer
+import com.nexus.shopping.customer.domain.DocumentType
 import com.nexus.shopping.customer.domain.CustomerStatus
 import java.time.LocalDateTime
 import kotlin.test.Test
@@ -32,6 +33,7 @@ class GetCustomerByIdUseCaseTest {
 
         assertEquals(1L, customer.id)
         assertEquals("Ana Silva", customer.name)
+        assertEquals(DocumentType.CPF, customer.documentType)
     }
 
     @Test
@@ -47,7 +49,8 @@ class GetCustomerByIdUseCaseTest {
         Customer(
             id = 1L,
             name = "Ana Silva",
-            document = "12345678901",
+            document = "02648629025",
+            documentType = DocumentType.CPF,
             status = CustomerStatus.ACTIVE,
             contact = Contact("ana.silva@example.com", null),
             address =

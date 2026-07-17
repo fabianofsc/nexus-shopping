@@ -1,15 +1,15 @@
-INSERT INTO customers (name, document, status)
+INSERT INTO customers (name, document, document_type, status)
 VALUES
-    ('Customer 1', '10000000001', 'ACTIVE'),
-    ('Customer 2', '10000000002', 'ACTIVE'),
-    ('Customer 3', '10000000003', 'ACTIVE'),
-    ('Customer 4', '10000000004', 'ACTIVE'),
-    ('Customer 5', '10000000005', 'ACTIVE'),
-    ('Customer 6', '10000000006', 'ACTIVE'),
-    ('Customer 7', '10000000007', 'ACTIVE'),
-    ('Customer 8', '10000000008', 'ACTIVE'),
-    ('Customer 9', '10000000009', 'ACTIVE'),
-    ('Customer 10', '10000000010', 'ACTIVE');
+    ('Customer 1', '02648629025', 'CPF', 'ACTIVE'),
+    ('Customer 2', '58119974000', 'CPF', 'ACTIVE'),
+    ('Customer 3', '58119974000', 'CPF', 'ACTIVE'),
+    ('Customer 4', '18184222230', 'CNH', 'ACTIVE'),
+    ('Customer 5', '71613090845', 'CNH', 'ACTIVE'),
+    ('Customer 6', '378149714', 'RG', 'ACTIVE'),
+    ('Customer 7', '108237126', 'RG', 'ACTIVE'),
+    ('Customer 8', '265206510', 'RG', 'ACTIVE'),
+    ('Customer 9', '34150598000117', 'CNPJ', 'ACTIVE'),
+    ('Customer 10', '01879119000149', 'CNPJ', 'ACTIVE');
 
 INSERT INTO customer_contacts (customer_id, email, phone)
 VALUES

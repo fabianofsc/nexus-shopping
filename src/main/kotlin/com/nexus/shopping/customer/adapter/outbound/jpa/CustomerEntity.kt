@@ -5,6 +5,7 @@ import com.nexus.shopping.customer.domain.Address
 import com.nexus.shopping.customer.domain.Contact
 import com.nexus.shopping.customer.domain.Customer
 import com.nexus.shopping.customer.domain.CustomerStatus
+import com.nexus.shopping.customer.domain.DocumentType
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -34,6 +35,9 @@ class CustomerEntity(
     @Column(name = "document", nullable = false, length = 32)
     var document: String = "",
     @Enumerated(EnumType.STRING)
+    @Column(name = "document_type", nullable = false, length = 8)
+    var documentType: DocumentType = DocumentType.CPF,
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 24)
     var status: CustomerStatus = CustomerStatus.ACTIVE,
     @OneToOne(mappedBy = "customer", cascade = [CascadeType.ALL], fetch = FetchType.EAGER, optional = false)
@@ -52,6 +56,7 @@ class CustomerEntity(
             id = requireNotNull(id) { "CustomerEntity.id must be available before mapping to domain." },
             name = name,
             document = document,
+            documentType = documentType,
             status = status,
             contact = requireNotNull(contact) { "CustomerEntity.contact must be available before mapping to domain." }.toDomain(),
             address = requireNotNull(address) { "CustomerEntity.address must be available before mapping to domain." }.toDomain(),
@@ -127,6 +132,7 @@ fun CreateCustomerCommand.toEntity(): CustomerEntity {
         CustomerEntity(
             name = name,
             document = document,
+            documentType = DocumentType.valueOf(documentType),
             status = CustomerStatus.ACTIVE,
         )
     customer.contact =

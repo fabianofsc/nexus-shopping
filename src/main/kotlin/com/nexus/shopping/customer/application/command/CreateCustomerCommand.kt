@@ -3,6 +3,7 @@ package com.nexus.shopping.customer.application.command
 data class CreateCustomerCommand(
     val name: String,
     val document: String,
+    val documentType: String,
     val email: String,
     val phone: String?,
     val street: String,

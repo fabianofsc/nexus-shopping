@@ -4,6 +4,7 @@ import com.nexus.shopping.customer.application.command.CreateCustomerCommand
 import com.nexus.shopping.customer.application.exception.CustomerValidationException
 import com.nexus.shopping.customer.application.port.outbound.CustomerRepositoryPort
 import com.nexus.shopping.customer.domain.Customer
+import com.nexus.shopping.customer.domain.DocumentType
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
@@ -18,6 +19,7 @@ class CreateCustomerUseCase(
         requireMaxLength(command.name, "name", 160)
         requireNotBlank(command.document, "document")
         requireMaxLength(command.document, "document", 32)
+        requireValidEnum<DocumentType>(command.documentType, "documentType")
         requireNotBlank(command.email, "email")
         requireMaxLength(command.email, "email", 254)
         if (!command.email.contains("@")) throwValidationFailed("email must be valid.")
@@ -57,6 +59,16 @@ class CreateCustomerUseCase(
     ) {
         if (value != null && value.length > maxLength) {
             throwValidationFailed("$fieldName must be at most $maxLength characters.")
+        }
+    }
+
+    private inline fun <reified T : Enum<T>> requireValidEnum(
+        value: String,
+        fieldName: String,
+    ) {
+        val names = enumValues<T>().map { it.name }
+        if (value !in names) {
+            throwValidationFailed("$fieldName must be one of: ${names.joinToString(", ")}.")
         }
     }
 

@@ -7,6 +7,7 @@ import com.nexus.shopping.customer.application.usecase.CreateCustomerUseCase
 import com.nexus.shopping.customer.domain.Address
 import com.nexus.shopping.customer.domain.Contact
 import com.nexus.shopping.customer.domain.Customer
+import com.nexus.shopping.customer.domain.DocumentType
 import com.nexus.shopping.customer.domain.CustomerStatus
 import java.time.LocalDateTime
 import kotlin.test.Test
@@ -23,6 +24,7 @@ class CreateCustomerUseCaseTest {
                     id = 1L,
                     name = command.name,
                     document = command.document,
+                    documentType = DocumentType.valueOf(command.documentType),
                     status = CustomerStatus.ACTIVE,
                     contact = Contact(command.email, command.phone),
                     address =
@@ -46,7 +48,8 @@ class CreateCustomerUseCaseTest {
     private fun validCommand() =
         CreateCustomerCommand(
             name = "Ana Silva",
-            document = "12345678901",
+            document = "02648629025",
+            documentType = "CPF",
             email = "ana.silva@example.com",
             phone = "+5511999990000",
             street = "Rua das Flores",
@@ -65,6 +68,7 @@ class CreateCustomerUseCaseTest {
 
         assertEquals(1L, customer.id)
         assertEquals("Ana Silva", customer.name)
+        assertEquals(DocumentType.CPF, customer.documentType)
         assertEquals(CustomerStatus.ACTIVE, customer.status)
         assertEquals("ana.silva@example.com", customer.contact.email)
         assertEquals("Sao Paulo", customer.address.city)
@@ -81,6 +85,13 @@ class CreateCustomerUseCaseTest {
     fun `throws CustomerValidationException when email is invalid`() {
         assertFailsWith<CustomerValidationException> {
             useCase.create(validCommand().copy(email = "invalid-email"))
+        }
+    }
+
+    @Test
+    fun `throws CustomerValidationException when document type is invalid`() {
+        assertFailsWith<CustomerValidationException> {
+            useCase.create(validCommand().copy(documentType = "PASSPORT"))
         }
     }
 

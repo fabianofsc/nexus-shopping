@@ -5,6 +5,7 @@ import com.nexus.shopping.customer.application.command.CreateCustomerCommand
 data class CreateCustomerRequest(
     val name: String,
     val document: String,
+    val documentType: String,
     val email: String,
     val phone: String? = null,
     val street: String,
@@ -21,6 +22,7 @@ fun CreateCustomerRequest.toCommand(): CreateCustomerCommand =
     CreateCustomerCommand(
         name = name,
         document = document,
+        documentType = documentType,
         email = email,
         phone = phone,
         street = street,

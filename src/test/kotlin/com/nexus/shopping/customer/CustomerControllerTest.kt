@@ -90,7 +90,8 @@ class CustomerControllerTest {
             """
             {
               "name": "Ana Silva",
-              "document": "12345678901",
+              "document": "02648629025",
+              "documentType": "CPF",
               "email": "ana.silva@example.com",
               "phone": "+5511999990000",
               "street": "Rua das Flores",
@@ -110,7 +111,8 @@ class CustomerControllerTest {
         val customer = mapper.readTree(response.body())
         assertNotNull(customer["id"].asLong().takeIf { it > 0 }, "Expected a generated id > 0")
         assertEquals("Ana Silva", customer["name"].asText())
-        assertEquals("12345678901", customer["document"].asText())
+        assertEquals("02648629025", customer["document"].asText())
+        assertEquals("CPF", customer["documentType"].asText())
         assertEquals("ACTIVE", customer["status"].asText())
         assertEquals("ana.silva@example.com", customer["contact"]["email"].asText())
         assertEquals("+5511999990000", customer["contact"]["phone"].asText())
@@ -125,7 +127,8 @@ class CustomerControllerTest {
             """
             {
               "name": "Bruno Costa",
-              "document": "98765432100",
+              "document": "18184222230",
+              "documentType": "CNH",
               "email": "bruno.costa@example.com",
               "street": "Avenida Central",
               "number": "500",
@@ -144,6 +147,7 @@ class CustomerControllerTest {
         val customer = mapper.readTree(response.body())
         assertEquals(created["id"].asLong(), customer["id"].asLong())
         assertEquals("Bruno Costa", customer["name"].asText())
+        assertEquals("CNH", customer["documentType"].asText())
         assertEquals("bruno.costa@example.com", customer["contact"]["email"].asText())
         assertEquals("Rio de Janeiro", customer["address"]["city"].asText())
     }
@@ -170,7 +174,8 @@ class CustomerControllerTest {
             """
             {
               "name": "",
-              "document": "12345678901",
+              "document": "02648629025",
+              "documentType": "CPF",
               "email": "invalid@example.com",
               "street": "Rua das Flores",
               "number": "123",
