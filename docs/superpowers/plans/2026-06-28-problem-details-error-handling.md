@@ -14,7 +14,6 @@
 
 ## Global Constraints
 
-- All shell commands must be prefixed with `rtk`.
 - Use the Gradle wrapper command:
 
 ```bash
