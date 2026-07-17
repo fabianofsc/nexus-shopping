@@ -98,8 +98,8 @@ Update `README.md` with a `Lint` section that documents:
 
 - that lint is configured with ktlint;
 - that lint is opt-in in the first phase;
-- the `rtk` command for `ktlintCheck`;
-- the `rtk` command for `ktlintFormat`;
+- the `./gradlew ktlintCheck` command;
+- the `./gradlew ktlintFormat` command;
 - the expectation that `ktlintFormat` diffs are reviewed as mechanical changes.
 
 ## Verification
@@ -121,4 +121,3 @@ The implementation should verify:
 - Adding CI enforcement.
 - Running `ktlintFormat` as part of this planning/spec step.
 - Making lint part of `build` or `check` in phase 1.
-

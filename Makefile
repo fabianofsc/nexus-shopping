@@ -77,10 +77,10 @@ help:
 
 .PHONY: gradle-build gradle-test install-hooks boot-run boot-jar image
 gradle-build:
-	rtk env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew build
+	env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew build
 
 gradle-test:
-	rtk env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew test
+	env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew test
 
 install-hooks:
 	git config core.hooksPath .githooks
@@ -90,80 +90,80 @@ install-hooks:
 	@printf '%s\n' 'Bypass a single push in an emergency with: git push --no-verify'
 
 boot-run:
-	rtk env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew bootRun
+	env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew bootRun
 
 boot-jar:
-	rtk env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew bootJar
+	env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew bootJar
 
 image:
-	rtk env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew bootBuildImage --imageName $(APP_IMAGE)
+	env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew bootBuildImage --imageName $(APP_IMAGE)
 
 image-latest:
-	rtk bash -lc 'if [[ -n "$$(git status --porcelain)" ]]; then git status --short; exit 1; fi'
-	rtk git switch $(LATEST_BRANCH)
-	rtk env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew bootBuildImage --imageName $(LATEST_IMAGE)
+	bash -lc 'if [[ -n "$$(git status --porcelain)" ]]; then git status --short; exit 1; fi'
+	git switch $(LATEST_BRANCH)
+	env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew bootBuildImage --imageName $(LATEST_IMAGE)
 
 .PHONY: compose-up compose-down compose-reset compose-ps compose-logs health
 compose-up:
-	rtk env APP_IMAGE=$(APP_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose up -d postgres app
+	env APP_IMAGE=$(APP_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) docker compose up -d postgres app
 
 compose-down:
-	rtk docker compose down
+	docker compose down
 
 compose-reset:
-	rtk docker compose down -v
+	docker compose down -v
 
 compose-ps:
-	rtk docker compose ps
+	docker compose ps
 
 compose-logs:
-	rtk docker compose logs -f app
+	docker compose logs -f app
 
 health:
-	rtk curl -s -o /dev/null -w "%{http_code} %{time_total}\n" http://$(HOST):$(PORT)/actuator/health
+	curl -s -o /dev/null -w "%{http_code} %{time_total}\n" http://$(HOST):$(PORT)/actuator/health
 
 .PHONY: stack-baseline stack-indexes stack-pagination stack-latest stack-main
 stack-baseline:
-	rtk env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh baseline
+	env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh baseline
 
 stack-indexes:
-	rtk env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh indexes
+	env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh indexes
 
 stack-pagination:
-	rtk env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh pagination
+	env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh pagination
 
 stack-latest:
-	rtk env APP_IMAGE=$(LATEST_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh pagination
+	env APP_IMAGE=$(LATEST_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh pagination
 
 stack-main:
-	rtk env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh main
+	env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh main
 
 .PHONY: stack-reset-baseline stack-reset-indexes stack-reset-pagination stack-reset-latest stack-reset-main
 stack-reset-baseline:
-	rtk env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh baseline --reset-db
+	env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh baseline --reset-db
 
 stack-reset-indexes:
-	rtk env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh indexes --reset-db
+	env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh indexes --reset-db
 
 stack-reset-pagination:
-	rtk env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh pagination --reset-db
+	env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh pagination --reset-db
 
 stack-reset-latest:
-	rtk env APP_IMAGE=$(LATEST_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh pagination --reset-db
+	env APP_IMAGE=$(LATEST_IMAGE) PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh pagination --reset-db
 
 stack-reset-main:
-	rtk env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh main --reset-db
+	env PRODUCT_SEED_COUNT=$(PRODUCT_SEED_COUNT) scripts/run-stack.sh main --reset-db
 
 .PHONY: wait-health
 wait-health:
-	rtk bash -c 'for attempt in {1..120}; do status=$$(curl -s -o /dev/null -w "%{http_code}" http://$(HOST):$(PORT)/actuator/health || true); if [[ "$$status" == "200" ]]; then echo "health OK"; exit 0; fi; sleep 2; done; echo "health check failed"; exit 1'
+	bash -c 'for attempt in {1..120}; do status=$$(curl -s -o /dev/null -w "%{http_code}" http://$(HOST):$(PORT)/actuator/health || true); if [[ "$$status" == "200" ]]; then echo "health OK"; exit 0; fi; sleep 2; done; echo "health check failed"; exit 1'
 
 .PHONY: jmeter-dirs jmeter-category jmeter-name jmeter-all
 jmeter-dirs:
-	rtk mkdir -p $(JMETER_RESULTS_DIR) $(JMETER_REPORT_DIR)
+	mkdir -p $(JMETER_RESULTS_DIR) $(JMETER_REPORT_DIR)
 
 jmeter-category: jmeter-dirs
-	rtk env JVM_ARGS="$(JMETER_HEAP)" scripts/jmeter.sh -n \
+	env JVM_ARGS="$(JMETER_HEAP)" scripts/jmeter.sh -n \
 	  -t load-tests/jmeter/products-by-category.jmx \
 	  -l $(JMETER_RESULTS_DIR)/products-by-category-$(SCENARIO)-$(RUN_ID).jtl \
 	  -e -o $(JMETER_REPORT_DIR)/products-by-category-$(SCENARIO)-$(RUN_ID) \
@@ -178,7 +178,7 @@ jmeter-category: jmeter-dirs
 	  -Jsummariser.interval=10
 
 jmeter-name: jmeter-dirs
-	rtk env JVM_ARGS="$(JMETER_HEAP)" scripts/jmeter.sh -n \
+	env JVM_ARGS="$(JMETER_HEAP)" scripts/jmeter.sh -n \
 	  -t load-tests/jmeter/products-by-name.jmx \
 	  -l $(JMETER_RESULTS_DIR)/products-by-name-$(SCENARIO)-$(RUN_ID).jtl \
 	  -e -o $(JMETER_REPORT_DIR)/products-by-name-$(SCENARIO)-$(RUN_ID) \
@@ -196,46 +196,46 @@ jmeter-all: jmeter-category jmeter-name
 
 .PHONY: load-baseline load-indexes load-pagination load-latest
 load-baseline:
-	rtk make stack-reset-baseline PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT)
-	rtk make wait-health
-	rtk make jmeter-all SCENARIO=baseline
+	make stack-reset-baseline PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT)
+	make wait-health
+	make jmeter-all SCENARIO=baseline
 
 load-indexes:
-	rtk make stack-reset-indexes PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT)
-	rtk make wait-health
-	rtk make jmeter-all SCENARIO=indexes
+	make stack-reset-indexes PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT)
+	make wait-health
+	make jmeter-all SCENARIO=indexes
 
 load-pagination:
-	rtk make stack-reset-pagination PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT)
-	rtk make wait-health
-	rtk make jmeter-all SCENARIO=pagination
+	make stack-reset-pagination PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT)
+	make wait-health
+	make jmeter-all SCENARIO=pagination
 
 load-latest:
-	rtk make stack-reset-latest PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT)
-	rtk make wait-health
-	rtk make jmeter-all SCENARIO=latest
+	make stack-reset-latest PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT)
+	make wait-health
+	make jmeter-all SCENARIO=latest
 
 # --- Docker Hub: build e push ---
 
 .PHONY: push-baseline push-indexes push-pagination push-all
 push-baseline:
-	rtk bash -lc 'if [[ -n "$$(git status --porcelain)" ]]; then git status --short; exit 1; fi'
-	rtk git switch missing-index-performance-baseline
-	rtk env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew bootBuildImage --imageName $(HUB_BASELINE_IMAGE)
-	rtk docker push $(HUB_BASELINE_IMAGE)
-	rtk git switch main
+	bash -lc 'if [[ -n "$$(git status --porcelain)" ]]; then git status --short; exit 1; fi'
+	git switch missing-index-performance-baseline
+	env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew bootBuildImage --imageName $(HUB_BASELINE_IMAGE)
+	docker push $(HUB_BASELINE_IMAGE)
+	git switch main
 
 push-indexes:
-	rtk bash -lc 'if [[ -n "$$(git status --porcelain)" ]]; then git status --short; exit 1; fi'
-	rtk git switch add-product-query-indexes
-	rtk env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew bootBuildImage --imageName $(HUB_INDEXES_IMAGE)
-	rtk docker push $(HUB_INDEXES_IMAGE)
-	rtk git switch main
+	bash -lc 'if [[ -n "$$(git status --porcelain)" ]]; then git status --short; exit 1; fi'
+	git switch add-product-query-indexes
+	env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew bootBuildImage --imageName $(HUB_INDEXES_IMAGE)
+	docker push $(HUB_INDEXES_IMAGE)
+	git switch main
 
 push-pagination:
-	rtk bash -lc 'if [[ -n "$$(git status --porcelain)" ]]; then git status --short; exit 1; fi'
-	rtk env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew bootBuildImage --imageName $(HUB_PAGINATION_IMAGE)
-	rtk docker push $(HUB_PAGINATION_IMAGE)
+	bash -lc 'if [[ -n "$$(git status --porcelain)" ]]; then git status --short; exit 1; fi'
+	env GRADLE_USER_HOME=$(GRADLE_USER_HOME) ./gradlew bootBuildImage --imageName $(HUB_PAGINATION_IMAGE)
+	docker push $(HUB_PAGINATION_IMAGE)
 
 push-all: push-baseline push-indexes push-pagination
 
@@ -245,44 +245,44 @@ push-all: push-baseline push-indexes push-pagination
 
 .PHONY: start-baseline start-indexes start-pagination
 start-baseline:
-	rtk env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose down -v
-	rtk env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose up -d postgres app
-	rtk make wait-health HOST=$(HOST) PORT=$(PORT)
+	env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose down -v
+	env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose up -d postgres app
+	make wait-health HOST=$(HOST) PORT=$(PORT)
 
 start-indexes:
-	rtk docker compose stop app
-	rtk env APP_IMAGE=$(HUB_INDEXES_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose up -d app
-	rtk make wait-health HOST=$(HOST) PORT=$(PORT)
+	docker compose stop app
+	env APP_IMAGE=$(HUB_INDEXES_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose up -d app
+	make wait-health HOST=$(HOST) PORT=$(PORT)
 
 start-pagination:
-	rtk docker compose stop app
-	rtk env APP_IMAGE=$(HUB_PAGINATION_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose up -d app
-	rtk make wait-health HOST=$(HOST) PORT=$(PORT)
+	docker compose stop app
+	env APP_IMAGE=$(HUB_PAGINATION_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose up -d app
+	make wait-health HOST=$(HOST) PORT=$(PORT)
 
 # hub-reset-* = reseta banco sem aguardar health (uso avancado)
 .PHONY: hub-reset-baseline hub-reset-indexes hub-reset-pagination
 hub-reset-baseline:
-	rtk env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose down -v
-	rtk env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose up -d postgres app
+	env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose down -v
+	env APP_IMAGE=$(HUB_BASELINE_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose up -d postgres app
 
 hub-reset-indexes:
-	rtk env APP_IMAGE=$(HUB_INDEXES_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose down -v
-	rtk env APP_IMAGE=$(HUB_INDEXES_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose up -d postgres app
+	env APP_IMAGE=$(HUB_INDEXES_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose down -v
+	env APP_IMAGE=$(HUB_INDEXES_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose up -d postgres app
 
 hub-reset-pagination:
-	rtk env APP_IMAGE=$(HUB_PAGINATION_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose down -v
-	rtk env APP_IMAGE=$(HUB_PAGINATION_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose up -d postgres app
+	env APP_IMAGE=$(HUB_PAGINATION_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose down -v
+	env APP_IMAGE=$(HUB_PAGINATION_IMAGE) PRODUCT_SEED_COUNT=$(LOAD_PRODUCT_SEED_COUNT) docker compose up -d postgres app
 
 # load-hub-* = start-* + jmeter-all (atalho para rodar tudo em sequencia)
 .PHONY: load-hub-baseline load-hub-indexes load-hub-pagination
 load-hub-baseline:
-	rtk make start-baseline HOST=$(HOST) PORT=$(PORT)
-	rtk make jmeter-all SCENARIO=baseline
+	make start-baseline HOST=$(HOST) PORT=$(PORT)
+	make jmeter-all SCENARIO=baseline
 
 load-hub-indexes:
-	rtk make start-indexes HOST=$(HOST) PORT=$(PORT)
-	rtk make jmeter-all SCENARIO=indexes
+	make start-indexes HOST=$(HOST) PORT=$(PORT)
+	make jmeter-all SCENARIO=indexes
 
 load-hub-pagination:
-	rtk make start-pagination HOST=$(HOST) PORT=$(PORT)
-	rtk make jmeter-all SCENARIO=pagination
+	make start-pagination HOST=$(HOST) PORT=$(PORT)
+	make jmeter-all SCENARIO=pagination
