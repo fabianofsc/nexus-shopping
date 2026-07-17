@@ -128,4 +128,20 @@ class SendNotificationUseCaseTest {
             }
         assertEquals(true, exception.message?.contains("amount"))
     }
+
+    @Test
+    fun `throws NotificationValidationException when rendered body exceeds 2000 characters`() {
+        val useCase = SendNotificationUseCase(FakeNotificationRepository(), FakeEmailSender())
+        val oversizedAmount = "9".repeat(2000)
+
+        val exception =
+            assertFailsWith<NotificationValidationException> {
+                useCase.send(
+                    validCommand().copy(
+                        templateParams = mapOf("orderId" to "123", "amount" to oversizedAmount),
+                    ),
+                )
+            }
+        assertEquals(true, exception.message?.contains("body exceeds maximum length of 2000 characters"))
+    }
 }

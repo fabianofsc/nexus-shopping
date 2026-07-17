@@ -40,6 +40,9 @@ class SendNotificationUseCase(
         }
 
         val message = NotificationMessageRenderer.render(type, command.templateParams)
+        if (message.subject.length > 180) throwValidationFailed("subject exceeds maximum length of 180 characters.")
+        if (message.body.length > 2000) throwValidationFailed("body exceeds maximum length of 2000 characters.")
+
         val result = emailSender.send(command.recipientEmail, message.subject, message.body)
 
         val notification =
