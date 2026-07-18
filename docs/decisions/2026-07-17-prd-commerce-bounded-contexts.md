@@ -639,9 +639,18 @@ Melhorias para chegar a 10/10:
 
 ## Proximos passos
 
-1. Criar uma spec de implementacao para o monolito modular com Customer, Cart, Order, Payment e Notification.
-2. Definir endpoints didaticos minimos.
-3. Definir comandos/use cases principais.
-4. Definir migrations e tabelas iniciais.
-5. Definir testes de contrato dos fluxos principais.
-6. Implementar a primeira versao ainda na mesma aplicacao.
+### Evolucao dos dominios
+
+- [x] Product: feito.
+- [x] Customer: feito.
+- [x] Notification: feito.
+- [x] Cart: feito; usa `customerId`, `ProductSummary`, carrinho `ACTIVE` e operacoes idempotentes de itens.
+- [ ] Order: pendente; contexto central, depende de snapshots, checkout e Payment.
+- [ ] Payment: pendente; fronteira importante, mas depende de Order existir.
+
+### Sequencia recomendada
+
+1. Criar a spec de implementacao de Order + checkout sincrono.
+2. Implementar Order com snapshots historicos de cliente, endereco e itens.
+3. Implementar Payment como simulador interno chamado por Order.
+4. Conectar Notification aos eventos conceituais quando a etapa de mensageria for introduzida.
