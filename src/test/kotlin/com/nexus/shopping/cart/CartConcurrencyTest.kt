@@ -42,6 +42,11 @@ class CartConcurrencyTest {
     private val httpClient = HttpClient.newHttpClient()
 
     @Test
+    fun `test environment disables open entity manager in view to match production`() {
+        assertEquals(false, environment.getProperty("spring.jpa.open-in-view", Boolean::class.java))
+    }
+
+    @Test
     fun `20 concurrent GET requests for the same new customerId create exactly one ACTIVE cart`() {
         val port = environment.getRequiredProperty("local.server.port")
         val customerId = 8L
