@@ -112,16 +112,10 @@ Para desenvolvimento local:
 - Docker e Docker Compose
 - Gradle Wrapper (incluido como `./gradlew`)
 
-Nao e necessario instalar Gradle nem definir `GRADLE_USER_HOME`. O Wrapper baixa a versao configurada pelo projeto e usa `~/.gradle` como cache por padrao:
+O Wrapper baixa a versao do Gradle configurada pelo projeto, portanto nao e necessario instalar Gradle separadamente:
 
 ```bash
 ./gradlew build
-```
-
-Se for desejavel isolar o cache dentro do clone, por exemplo em CI ou ambientes restritos, a variavel pode ser usada opcionalmente:
-
-```bash
-GRADLE_USER_HOME=.gradle-local ./gradlew build
 ```
 
 Instalar JMeter no macOS:
