@@ -2,7 +2,7 @@
 
 > **Nexus** (do latim *nectere*, "atar, ligar"): um ponto de conexao central. O nome reflete a arquitetura hexagonal do projeto -- o dominio como nexus entre adapters de entrada e saida -- e o dominio de negocio: um catalogo que conecta produtos, marcas e categorias.
 
-Backend REST API educacional construido com Kotlin, Java 21, Spring Boot 4, Actuator, Flyway, PostgreSQL e Spring Data JPA.
+Backend REST API educacional construido com Kotlin, Java 21, Spring Boot 4, Actuator, Flyway, PostgreSQL, Redis e Spring Data JPA.
 
 O projeto evolui de forma incremental, cobrindo diferentes topicos em aulas progressivas: performance de banco de dados, arquitetura hexagonal, tratamento de erros padronizado, logging estruturado, load balancing e, agora, decomposicao de dominios para discutir microservices. Cada topico importante fica documentado em branches, tags, ADRs e guias reproduziveis.
 
@@ -14,7 +14,7 @@ O projeto evolui de forma incremental, cobrindo diferentes topicos em aulas prog
 4. **Escalabilidade horizontal**: multiplas instancias atras de NGINX local e Load Balancer na AWS.
 5. **Sistemas distribuidos**: novos Bounded Contexts de e-commerce para evoluir de monolito modular para microservices.
 
-## Topicos e Branches
+## Topicos e branches
 
 | Branch | Execucao | Topico |
 | --- | --- | --- |
@@ -29,7 +29,7 @@ Veja tambem [REFERENCE_POINTS.md](REFERENCE_POINTS.md) para as tags imutaveis de
 
 ## Evolucao para E-commerce
 
-O codigo atual ainda tem Product/Catalogo como dominio implementado. A proxima etapa ja esta documentada como decisao arquitetural: evoluir para um monolito modular com contextos de e-commerce antes de extrair microservices.
+O codigo atual e um monolito modular com quatro Bounded Contexts implementados: `Product`, `Customer`, `Cart` e `Notification`. `Order` e `Payment` permanecem planejados para as proximas etapas, antes de qualquer extracao para microservices.
 
 ![Mapa de Bounded Contexts do Nexus Shopping](docs/assets/bounded-contexts/nexus-shopping-bounded-context-map-preview.png)
 
@@ -53,6 +53,12 @@ flowchart LR
   Order -->|"eventos"| Notification
 ```
 
+Estado atual:
+
+- Implementados: `Product`, `Customer`, `Cart` e `Notification`.
+- Planejados: `Order` e `Payment`.
+- Fora de escopo nesta etapa: `Inventory` e `Auth/Identity`.
+
 Decisoes principais:
 
 - Decomposicao de dominio primeiro; distribuicao fisica depois.
@@ -60,17 +66,17 @@ Decisoes principais:
 - `Customer` e dono dos dados cadastrais, mas `Order` guarda snapshot historico.
 - `Product` no catalogo, `ProductSummary` no carrinho e `OrderItemSnapshot` no pedido nao sao o mesmo modelo global.
 - `Payment` deve ser o primeiro candidato a extracao futura, por proteger o core de uma integracao externa.
-- `Inventory` e `Auth/Identity` ficam fora de escopo nesta etapa.
+- Redis e usado como cache distribuido das consultas de produto; nao e um Bounded Context.
 
 ADR completo: [docs/decisions/2026-07-17-prd-commerce-bounded-contexts.md](docs/decisions/2026-07-17-prd-commerce-bounded-contexts.md).
 
-## Architecture
+## Arquitetura
 
 O projeto segue arquitetura hexagonal (Ports and Adapters), aplicada de forma incremental. A regra de dependencia e `adapter -> application -> domain`.
 
 ```
 com/nexus/shopping/
-  product/
+  {product,customer,cart,notification}/
     domain/           -> tipos de negocio puros
     application/
       port/outbound/  -> portas outbound
@@ -85,13 +91,15 @@ com/nexus/shopping/
 ```
 
 Restricoes de design:
+
 - Domain e use cases sem imports de Spring, JDBC ou JPA.
-- JPA fica isolado no adapter outbound, que implementa `ProductRepositoryPort`, mapeia `ProductEntity` para `Product` e usa `@Query` JPQL nas consultas de leitura para manter explicito o shape das queries de performance.
+- JPA fica isolado nos adapters outbound, que implementam as portas de repositorio e convertem entities para tipos de dominio.
+- Consultas JPA de leitura usam `@Query` JPQL explicito para tornar visivel o shape das queries.
 - Validacao nos use cases para reuso por qualquer adaptador futuro (CLI, fila, batch).
 - DTO HTTP vira command via `toCommand()`.
 - Entity JPA vira domain via `toDomain()`.
 
-## Requirements
+## Requisitos
 
 Para testes de carga apenas:
 
@@ -104,18 +112,30 @@ Para desenvolvimento local:
 - Docker e Docker Compose
 - Gradle Wrapper (incluido como `./gradlew`)
 
+Nao e necessario instalar Gradle nem definir `GRADLE_USER_HOME`. O Wrapper baixa a versao configurada pelo projeto e usa `~/.gradle` como cache por padrao:
+
+```bash
+./gradlew build
+```
+
+Se for desejavel isolar o cache dentro do clone, por exemplo em CI ou ambientes restritos, a variavel pode ser usada opcionalmente:
+
+```bash
+GRADLE_USER_HOME=.gradle-local ./gradlew build
+```
+
 Instalar JMeter no macOS:
 
 ```bash
 brew install jmeter
 ```
 
-## Database
+## Banco de dados e cache
 
-PostgreSQL via Docker Compose:
+PostgreSQL e Redis via Docker Compose:
 
 ```bash
-docker compose up -d postgres
+docker compose up -d postgres redis
 ```
 
 Configuracoes padrao:
@@ -124,12 +144,17 @@ Configuracoes padrao:
 - Database: `nexus_shopping`
 - User: `nexus`
 - Password: `nexus`
+- Redis: `localhost:6379`
 
 O Flyway executa automaticamente ao iniciar a aplicacao e cria:
 
-- Tabelas: `brands`, `categories`, `products`
+- Catalogo: `brands`, `categories`, `products`
+- Clientes: `customers`, `customer_contacts`, `customer_addresses`
+- Notificacoes: `notifications`
+- Carrinhos: `carts`, `cart_items`
 - Seed de produtos configuravel via `PRODUCT_SEED_COUNT`
-- Indexes: `idx_products_category_id`, `idx_products_name`
+- Seeds reduzidos de clientes para desenvolvimento e testes
+- Indexes de leitura de produtos e de relacionamentos dos demais contextos
 
 O default da aplicacao e `1000`, para boot rapido em desenvolvimento e demos locais. Para cenarios de performance, sobrescreva explicitamente:
 
@@ -141,16 +166,22 @@ Para resetar o volume local apos mudancas de migrations:
 
 ```bash
 docker compose down -v
-docker compose up -d postgres
+docker compose up -d postgres redis
 ```
 
-## Run
+## Executar localmente
 
 Aplicacao local com uma instancia:
 
 ```bash
-docker compose up -d postgres
-env PRODUCT_SEED_COUNT=1000 GRADLE_USER_HOME=.gradle-local ./gradlew bootRun
+docker compose up -d postgres redis
+./gradlew bootRun
+```
+
+O seed padrao e de `1000` produtos. Para usar outro volume:
+
+```bash
+PRODUCT_SEED_COUNT=10000 ./gradlew bootRun
 ```
 
 Health:
@@ -179,6 +210,15 @@ curl -X POST http://localhost:8080/products \
   -d '{"brandId":1,"categoryId":1,"sku":"SKU-001","name":"New Product","slug":"new-product","priceAmount":49.90}'
 ```
 
+Principais recursos HTTP:
+
+- Produtos: busca, detalhe, criacao e atualizacao de preco em `/products`.
+- Clientes: criacao e detalhe em `/customers`.
+- Carrinho ativo: consulta e mutacao de itens em `/customers/{customerId}/cart`.
+- Notificacoes: envio, detalhe e listagem paginada em `/notifications`.
+
+O contrato detalhado das consultas de catalogo esta em [docs/agents/api-endpoints.md](docs/agents/api-endpoints.md).
+
 Stack local com NGINX e 3 instancias:
 
 ```bash
@@ -186,14 +226,14 @@ PRODUCT_SEED_COUNT=1000 docker compose up -d --build
 ./scripts/test-lb.sh 30
 ```
 
-## Docker Image
+## Imagem Docker
 
 O projeto usa o task nativo do Spring Boot para geracao de imagem OCI via Cloud Native Buildpacks (cenarios de performance no Docker Hub). Ha tambem um `Dockerfile` multi-stage usado pelo setup de load balancing (`docker compose build`).
 
 Build local com buildpacks:
 
 ```bash
-env GRADLE_USER_HOME=.gradle-local ./gradlew bootBuildImage --imageName nexus-shopping:local
+./gradlew bootBuildImage --imageName nexus-shopping:local
 ```
 
 Push dos cenarios para o Docker Hub:
@@ -204,7 +244,7 @@ make push-indexes
 make push-pagination
 ```
 
-## Load Balancing (NGINX)
+## Balanceamento de carga (NGINX)
 
 Setup com 3 instancias da aplicacao atras de um NGINX (round-robin por padrao),
 para demonstrar balanceamento de carga sem Kubernetes.
@@ -220,6 +260,9 @@ flowchart TB
   App1 --> Postgres["PostgreSQL"]
   App2 --> Postgres
   App3 --> Postgres
+  App1 --> Redis["Redis"]
+  App2 --> Redis
+  App3 --> Redis
 ```
 
 Guia completo (subir, testar, trocar algoritmo) e roteiro de teste/verificacao:
@@ -229,27 +272,29 @@ docs/scalability-and-load-balancer/load-balancing-nginx.md      # setup, topolog
 docs/scalability-and-load-balancer/load-balancing-test-plan.md  # roteiro de teste e verificacao
 ```
 
-## Test
+## Testes
 
 ```bash
-env GRADLE_USER_HOME=.gradle-local ./gradlew build
+./gradlew build
 ```
 
 Os testes automatizados validam:
 
 - Spring Boot inicia com o health endpoint do Actuator.
 - Flyway executa automaticamente.
-- O endpoint de produtos funciona com seed de teste reduzido.
+- Os contratos HTTP e de persistencia de Product, Customer, Cart e Notification.
 - Migrations portaveis entre PostgreSQL e H2.
 - Indexes de leitura presentes sem constraints UNIQUE indesejadas.
+- Cache de produtos com Redis e fallback em memoria nos cenarios que o desabilitam.
+- Invariantes de concorrencia na criacao e atualizacao de carrinhos.
 
 ## Lint
 
 Lint Kotlin configurado com ktlint via Gradle. Na fase inicial, e opt-in e nao faz parte do `build`.
 
 ```bash
-env GRADLE_USER_HOME=.gradle-local ./gradlew ktlintCheck    # verifica estilo
-env GRADLE_USER_HOME=.gradle-local ./gradlew ktlintFormat   # autoformata
+./gradlew ktlintCheck    # verifica estilo
+./gradlew ktlintFormat   # autoformata
 ```
 
 ## Testes de Carga
@@ -272,10 +317,11 @@ docs/load-test-pagination-results-20260627.md  com paginacao
 
 Relatorios HTML do JMeter: `docs/jmeter-reports/`.
 
-## Documentation
+## Documentacao
 
 - `docs/decisions/` - registros de decisao arquitetural (ADRs)
 - `docs/superpowers/specs/` - especificacoes de features
 - `docs/jmeter-test-guide.md` - guia completo de testes de carga
 - `docs/scalability-and-load-balancer/` - setup e roteiro de load balancing local
 - `docs/assets/bounded-contexts/` - mapa visual dos Bounded Contexts planejados
+- `docs/agents/api-endpoints.md` - contratos e comportamento dos endpoints
