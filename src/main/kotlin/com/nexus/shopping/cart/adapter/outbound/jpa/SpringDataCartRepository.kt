@@ -25,6 +25,14 @@ interface SpringDataCartRepository : JpaRepository<CartEntity, Long> {
      * Locks the cart row (`SELECT ... FOR UPDATE`, portable between H2 and PostgreSQL) for the
      * duration of the caller's transaction, so concurrent read-modify-write cycles on the same
      * cart (add/remove/clear item) serialize instead of racing on a stale in-memory item list.
+     *
+     * Deliberately does NOT add `LEFT JOIN FETCH c.items` here (unlike findByCustomerIdAndStatus):
+     * combining PESSIMISTIC_WRITE with an outer join against a *-to-many collection made the lock
+     * silently ineffective under H2 in this project (CartConcurrencyTest's lost-update assertion
+     * started failing deterministically once the join was added, then passed again once removed).
+     * Items are still loaded eagerly via CartEntity's `fetch = EAGER` mapping, as a second SELECT
+     * within the same locked transaction - one extra round-trip per call, but a lock that actually
+     * locks. See PR #21 review discussion for the empirical finding.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM CartEntity c WHERE c.id = :id")

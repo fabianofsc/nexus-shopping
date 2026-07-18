@@ -7,8 +7,6 @@ import com.nexus.shopping.cart.domain.CartItem
 import com.nexus.shopping.cart.domain.CartStatus
 import jakarta.persistence.EntityManager
 import jakarta.persistence.PersistenceContext
-import org.hibernate.exception.ConstraintViolationException
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
 
@@ -32,10 +30,18 @@ class CartJpaRepositoryAdapter(
      * returns it instead of inserting a duplicate ACTIVE cart. There is no row on `carts` itself
      * to lock the first time this runs for a customer (that is the whole problem), so the lock is
      * anchored on `customers` instead, which is guaranteed to already exist for a valid customerId.
+     *
+     * The lock query's own result also tells us, deterministically, whether customerId exists at
+     * all: an empty result means no such customer, so we fail fast with CartValidationException
+     * here instead of attempting an INSERT that is guaranteed to fail on the fk_carts_customer
+     * constraint - detecting the error this way does not depend on matching a constraint name
+     * against a specific driver/dialect's exception message.
      */
     @Transactional
     override fun getOrCreateActiveByCustomerId(customerId: Long): Cart {
-        lockCustomerRow(customerId)
+        if (!lockCustomerRow(customerId)) {
+            throw CartValidationException("customerId $customerId does not reference an existing customer.")
+        }
 
         findActiveByCustomerId(customerId)?.let { return it }
 
@@ -48,15 +54,7 @@ class CartJpaRepositoryAdapter(
                 createdAt = null,
                 updatedAt = null,
             )
-        return try {
-            repository.saveAndFlush(newCart.toNewEntity()).toDomain()
-        } catch (exception: DataIntegrityViolationException) {
-            val violatedConstraint = (exception.cause as? ConstraintViolationException)?.constraintName
-            if (violatedConstraint != null && violatedConstraint.contains("fk_carts_customer", ignoreCase = true)) {
-                throw CartValidationException("customerId $customerId does not reference an existing customer.")
-            }
-            throw exception
-        }
+        return repository.saveAndFlush(newCart.toNewEntity()).toDomain()
     }
 
     /**
@@ -72,6 +70,9 @@ class CartJpaRepositoryAdapter(
         cartId: Long,
         mutate: (Cart) -> Cart,
     ): Cart {
+        // TODO: once Order/checkout exists, revalidate status == ACTIVE here (inside the lock)
+        // before applying `mutate`, so an add/remove can no longer land on a cart that a
+        // concurrent checkout already moved to CHECKED_OUT between getOrCreate and this call.
         val entity = repository.findByIdForUpdate(cartId).orElseThrow { IllegalStateException("Cart $cartId not found.") }
         val mutated = mutate(entity.toDomain())
         entity.status = mutated.status
@@ -79,12 +80,13 @@ class CartJpaRepositoryAdapter(
         return repository.saveAndFlush(entity).toDomain()
     }
 
-    private fun lockCustomerRow(customerId: Long) {
+    /** Returns true if customerId references an existing row, having taken a write lock on it. */
+    private fun lockCustomerRow(customerId: Long): Boolean =
         entityManager
             .createNativeQuery("SELECT id FROM customers WHERE id = ? FOR UPDATE")
             .setParameter(1, customerId)
             .resultList
-    }
+            .isNotEmpty()
 
     private fun reconcileItems(
         entity: CartEntity,
