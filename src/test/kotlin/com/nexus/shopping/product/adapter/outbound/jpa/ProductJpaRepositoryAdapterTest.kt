@@ -1,6 +1,7 @@
 package com.nexus.shopping.product.adapter.outbound.jpa
 
 import com.nexus.shopping.product.application.command.CreateProductCommand
+import com.nexus.shopping.support.RedisIntegrationTest
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.transaction.annotation.Transactional
@@ -23,7 +24,7 @@ import kotlin.test.assertTrue
     ],
 )
 @Transactional
-class ProductJpaRepositoryAdapterTest {
+class ProductJpaRepositoryAdapterTest : RedisIntegrationTest() {
     @Autowired
     private lateinit var repository: ProductJpaRepositoryAdapter
 

@@ -163,6 +163,39 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
 
 ---
 
+### v3.4-cache-distribuido
+**Cache distribuido Redis com Spring Cache no detalhe e nas buscas paginadas**
+
+- **Branch:** `codex/v3.4-cache-distribuido`
+- **Commit:** (veja `git show v3.4-cache-distribuido`)
+- **Proposito:** Evoluir o cache-aside local para Redis compartilhado entre instancias, mantendo o dominio e os use cases sem conhecimento de cache.
+- **Base:** `v3.3-cache-aside`
+- **Mudancas principais:**
+  - Redis como unica store de cache, com chaves String e valores JSON legiveis usando `GenericJackson2JsonRedisSerializer`.
+  - Spring Cache no adapter JPA: detalhe em `products:detail` e buscas paginadas em `products:search`.
+  - TTL de 10 minutos para detalhe e 30 segundos para buscas; `save` e `updatePrice` invalidam todas as buscas cacheadas.
+  - Chaves de busca incluem categoria ou nome, pagina e tamanho para evitar colisao entre slices.
+- **Como clonar:**
+  ```bash
+  git clone --branch v3.4-cache-distribuido https://github.com/fabianofsc/nexus-shopping.git
+  ```
+- **Verificacao manual com multiplas instancias:**
+  ```bash
+  docker compose up --build --scale app1=1 --scale app2=1 --scale app3=1
+  curl http://localhost:8080/products/1
+  curl http://localhost:8080/products?name=Product%201&page=0&size=3
+  ```
+  Repita as requisicoes pelo NGINX, faca um `PATCH` em uma instancia e confirme que a proxima leitura em outra instancia reflete o valor atualizado porque a store de cache e compartilhada.
+- **Inspecao do Redis:**
+  ```bash
+  docker compose exec redis redis-cli --raw keys '*products*'
+  docker compose exec redis redis-cli --raw get '<key>'
+  ```
+  O valor retornado deve ser JSON e incluir campos como `name` e `priceAmount`.
+- **Proposito de aprendizado:** Comparar cache local e distribuido, observar serializacao JSON, TTL por tipo de leitura e a invalidacao de paginas apos escrita.
+
+---
+
 ## 📊 Relação entre versões
 
 ```
@@ -179,6 +212,10 @@ v3.0-scalability (NGINX load balancer, 3 instâncias)
 v3.1-load-balancer-cloud (LB gerenciado AWS: ALB + Auto Scaling — mesmo commit de v3.0)
     ↓
 v3.2-product-detail (GET /products/{id} + carga JMeter para cache)
+    ↓
+v3.3-cache-aside (cache-aside local com Caffeine)
+    ↓
+v3.4-cache-distribuido (Redis compartilhado + Spring Cache + busca cacheada)
 ```
 
 **Comparar performance:**
@@ -233,4 +270,4 @@ git rev-parse v1.1-indexes
 
 **Última atualização:** 2026-07-17
 **Responsible:** Fabiano Góes
-**Tags ativas:** v1.0-baseline, v1.1-indexes, v1.2-pagination, v2.0-hexagonal, v3.0-scalability, v3.1-load-balancer-cloud, v3.2-product-detail, v3.3-cache-aside
+**Tags ativas:** v1.0-baseline, v1.1-indexes, v1.2-pagination, v2.0-hexagonal, v3.0-scalability, v3.1-load-balancer-cloud, v3.2-product-detail, v3.3-cache-aside, v3.4-cache-distribuido

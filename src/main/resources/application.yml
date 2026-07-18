@@ -6,6 +6,10 @@ spring:
     username: ${DB_USERNAME:nexus}
     password: ${DB_PASSWORD:nexus}
     driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
   flyway:
     enabled: true
     placeholders:
@@ -45,5 +49,8 @@ logging:
 nexus:
   cache:
     product:
-      max-size: 10000
       ttl: 10m
+      search-ttl: 30s
+      default-ttl: 10m
+    redis:
+      enabled: true

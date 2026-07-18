@@ -2,6 +2,7 @@ package com.nexus.shopping.customer
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.json.JsonMapper
+import com.nexus.shopping.support.RedisIntegrationTest
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.core.env.Environment
@@ -25,7 +26,7 @@ import kotlin.test.assertTrue
         "spring.jpa.hibernate.ddl-auto=none",
     ],
 )
-class CustomerControllerTest {
+class CustomerControllerTest : RedisIntegrationTest() {
     @Autowired
     private lateinit var environment: Environment
 

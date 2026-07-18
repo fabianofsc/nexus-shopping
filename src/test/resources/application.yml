@@ -1,0 +1,13 @@
+spring:
+  cache:
+    type: simple
+
+management:
+  health:
+    redis:
+      enabled: false
+
+nexus:
+  cache:
+    redis:
+      enabled: false

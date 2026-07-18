@@ -4,6 +4,9 @@ import com.nexus.shopping.platform.domain.PageResult
 import com.nexus.shopping.product.application.command.CreateProductCommand
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.domain.Product
+import org.springframework.cache.annotation.CacheEvict
+import org.springframework.cache.annotation.Cacheable
+import org.springframework.cache.annotation.Caching
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Slice
 import org.springframework.stereotype.Repository
@@ -15,9 +18,14 @@ class ProductJpaRepositoryAdapter(
     private val repository: SpringDataProductRepository,
 ) : ProductRepositoryPort {
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = [ProductCacheConfig.PRODUCT_DETAIL_CACHE], key = "#id", unless = "#result == null")
     override fun findById(id: Long): Product? = repository.findById(id).orElse(null)?.toDomain()
 
     @Transactional(readOnly = true)
+    @Cacheable(
+        cacheNames = [ProductCacheConfig.PRODUCT_SEARCH_CACHE],
+        key = "'category:' + #categoryId + ':page:' + #page + ':size:' + #size",
+    )
     override fun findByCategoryId(
         categoryId: Long,
         page: Int,
@@ -33,6 +41,10 @@ class ProductJpaRepositoryAdapter(
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(
+        cacheNames = [ProductCacheConfig.PRODUCT_SEARCH_CACHE],
+        key = "'name:' + #name + ':page:' + #page + ':size:' + #size",
+    )
     override fun findByName(
         name: String,
         page: Int,
@@ -52,9 +64,16 @@ class ProductJpaRepositoryAdapter(
     }
 
     @Transactional
+    @CacheEvict(cacheNames = [ProductCacheConfig.PRODUCT_SEARCH_CACHE], allEntries = true)
     override fun save(command: CreateProductCommand): Product = repository.saveAndFlush(command.toEntity()).toDomain()
 
     @Transactional
+    @Caching(
+        evict = [
+            CacheEvict(cacheNames = [ProductCacheConfig.PRODUCT_DETAIL_CACHE], key = "#id"),
+            CacheEvict(cacheNames = [ProductCacheConfig.PRODUCT_SEARCH_CACHE], allEntries = true),
+        ],
+    )
     override fun updatePrice(
         id: Long,
         priceAmount: BigDecimal,

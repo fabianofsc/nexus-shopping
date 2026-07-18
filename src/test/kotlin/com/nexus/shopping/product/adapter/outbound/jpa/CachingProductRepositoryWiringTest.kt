@@ -2,16 +2,16 @@ package com.nexus.shopping.product.adapter.outbound.jpa
 
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.application.usecase.ProductGetByIdUseCase
+import org.springframework.aop.support.AopUtils
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import kotlin.test.Test
-import kotlin.test.assertIs
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
- * Proves that, at runtime, Spring resolves the `@Primary` [ProductRepositoryPort] bean to the
- * [CachingProductRepositoryAdapter] decorator, not the plain [ProductJpaRepositoryAdapter]. This
- * is the "definition of done" evidence for the cache-aside feature: without it, nothing actually
- * guarantees the caching decorator sits in front of use cases in the real application context.
+ * Proves that Spring Cache proxies the actual outbound adapter. The cache behavior must not live
+ * in a separate primary decorator, otherwise use cases would bypass the annotated adapter.
  */
 @SpringBootTest(
     properties = [
@@ -21,6 +21,9 @@ import kotlin.test.assertIs
         "spring.datasource.password=",
         "spring.flyway.placeholders.productSeedCount=1",
         "spring.jpa.hibernate.ddl-auto=none",
+        "spring.cache.type=simple",
+        "nexus.cache.redis.enabled=false",
+        "management.health.redis.enabled=false",
     ],
 )
 class CachingProductRepositoryWiringTest {
@@ -31,16 +34,18 @@ class CachingProductRepositoryWiringTest {
     private lateinit var productGetByIdUseCase: ProductGetByIdUseCase
 
     @Test
-    fun `primary ProductRepositoryPort bean is the caching decorator`() {
-        assertIs<CachingProductRepositoryAdapter>(productRepositoryPort)
+    fun `ProductRepositoryPort is a Spring proxy around the JPA adapter`() {
+        assertTrue(AopUtils.isAopProxy(productRepositoryPort))
+        assertEquals(ProductJpaRepositoryAdapter::class.java, AopUtils.getTargetClass(productRepositoryPort))
     }
 
     @Test
-    fun `ProductGetByIdUseCase is wired with the caching decorator`() {
+    fun `ProductGetByIdUseCase is wired with the proxied JPA adapter`() {
         val field = ProductGetByIdUseCase::class.java.getDeclaredField("productRepository")
         field.isAccessible = true
         val injectedRepository = field.get(productGetByIdUseCase)
 
-        assertIs<CachingProductRepositoryAdapter>(injectedRepository)
+        assertTrue(AopUtils.isAopProxy(injectedRepository))
+        assertEquals(ProductJpaRepositoryAdapter::class.java, AopUtils.getTargetClass(injectedRepository))
     }
 }
