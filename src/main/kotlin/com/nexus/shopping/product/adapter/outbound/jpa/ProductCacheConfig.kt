@@ -25,6 +25,9 @@ import org.springframework.data.redis.serializer.StringRedisSerializer
 @EnableConfigurationProperties(ProductCacheProperties::class)
 @Suppress("DEPRECATION")
 class ProductCacheConfig {
+    // Fallback only: lets tests/local runs disable Redis (nexus.cache.redis.enabled=false) without
+    // dropping @Cacheable support. Mutually exclusive with the Redis-backed manager below — never
+    // both active at once, so this is not an L1+L2 multi-tier cache.
     @Bean
     @ConditionalOnProperty(
         prefix = "nexus.cache.redis",

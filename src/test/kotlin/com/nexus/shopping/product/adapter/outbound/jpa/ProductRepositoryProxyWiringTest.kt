@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
  */
 @SpringBootTest(
     properties = [
-        "spring.datasource.url=jdbc:h2:mem:caching_product_repository_wiring_test;DB_CLOSE_DELAY=-1",
+        "spring.datasource.url=jdbc:h2:mem:product_repository_proxy_wiring_test;DB_CLOSE_DELAY=-1",
         "spring.datasource.driver-class-name=org.h2.Driver",
         "spring.datasource.username=sa",
         "spring.datasource.password=",
@@ -26,7 +26,7 @@ import kotlin.test.assertTrue
         "management.health.redis.enabled=false",
     ],
 )
-class CachingProductRepositoryWiringTest {
+class ProductRepositoryProxyWiringTest {
     @Autowired
     private lateinit var productRepositoryPort: ProductRepositoryPort
 
