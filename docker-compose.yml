@@ -1,11 +1,17 @@
-# Bloco de configuracao compartilhado pelas 3 instancias da aplicacao.
-# Campos "x-" sao ignorados pelo compose e servem apenas como ancora YAML,
-# garantindo que app1/app2/app3 saiam do mesmo build e da mesma imagem.
+# Topologia reduzida para a demo de cache-aside (Bloco 1 de "Escalando a Leitura
+# com Cache"): mantemos o Load Balancer para não corrigir a arquitetura ensinada
+# até aqui, mas com uma unica instancia da aplicacao atras dele -- o suficiente
+# para medir o efeito puro do cache-aside sem diluir o trafego entre replicas.
+#
+# Por padrao, "docker compose up -d" (sem --build) baixa a imagem publicada no
+# Docker Hub -- o aluno nao precisa buildar nada localmente. Para reconstruir a
+# partir do codigo (ex.: durante desenvolvimento), use:
+#   APP_IMAGE=nexus-shopping:local docker compose up --build -d
 x-app: &app-base
   build:
     context: .
     dockerfile: Dockerfile
-  image: ${APP_IMAGE:-nexus-shopping:local}
+  image: ${APP_IMAGE:-fabianofsc/nexus-shopping:v3.2.1-single-instance}
   environment:
     DB_URL: jdbc:postgresql://postgres:5432/nexus_shopping
     DB_USERNAME: nexus
@@ -25,14 +31,6 @@ services:
     <<: *app-base
     hostname: app1
 
-  app2:
-    <<: *app-base
-    hostname: app2
-
-  app3:
-    <<: *app-base
-    hostname: app3
-
   nginx:
     image: nginx:stable-alpine
     ports:
@@ -41,8 +39,6 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - app1
-      - app2
-      - app3
     networks:
       - backend
     restart: unless-stopped

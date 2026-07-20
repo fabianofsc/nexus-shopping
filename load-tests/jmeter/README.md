@@ -14,16 +14,38 @@ Or download Apache JMeter from https://jmeter.apache.org/download_jmeter.cgi.
 
 ## Prepare the App
 
-Start PostgreSQL and the application:
+Start the full stack with Docker Compose — no local JDK/Gradle required, students only need Docker. This tag boots a single app instance behind the nginx load balancer (`localhost:8080`), no Redis involved.
+
+**Default path (students): pull the published image, no build.** `docker-compose.yml` points by default at `fabianofsc/nexus-shopping:v3.2.1-single-instance` on Docker Hub — `docker compose up -d` (no `--build`) just pulls and runs it.
+
+**If you have run this project before on another tag or branch, clean up first.** A stale local image under an old name can linger and cause confusing startup errors (like a Redis connection failure in a state that should not reference Redis at all). Always start from a clean slate when switching tags:
 
 ```bash
 docker compose down -v
-docker compose up -d postgres
-./gradlew bootRun
+docker rmi fabianofsc/nexus-shopping:v3.2.1-single-instance 2>/dev/null || true
+docker compose up -d
+docker compose ps
 ```
 
-By default the Flyway seed creates 10,000,000 products, 1,000 brands, and 500 categories. Each category receives about 20,000 products. The current endpoint is paginated with `page` and `size`.
-Product ids are generated from 1 through the configured product seed count.
+Wait until all services report healthy, then hit the app through nginx at `localhost:8080`.
+
+**Rebuilding from source (contributors/instructors only).** If you changed the code and need to rebuild instead of pulling:
+
+```bash
+docker compose down -v
+docker rmi nexus-shopping:local 2>/dev/null || true
+APP_IMAGE=nexus-shopping:local docker compose up --build -d
+docker compose ps
+```
+
+By default `.env` sets `PRODUCT_SEED_COUNT=1000` for a fast boot. That is fine for functional checks, but too small to see a meaningful cache hit-ratio contrast (with only 1,000 products, a `hotSet` anywhere close to 1,000 already covers the whole catalog). For load tests — especially the "large hot set / near-uniform access" run described below — seed a larger catalog:
+
+```bash
+docker compose down -v
+PRODUCT_SEED_COUNT=10000000 docker compose up -d
+```
+
+This seeds 10,000,000 products, 1,000 brands, and 500 categories (about 20,000 products per category). The current endpoint is paginated with `page` and `size`. Product ids are generated from 1 through the configured product seed count — keep `hotSet`/`-JhotSet` within that range.
 
 ## Run the Category Test
 
