@@ -14,16 +14,24 @@ Or download Apache JMeter from https://jmeter.apache.org/download_jmeter.cgi.
 
 ## Prepare the App
 
-Start PostgreSQL and the application:
+Start the full stack with Docker Compose — no local JDK/Gradle required, students only need Docker:
 
 ```bash
 docker compose down -v
-docker compose up -d postgres
-./gradlew bootRun
+docker compose up --build -d
+docker compose ps
 ```
 
-By default the Flyway seed creates 10,000,000 products, 1,000 brands, and 500 categories. Each category receives about 20,000 products. The current endpoint is paginated with `page` and `size`.
-Product ids are generated from 1 through the configured product seed count.
+Wait until all services report healthy, then hit the app through nginx at `localhost:8080` (the `app1`/`app2`/`app3` containers only `expose` port 8080 to the Docker network — nginx is the only container with a published port on the host).
+
+By default `.env` sets `PRODUCT_SEED_COUNT=1000` for a fast boot. That is fine for functional checks, but too small to see a meaningful cache hit-ratio contrast (with only 1,000 products, a `hotSet` anywhere close to 1,000 already covers the whole catalog). For load tests — especially the "large hot set / near-uniform access" run described below — seed a larger catalog:
+
+```bash
+docker compose down -v
+PRODUCT_SEED_COUNT=10000000 docker compose up --build -d
+```
+
+This seeds 10,000,000 products, 1,000 brands, and 500 categories (about 20,000 products per category). The current endpoint is paginated with `page` and `size`. Product ids are generated from 1 through the configured product seed count — keep `hotSet`/`-JhotSet` within that range.
 
 ## Run the Category Test
 
