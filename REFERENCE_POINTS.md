@@ -75,7 +75,7 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
   - Zero imports de framework em `domain/` e `application/`
   - DTOs conversão: `DTO.toCommand()` → `Command.toEntity()` → `Entity.toDomain()`
   - Validação centralizada em use cases
-- **Documentação:** [docs/superpowers/specs/2026-06-30-hexagonal-architecture-design.md](docs/superpowers/specs/2026-06-30-hexagonal-architecture-design.md)
+- **Documentação:** [docs/superpowers/specs/2026-06-28-hexagonal-refactor-design.md](docs/superpowers/specs/2026-06-28-hexagonal-refactor-design.md)
 - **Como clonar:**
   ```bash
   git clone --branch v2.0-hexagonal https://github.com/fabianofsc/nexus-shopping.git
@@ -104,20 +104,121 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
 
 ---
 
-## 🔒 Proteção de Branches
+### v3.1-load-balancer-cloud
+**Escalabilidade na nuvem: Load Balancer gerenciado (AWS ALB + Auto Scaling Group)**
 
-As branches que contêm essas tags estão protegidas no GitHub para evitar modificações acidentais:
+- **Commit:** mesmo de `v3.0-scalability` (veja `git show v3.1-load-balancer-cloud`)
+- **Propósito:** Marcar o estado do código usado na demonstração do Load Balancer gerenciado na AWS (Application Load Balancer + Auto Scaling Group). A evolução é de **infraestrutura** (AWS), não de código de aplicação — por isso a tag aponta para o mesmo commit de `v3.0`.
+- **Merged em:** 2026-07-09 (tag criada a partir da `main`)
+- **Imagem Docker Hub:** `:load-balancer-cloud` não publicada (mesma limitação de CI do v3.0)
+- **Como clonar:**
+  ```bash
+  git clone --branch v3.1-load-balancer-cloud https://github.com/fabianofsc/nexus-shopping.git
+  ```
+- **Propósito de aprendizado:** Ver load balancing gerenciado na nuvem (ALB) e elasticidade automática (ASG) — contraste com o NGINX auto-hospedado de v3.0
 
-- ✅ Require pull request reviews before merging
-- ✅ Require status checks to pass
-- ✅ Require branches to be up to date before merging
-- ✅ Restrict direct pushes (só via PR)
+---
 
-**Para modificar uma branch protegida:**
-1. Criar uma branch nova baseada nela
-2. Fazer mudanças
-3. Abrir PR com justificativa
-4. Aprovar e fazer merge (requiere review)
+### v3.2-product-detail
+**Endpoint de detalhe de produto (leitura por chave única) + carga JMeter para cache**
+
+- **Branch:** `codex/get-product-by-id` (PR #14)
+- **Commit:** (veja `git show v3.2-product-detail`)
+- **Propósito:** Preparar a fixture para a aula de Cache — adicionar uma leitura por registro único (`GET /products/{id}`), o caso limpo de cache-aside (hot key), e o plano de carga para medir p95 antes/depois do cache
+- **Merged em:** 2026-07-16
+- **Mudanças:**
+  - `GET /products/{id}` (`getById`) no `ProductController`, com `findById` no `ProductRepositoryPort` e no adapter JPA, `ProductGetByIdUseCase` e 404 via `ProductNotFoundException`
+  - `load-tests/jmeter/product-by-id.jmx` com a knob `hotSet` (`id = __Random(1, hotSet)`): `hotSet` pequeno = alta repetição (cache brilha); grande = acesso uniforme (cache inútil) — demonstra ganho **e** limite do cache
+- **Imagem Docker Hub:** não publicada
+- **Como clonar:**
+  ```bash
+  git clone --branch v3.2-product-detail https://github.com/fabianofsc/nexus-shopping.git
+  ```
+- **Propósito de aprendizado:** Base para cache-aside — leitura quente e repetida por chave única
+
+---
+
+### v3.2.1-single-instance
+**Topologia reduzida: 1 instância atrás do Load Balancer, sem Redis — estado "antes" da demo de cache**
+
+- **Branch:** `wip/v3.2-single-instance-lb`
+- **Commit:** (veja `git show v3.2.1-single-instance`)
+- **Propósito:** Base a partir de `v3.2-product-detail` (sem cache) para o Bloco 1 de "Escalando a Leitura com Cache" — mede o efeito puro do cache-aside numa única instância, sem diluir o tráfego entre réplicas (o incoherence bug entre réplicas é assunto do Bloco 2, não deste estado). Mantém o Load Balancer no caminho (mesma arquitetura já ensinada em `v3.0`/`v3.1`), só reduz o número de instâncias atrás dele.
+- **Merged em:** 2026-07-20
+- **Mudanças (só infraestrutura, zero código de aplicação):**
+  - `docker-compose.yml`: remove os serviços `app2`/`app3` — só `app1` atrás do `nginx`
+  - `nginx/nginx.conf`: upstream com uma única entrada (`server app1:8080`)
+  - `load-tests/jmeter/README.md`: documenta o caminho padrão de pull (sem `--build`) e o passo de limpeza de imagem local ao trocar de tag
+  - `APP_IMAGE` padrão do `docker-compose.yml` aponta para `fabianofsc/nexus-shopping:v3.2.1-single-instance` — `docker compose up -d` (sem `--build`) já baixa a imagem publicada
+- **Confirmado:** zero referências a Redis em `build.gradle.kts`, `application.yml` ou `src/` (mesmo estado de `v3.2-product-detail`)
+- **Imagem Docker Hub:** `fabianofsc/nexus-shopping:v3.2.1-single-instance`
+- **Como clonar:**
+  ```bash
+  git clone --branch v3.2.1-single-instance https://github.com/fabianofsc/nexus-shopping.git
+  ```
+- **Como executar sem clonar (pull-only):**
+  ```bash
+  docker compose up -d   # após clonar, sem --build — baixa a imagem publicada
+  ```
+- **Propósito de aprendizado:** Isolar o efeito do cache-aside de uma variável de confusão (round-robin entre réplicas), mantendo a arquitetura de Load Balancer intacta
+
+---
+
+### v3.3-cache-aside
+**Cache-aside LOCAL (Caffeine) no detalhe de produto**
+
+- **Branch:** `add-product-cache-aside` (PR #17)
+- **Commit:** (veja `git show v3.3-cache-aside`)
+- **Propósito:** Caso limpo de cache-aside LOCAL (in-process) sobre `GET /products/{id}`, implementado à mão como decorator explícito da arquitetura hexagonal — base da aula de Cache. A incoerência entre instâncias é **intencional** (demonstrada na aula rodando este código com múltiplas instâncias); não é resolvida aqui.
+- **Base:** `v3.2-product-detail`
+- **Mudanças:**
+  - Dependência `com.github.ben-manes.caffeine:caffeine` (gerenciada pelo BOM do Spring Boot); sem `spring-boot-starter-cache`/`@EnableCaching`
+  - `CachingProductRepositoryAdapter` (`@Primary`) decora o `ProductJpaRepositoryAdapter` e implementa `ProductRepositoryPort`:
+    - `findById`: cache-aside explícito com as 4 operações visíveis (`getIfPresent` → miss → `delegate.findById` → `put`), log **HIT/MISS**, nunca cacheia `null`
+    - `updatePrice`: delega ao JPA e **invalida localmente** (`cache.invalidate(id)`) — invalidação LOCAL apenas
+    - `findByCategoryId` / `findByName` / `save`: pass-through direto (não cacheados)
+  - Config `nexus.cache.product.max-size` (10000) e `.ttl` (10m) via `application.yml` (`ProductCacheProperties` + `@Configuration` construindo `Cache<Long, Product>`)
+  - Domínio e use cases permanecem cache-unaware; contrato dos endpoints inalterado
+- **Guardrails (fora de escopo, reservado à v3.4):** sem `@Cacheable`/`@CacheEvict`/Spring Cache abstraction, sem Redis/spring-data-redis, sem cache da busca paginada
+- **Imagem Docker Hub:** não publicada
+- **Como clonar:**
+  ```bash
+  git clone --branch v3.3-cache-aside https://github.com/fabianofsc/nexus-shopping.git
+  ```
+- **Propósito de aprendizado:** Ver cache-aside explícito reduzir o custo de leituras quentes repetidas por chave, e observar (na aula) o limite da abordagem LOCAL — incoerência entre instâncias
+
+---
+
+### v3.4-cache-distribuido
+**Cache distribuido Redis com Spring Cache no detalhe e nas buscas paginadas**
+
+- **Branch:** `codex/v3.4-cache-distribuido`
+- **Commit:** (veja `git show v3.4-cache-distribuido`)
+- **Proposito:** Evoluir o cache-aside local para Redis compartilhado entre instancias, mantendo o dominio e os use cases sem conhecimento de cache.
+- **Base:** `v3.3-cache-aside`
+- **Mudancas principais:**
+  - Redis como unica store de cache, com chaves String e valores JSON legiveis usando `GenericJackson2JsonRedisSerializer`.
+  - Spring Cache no adapter JPA: detalhe em `products:detail` e buscas paginadas em `products:search`.
+  - TTL de 10 minutos para detalhe e 30 segundos para buscas; `save` e `updatePrice` invalidam todas as buscas cacheadas.
+  - Chaves de busca incluem categoria ou nome, pagina e tamanho para evitar colisao entre slices.
+- **Como clonar:**
+  ```bash
+  git clone --branch v3.4-cache-distribuido https://github.com/fabianofsc/nexus-shopping.git
+  ```
+- **Verificacao manual com multiplas instancias:**
+  ```bash
+  docker compose up --build --scale app1=1 --scale app2=1 --scale app3=1
+  curl http://localhost:8080/products/1
+  curl http://localhost:8080/products?name=Product%201&page=0&size=3
+  ```
+  Repita as requisicoes pelo NGINX, faca um `PATCH` em uma instancia e confirme que a proxima leitura em outra instancia reflete o valor atualizado porque a store de cache e compartilhada.
+- **Inspecao do Redis:**
+  ```bash
+  docker compose exec redis redis-cli --raw keys '*products*'
+  docker compose exec redis redis-cli --raw get '<key>'
+  ```
+  O valor retornado deve ser JSON e incluir campos como `name` e `priceAmount`.
+- **Proposito de aprendizado:** Comparar cache local e distribuido, observar serializacao JSON, TTL por tipo de leitura e a invalidacao de paginas apos escrita.
 
 ---
 
@@ -133,6 +234,16 @@ v1.2-pagination (+ paginação sem COUNT)
 v2.0-hexagonal (nova arquitetura)
     ↓
 v3.0-scalability (NGINX load balancer, 3 instâncias)
+    ↓
+v3.1-load-balancer-cloud (LB gerenciado AWS: ALB + Auto Scaling — mesmo commit de v3.0)
+    ↓
+v3.2-product-detail (GET /products/{id} + carga JMeter para cache)
+    ↓
+v3.2.1-single-instance (1 instância atrás do LB, sem Redis — "antes" da demo de cache)
+    ↓
+v3.3-cache-aside (cache-aside local com Caffeine)
+    ↓
+v3.4-cache-distribuido (Redis compartilhado + Spring Cache + busca cacheada)
 ```
 
 **Comparar performance:**
@@ -170,22 +281,6 @@ Cada tag tem:
 
 ---
 
-## 📝 Criando nova versão de referência
-
-Quando uma nova otimização ou arquitetura for estável:
-
-```bash
-# Após mesclar para main
-git checkout <branch-otimizacao>
-git tag -a v<major>.<minor>-<descritor> \
-  -m "Descrição clara da mudança. Testado <data>. Ver docs/..."
-git push origin v<major>.<minor>-<descritor>
-
-# Adicionar linha neste arquivo com documentação
-```
-
----
-
 ## 🔍 Verificar uma tag
 
 ```bash
@@ -201,6 +296,6 @@ git rev-parse v1.1-indexes
 
 ---
 
-**Última atualização:** 2026-07-09
+**Última atualização:** 2026-07-20
 **Responsible:** Fabiano Góes
-**Tags ativas:** v1.0-baseline, v1.1-indexes, v1.2-pagination, v2.0-hexagonal, v3.0-scalability
+**Tags ativas:** v1.0-baseline, v1.1-indexes, v1.2-pagination, v2.0-hexagonal, v3.0-scalability, v3.1-load-balancer-cloud, v3.2-product-detail, v3.2.1-single-instance, v3.3-cache-aside, v3.4-cache-distribuido
