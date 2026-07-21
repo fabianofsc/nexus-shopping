@@ -141,7 +141,7 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
 ### v3.2.1-single-instance
 **Topologia reduzida: 1 instância atrás do Load Balancer, sem Redis — estado "antes" da demo de cache**
 
-- **Branch:** `wip/v3.2-single-instance-lb`
+- **Branch:** `lb-single-instance` (protegida: 1 aprovação obrigatória, status checks, sem force-push/deleção — mesma configuração das demais branches de referência)
 - **Commit:** (veja `git show v3.2.1-single-instance`)
 - **Propósito:** Base a partir de `v3.2-product-detail` (sem cache) para o Bloco 1 de "Escalando a Leitura com Cache" — mede o efeito puro do cache-aside numa única instância, sem diluir o tráfego entre réplicas (o incoherence bug entre réplicas é assunto do Bloco 2, não deste estado). Mantém o Load Balancer no caminho (mesma arquitetura já ensinada em `v3.0`/`v3.1`), só reduz o número de instâncias atrás dele.
 - **Merged em:** 2026-07-20
