@@ -180,8 +180,10 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
   - Config `nexus.cache.product.max-size` (10000) e `.ttl` (10m) via `application.yml` (`ProductCacheProperties` + `@Configuration` construindo `Cache<Long, Product>`)
   - Domínio e use cases permanecem cache-unaware; contrato dos endpoints inalterado
   - `docker-compose.yml`: só `app1` atrás do `nginx` (sem `app2`/`app3`); `nginx/nginx.conf` com upstream de uma única entrada; `APP_IMAGE` padrão aponta para `fabianofsc/nexus-shopping:v3.3-cache-aside` — `docker compose up -d` (sem `--build`) já baixa a imagem publicada
+  - `nginx/nginx.conf`: `worker_connections` 1024 → 8192 (valor original era herdado da aula de Load Balancer, dimensionado para round-robin determinístico entre 3 instâncias, não para o throughput que o cache libera aqui — ~15-20k req/s com 1 instância só)
 - **Guardrails (fora de escopo, reservado à v3.4):** sem `@Cacheable`/`@CacheEvict`/Spring Cache abstraction, sem Redis/spring-data-redis, sem cache da busca paginada
 - **Validado:** cache HIT/MISS visível nos logs (`cache MISS id=1` seguido de `cache HIT id=1` em leituras repetidas), health UP, X-Upstream confirma instância única, zero erro/Redis nos logs
+- **Limite de carga conhecido:** sob JMeter sustentado (200 threads, `hotSet=1000`, `-Jduration` alto), o throughput altíssimo que o cache-hit permite (~15-20k req/s) estoura algum teto ainda não identificado (rede/SO do Docker Desktop, não investigado a fundo — fora do escopo desta aula) por volta de 20-25s de teste sustentado, gerando `502 Bad Gateway` do Nginx que **não é** regressão de cache. Mitigação verificada para reproduzir a medição da aula: `-Jthreads=200 -Jduration=15` (mesma concorrência do "antes", janela dentro do limpo — 285.327 amostras, 0 erros, confirmado). Não usar `-Jduration=60` para o "depois" até esse teto ser investigado.
 - **Imagem Docker Hub:** `fabianofsc/nexus-shopping:v3.3-cache-aside`
 - **Como clonar:**
   ```bash
