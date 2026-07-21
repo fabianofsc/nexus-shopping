@@ -138,6 +138,32 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
 
 ---
 
+### v3.2.1-single-instance
+**Topologia reduzida: 1 instância atrás do Load Balancer, sem Redis — estado "antes" da demo de cache**
+
+- **Branch:** `lb-single-instance` (protegida: 1 aprovação obrigatória, status checks, sem force-push/deleção — mesma configuração das demais branches de referência)
+- **Commit:** (veja `git show v3.2.1-single-instance`)
+- **Propósito:** Base a partir de `v3.2-product-detail` (sem cache) para o Bloco 1 de "Escalando a Leitura com Cache" — mede o efeito puro do cache-aside numa única instância, sem diluir o tráfego entre réplicas (o incoherence bug entre réplicas é assunto do Bloco 2, não deste estado). Mantém o Load Balancer no caminho (mesma arquitetura já ensinada em `v3.0`/`v3.1`), só reduz o número de instâncias atrás dele.
+- **Merged em:** 2026-07-20
+- **Mudanças (só infraestrutura, zero código de aplicação):**
+  - `docker-compose.yml`: remove os serviços `app2`/`app3` — só `app1` atrás do `nginx`
+  - `nginx/nginx.conf`: upstream com uma única entrada (`server app1:8080`)
+  - `load-tests/jmeter/README.md`: documenta o caminho padrão de pull (sem `--build`) e o passo de limpeza de imagem local ao trocar de tag
+  - `APP_IMAGE` padrão do `docker-compose.yml` aponta para `fabianofsc/nexus-shopping:v3.2.1-single-instance` — `docker compose up -d` (sem `--build`) já baixa a imagem publicada
+- **Confirmado:** zero referências a Redis em `build.gradle.kts`, `application.yml` ou `src/` (mesmo estado de `v3.2-product-detail`)
+- **Imagem Docker Hub:** `fabianofsc/nexus-shopping:v3.2.1-single-instance`
+- **Como clonar:**
+  ```bash
+  git clone --branch v3.2.1-single-instance https://github.com/fabianofsc/nexus-shopping.git
+  ```
+- **Como executar sem clonar (pull-only):**
+  ```bash
+  docker compose up -d   # após clonar, sem --build — baixa a imagem publicada
+  ```
+- **Propósito de aprendizado:** Isolar o efeito do cache-aside de uma variável de confusão (round-robin entre réplicas), mantendo a arquitetura de Load Balancer intacta
+
+---
+
 ### v3.3-cache-aside
 **Cache-aside LOCAL (Caffeine) no detalhe de produto**
 
@@ -163,6 +189,65 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
 
 ---
 
+### v3.3.1-single-instance
+**Topologia reduzida: 1 instância atrás do Load Balancer, sem Redis — estado "depois" da demo de cache (cache-aside local)**
+
+- **Branch:** `lb-single-instance-cache-aside` (protegida: 1 aprovação obrigatória, status checks, sem force-push/deleção — mesma configuração das demais branches de referência)
+- **Commit:** (veja `git show v3.3.1-single-instance`)
+- **Propósito:** Mesma topologia de `v3.2.1-single-instance`, agora a partir de `v3.3-cache-aside` — único diferencial em relação a `v3.2.1-single-instance` é o cache-aside já implementado. Permite comparação limpa e reprodutível "antes" (`v3.2.1-single-instance`) vs. "depois" (esta tag) para o Bloco 1 de "Escalando a Leitura com Cache", sem a variável de confusão de round-robin entre réplicas com caches independentes.
+- **Merged em:** 2026-07-20
+- **Mudanças (só infraestrutura, zero código de aplicação novo — mesmo diff de `v3.2.1-single-instance`):**
+  - `docker-compose.yml`: remove os serviços `app2`/`app3` — só `app1` atrás do `nginx`
+  - `nginx/nginx.conf`: upstream com uma única entrada (`server app1:8080`)
+  - `load-tests/jmeter/README.md`: documenta o caminho padrão de pull (sem `--build`) e o passo de limpeza de imagem local ao trocar de tag
+  - `APP_IMAGE` padrão do `docker-compose.yml` aponta para `fabianofsc/nexus-shopping:v3.3.1-single-instance` — `docker compose up -d` (sem `--build`) já baixa a imagem publicada
+- **Validado:** cache HIT/MISS visível nos logs (`cache MISS id=1` seguido de `cache HIT id=1` em leituras repetidas), health UP, X-Upstream confirma instância única, zero erro/Redis nos logs
+- **Imagem Docker Hub:** `fabianofsc/nexus-shopping:v3.3.1-single-instance`
+- **Como clonar:**
+  ```bash
+  git clone --branch v3.3.1-single-instance https://github.com/fabianofsc/nexus-shopping.git
+  ```
+- **Como executar sem clonar (pull-only):**
+  ```bash
+  docker compose up -d   # após clonar, sem --build — baixa a imagem publicada
+  ```
+- **Propósito de aprendizado:** Par exato de `v3.2.1-single-instance` para medir o efeito isolado do cache-aside, sem diluição entre réplicas
+
+---
+
+### v3.4-cache-distribuido
+**Cache distribuido Redis com Spring Cache no detalhe e nas buscas paginadas**
+
+- **Branch:** `codex/v3.4-cache-distribuido`
+- **Commit:** (veja `git show v3.4-cache-distribuido`)
+- **Proposito:** Evoluir o cache-aside local para Redis compartilhado entre instancias, mantendo o dominio e os use cases sem conhecimento de cache.
+- **Base:** `v3.3-cache-aside`
+- **Mudancas principais:**
+  - Redis como unica store de cache, com chaves String e valores JSON legiveis usando `GenericJackson2JsonRedisSerializer`.
+  - Spring Cache no adapter JPA: detalhe em `products:detail` e buscas paginadas em `products:search`.
+  - TTL de 10 minutos para detalhe e 30 segundos para buscas; `save` e `updatePrice` invalidam todas as buscas cacheadas.
+  - Chaves de busca incluem categoria ou nome, pagina e tamanho para evitar colisao entre slices.
+- **Como clonar:**
+  ```bash
+  git clone --branch v3.4-cache-distribuido https://github.com/fabianofsc/nexus-shopping.git
+  ```
+- **Verificacao manual com multiplas instancias:**
+  ```bash
+  docker compose up --build --scale app1=1 --scale app2=1 --scale app3=1
+  curl http://localhost:8080/products/1
+  curl http://localhost:8080/products?name=Product%201&page=0&size=3
+  ```
+  Repita as requisicoes pelo NGINX, faca um `PATCH` em uma instancia e confirme que a proxima leitura em outra instancia reflete o valor atualizado porque a store de cache e compartilhada.
+- **Inspecao do Redis:**
+  ```bash
+  docker compose exec redis redis-cli --raw keys '*products*'
+  docker compose exec redis redis-cli --raw get '<key>'
+  ```
+  O valor retornado deve ser JSON e incluir campos como `name` e `priceAmount`.
+- **Proposito de aprendizado:** Comparar cache local e distribuido, observar serializacao JSON, TTL por tipo de leitura e a invalidacao de paginas apos escrita.
+
+---
+
 ## 📊 Relação entre versões
 
 ```
@@ -179,6 +264,14 @@ v3.0-scalability (NGINX load balancer, 3 instâncias)
 v3.1-load-balancer-cloud (LB gerenciado AWS: ALB + Auto Scaling — mesmo commit de v3.0)
     ↓
 v3.2-product-detail (GET /products/{id} + carga JMeter para cache)
+    ↓
+v3.2.1-single-instance (1 instância atrás do LB, sem Redis — "antes" da demo de cache)
+    ↓
+v3.3-cache-aside (cache-aside local com Caffeine)
+    ↓
+v3.3.1-single-instance (1 instância atrás do LB, sem Redis — "depois" da demo de cache)
+    ↓
+v3.4-cache-distribuido (Redis compartilhado + Spring Cache + busca cacheada)
 ```
 
 **Comparar performance:**
@@ -231,6 +324,6 @@ git rev-parse v1.1-indexes
 
 ---
 
-**Última atualização:** 2026-07-17
+**Última atualização:** 2026-07-20
 **Responsible:** Fabiano Góes
-**Tags ativas:** v1.0-baseline, v1.1-indexes, v1.2-pagination, v2.0-hexagonal, v3.0-scalability, v3.1-load-balancer-cloud, v3.2-product-detail, v3.3-cache-aside
+**Tags ativas:** v1.0-baseline, v1.1-indexes, v1.2-pagination, v2.0-hexagonal, v3.0-scalability, v3.1-load-balancer-cloud, v3.2-product-detail, v3.2.1-single-instance, v3.3-cache-aside, v3.3.1-single-instance, v3.4-cache-distribuido
