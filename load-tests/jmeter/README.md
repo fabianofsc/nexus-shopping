@@ -16,13 +16,13 @@ Or download Apache JMeter from https://jmeter.apache.org/download_jmeter.cgi.
 
 Start the full stack with Docker Compose — no local JDK/Gradle required, students only need Docker. This tag boots a single app instance behind the nginx load balancer (`localhost:8080`), no Redis involved — same topology as `v3.2.1-single-instance`, but with cache-aside (Caffeine) already implemented in the outbound adapter.
 
-**Default path (students): pull the published image, no build.** `docker-compose.yml` points by default at `fabianofsc/nexus-shopping:v3.3.1-single-instance` on Docker Hub — `docker compose up -d` (no `--build`) just pulls and runs it.
+**Default path (students): pull the published image, no build.** `docker-compose.yml` points by default at `fabianofsc/nexus-shopping:v3.3-cache-aside` on Docker Hub — `docker compose up -d` (no `--build`) just pulls and runs it.
 
 **If you have run this project before on another tag or branch, clean up first.** A stale local image under an old name can linger and cause confusing startup errors (like a Redis connection failure in a state that should not reference Redis at all). Always start from a clean slate when switching tags:
 
 ```bash
 docker compose down -v
-docker rmi fabianofsc/nexus-shopping:v3.3.1-single-instance 2>/dev/null || true
+docker rmi fabianofsc/nexus-shopping:v3.3-cache-aside 2>/dev/null || true
 docker compose up -d
 docker compose ps
 ```

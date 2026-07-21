@@ -165,11 +165,11 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
 ---
 
 ### v3.3-cache-aside
-**Cache-aside LOCAL (Caffeine) no detalhe de produto**
+**Cache-aside LOCAL (Caffeine) no detalhe de produto, 1 instância atrás do Load Balancer, sem Redis**
 
-- **Branch:** `add-product-cache-aside` (PR #17)
+- **Branch:** `lb-single-instance-cache-aside` (protegida: 1 aprovação obrigatória, status checks, sem force-push/deleção — mesma configuração das demais branches de referência)
 - **Commit:** (veja `git show v3.3-cache-aside`)
-- **Propósito:** Caso limpo de cache-aside LOCAL (in-process) sobre `GET /products/{id}`, implementado à mão como decorator explícito da arquitetura hexagonal — base da aula de Cache. A incoerência entre instâncias é **intencional** (demonstrada na aula rodando este código com múltiplas instâncias); não é resolvida aqui.
+- **Propósito:** Caso limpo de cache-aside LOCAL (in-process) sobre `GET /products/{id}`, implementado à mão como decorator explícito da arquitetura hexagonal — estado "depois" do Bloco 1 de "Escalando a Leitura com Cache", par exato de `v3.2.1-single-instance` ("antes") para uma comparação limpa e reprodutível, sem a variável de confusão de round-robin entre réplicas com caches independentes. A incoerência entre múltiplas instâncias é assunto do Bloco 2 (ver `v3.4-cache-distribuido`), não deste estado.
 - **Base:** `v3.2-product-detail`
 - **Mudanças:**
   - Dependência `com.github.ben-manes.caffeine:caffeine` (gerenciada pelo BOM do Spring Boot); sem `spring-boot-starter-cache`/`@EnableCaching`
@@ -179,39 +179,21 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
     - `findByCategoryId` / `findByName` / `save`: pass-through direto (não cacheados)
   - Config `nexus.cache.product.max-size` (10000) e `.ttl` (10m) via `application.yml` (`ProductCacheProperties` + `@Configuration` construindo `Cache<Long, Product>`)
   - Domínio e use cases permanecem cache-unaware; contrato dos endpoints inalterado
+  - `docker-compose.yml`: só `app1` atrás do `nginx` (sem `app2`/`app3`); `nginx/nginx.conf` com upstream de uma única entrada; `APP_IMAGE` padrão aponta para `fabianofsc/nexus-shopping:v3.3-cache-aside` — `docker compose up -d` (sem `--build`) já baixa a imagem publicada
 - **Guardrails (fora de escopo, reservado à v3.4):** sem `@Cacheable`/`@CacheEvict`/Spring Cache abstraction, sem Redis/spring-data-redis, sem cache da busca paginada
-- **Imagem Docker Hub:** não publicada
+- **Validado:** cache HIT/MISS visível nos logs (`cache MISS id=1` seguido de `cache HIT id=1` em leituras repetidas), health UP, X-Upstream confirma instância única, zero erro/Redis nos logs
+- **Imagem Docker Hub:** `fabianofsc/nexus-shopping:v3.3-cache-aside`
 - **Como clonar:**
   ```bash
   git clone --branch v3.3-cache-aside https://github.com/fabianofsc/nexus-shopping.git
-  ```
-- **Propósito de aprendizado:** Ver cache-aside explícito reduzir o custo de leituras quentes repetidas por chave, e observar (na aula) o limite da abordagem LOCAL — incoerência entre instâncias
-
----
-
-### v3.3.1-single-instance
-**Topologia reduzida: 1 instância atrás do Load Balancer, sem Redis — estado "depois" da demo de cache (cache-aside local)**
-
-- **Branch:** `lb-single-instance-cache-aside` (protegida: 1 aprovação obrigatória, status checks, sem force-push/deleção — mesma configuração das demais branches de referência)
-- **Commit:** (veja `git show v3.3.1-single-instance`)
-- **Propósito:** Mesma topologia de `v3.2.1-single-instance`, agora a partir de `v3.3-cache-aside` — único diferencial em relação a `v3.2.1-single-instance` é o cache-aside já implementado. Permite comparação limpa e reprodutível "antes" (`v3.2.1-single-instance`) vs. "depois" (esta tag) para o Bloco 1 de "Escalando a Leitura com Cache", sem a variável de confusão de round-robin entre réplicas com caches independentes.
-- **Merged em:** 2026-07-20
-- **Mudanças (só infraestrutura, zero código de aplicação novo — mesmo diff de `v3.2.1-single-instance`):**
-  - `docker-compose.yml`: remove os serviços `app2`/`app3` — só `app1` atrás do `nginx`
-  - `nginx/nginx.conf`: upstream com uma única entrada (`server app1:8080`)
-  - `load-tests/jmeter/README.md`: documenta o caminho padrão de pull (sem `--build`) e o passo de limpeza de imagem local ao trocar de tag
-  - `APP_IMAGE` padrão do `docker-compose.yml` aponta para `fabianofsc/nexus-shopping:v3.3.1-single-instance` — `docker compose up -d` (sem `--build`) já baixa a imagem publicada
-- **Validado:** cache HIT/MISS visível nos logs (`cache MISS id=1` seguido de `cache HIT id=1` em leituras repetidas), health UP, X-Upstream confirma instância única, zero erro/Redis nos logs
-- **Imagem Docker Hub:** `fabianofsc/nexus-shopping:v3.3.1-single-instance`
-- **Como clonar:**
-  ```bash
-  git clone --branch v3.3.1-single-instance https://github.com/fabianofsc/nexus-shopping.git
   ```
 - **Como executar sem clonar (pull-only):**
   ```bash
   docker compose up -d   # após clonar, sem --build — baixa a imagem publicada
   ```
-- **Propósito de aprendizado:** Par exato de `v3.2.1-single-instance` para medir o efeito isolado do cache-aside, sem diluição entre réplicas
+- **Propósito de aprendizado:** Ver cache-aside explícito reduzir o custo de leituras quentes repetidas por chave, medido de forma isolada (1 instância); o limite da abordagem LOCAL — incoerência entre instâncias — é observado na aula ao subir múltiplas instâncias (Bloco 2)
+
+> **Nota histórica:** esta tag foi recriada em 2026-07-20 apontando para um commit diferente do original (PR #17, `add-product-cache-aside`, topologia de 3 instâncias). O código de cache-aside em si não mudou — só a topologia de infraestrutura foi reduzida para 1 instância, isolando a medição do Bloco 1. Decisão do professor, ciente de que isso altera o que a tag aponta para quem já a tinha citado antes.
 
 ---
 
@@ -267,9 +249,7 @@ v3.2-product-detail (GET /products/{id} + carga JMeter para cache)
     ↓
 v3.2.1-single-instance (1 instância atrás do LB, sem Redis — "antes" da demo de cache)
     ↓
-v3.3-cache-aside (cache-aside local com Caffeine)
-    ↓
-v3.3.1-single-instance (1 instância atrás do LB, sem Redis — "depois" da demo de cache)
+v3.3-cache-aside (cache-aside local com Caffeine, 1 instância atrás do LB — "depois" da demo de cache)
     ↓
 v3.4-cache-distribuido (Redis compartilhado + Spring Cache + busca cacheada)
 ```
@@ -326,4 +306,4 @@ git rev-parse v1.1-indexes
 
 **Última atualização:** 2026-07-20
 **Responsible:** Fabiano Góes
-**Tags ativas:** v1.0-baseline, v1.1-indexes, v1.2-pagination, v2.0-hexagonal, v3.0-scalability, v3.1-load-balancer-cloud, v3.2-product-detail, v3.2.1-single-instance, v3.3-cache-aside, v3.3.1-single-instance, v3.4-cache-distribuido
+**Tags ativas:** v1.0-baseline, v1.1-indexes, v1.2-pagination, v2.0-hexagonal, v3.0-scalability, v3.1-load-balancer-cloud, v3.2-product-detail, v3.2.1-single-instance, v3.3-cache-aside, v3.4-cache-distribuido
