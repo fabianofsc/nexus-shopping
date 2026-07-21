@@ -79,11 +79,11 @@ class CatalogMigrationContractTest {
     }
 
     @Test
-    fun `catalog seed should target ten million products by default`() {
+    fun `catalog seed should target one thousand products by default`() {
         val applicationYaml = Files.readString(applicationConfig)
         val seedMigration = Files.readString(migrationDirectory.resolve("V2__seed_product_catalog.sql"))
 
-        assertTrue(applicationYaml.contains("PRODUCT_SEED_COUNT:10000000"))
+        assertTrue(applicationYaml.contains("PRODUCT_SEED_COUNT:1000"))
         assertTrue(seedMigration.contains("\${productSeedCount}"))
     }
 
