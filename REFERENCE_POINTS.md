@@ -201,6 +201,20 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
 
 ---
 
+### v3.5-cache-cloud
+**Cache gerenciado na nuvem: ElastiCache Redis (AWS)**
+
+- **Commit:** mesmo de `v3.4-cache-distribuido` (veja `git show v3.5-cache-cloud`)
+- **Propósito:** Marcar o estado do código usado na demonstração do Redis gerenciado na AWS (Amazon ElastiCache), plugado no ambiente Elastic Beanstalk + RDS. A evolução é de **infraestrutura** (AWS), não de código de aplicação — por isso a tag aponta para o mesmo commit de `v3.4-cache-distribuido`.
+- **Imagem Docker Hub:** `fabianofsc/nexus-shopping:v3.4-cache-distribuido` (mesma imagem; `v3.5-cache-cloud` não tem imagem própria publicada, só marca o commit)
+- **Como clonar:**
+  ```bash
+  git clone --branch v3.5-cache-cloud https://github.com/fabianofsc/nexus-shopping.git
+  ```
+- **Propósito de aprendizado:** Ver o mesmo protocolo/cliente Redis funcionando contra um serviço gerenciado (ElastiCache) em vez de um container Docker local — mesmo padrão didático de `v3.1-load-balancer-cloud` para o Load Balancer.
+
+---
+
 ## 📊 Relação entre versões
 
 ```
