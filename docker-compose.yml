@@ -5,7 +5,7 @@ x-app: &app-base
   build:
     context: .
     dockerfile: Dockerfile
-  image: ${APP_IMAGE:-nexus-shopping:local}
+  image: ${APP_IMAGE:-fabianofsc/nexus-shopping:v3.4-cache-distribuido}
   environment:
     DB_URL: jdbc:postgresql://postgres:5432/nexus_shopping
     DB_USERNAME: nexus
