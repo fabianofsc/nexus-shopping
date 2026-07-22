@@ -75,6 +75,7 @@ DB_INSTANCE_IDENTIFIER="${DB_INSTANCE_IDENTIFIER:-nexus-shopping-cache-demo}"
 EB_APP_NAME="${EB_APP_NAME:-nexus-shopping}"
 EB_ENV_NAME="${EB_ENV_NAME:-nexus-shopping-cache-demo}"
 IMAGE_TAG="${IMAGE_TAG:-v3.4-cache-distribuido}"
+INSTANCE_TYPE="${INSTANCE_TYPE:-t3.micro}"
 DB_NAME="nexus_shopping"
 DB_USERNAME="nexus"
 SERVICE_ROLE_NAME="aws-elasticbeanstalk-service-role"
@@ -96,12 +97,31 @@ if [[ "$VPC_ID" == "None" || -z "$VPC_ID" ]]; then
   exit 1
 fi
 
-SUBNET_IDS=$(aws ec2 describe-subnets --filters Name=vpc-id,Values="$VPC_ID" \
+# Nem toda AZ oferece todo tipo de instancia -- na us-east-1, por exemplo,
+# a AZ mais antiga (us-east-1e) nao suporta t3.micro. Descobrir as AZs que
+# oferecem o tipo escolhido e usar so as sub-redes que caem nessas AZs, senao
+# o Beanstalk recusa o ambiente com ConfigurationValidationException.
+SUPPORTED_AZS=$(aws ec2 describe-instance-type-offerings \
+  --location-type availability-zone \
+  --filters "Name=instance-type,Values=$INSTANCE_TYPE" \
+  --query 'InstanceTypeOfferings[].Location' --output text)
+
+if [[ -z "$SUPPORTED_AZS" ]]; then
+  echo "Erro: o tipo de instancia $INSTANCE_TYPE nao e oferecido em nenhuma AZ da regiao $AWS_REGION." >&2
+  exit 1
+fi
+
+# Monta um filtro de AZ (Name=availability-zone,Values=az1,az2,...) para so
+# trazer sub-redes elegiveis.
+AZ_CSV=$(tr -s '[:space:]' ',' <<< "$SUPPORTED_AZS" | sed 's/^,//; s/,$//')
+
+SUBNET_IDS=$(aws ec2 describe-subnets \
+  --filters Name=vpc-id,Values="$VPC_ID" Name=availability-zone,Values="$AZ_CSV" \
   --query 'Subnets[].SubnetId' --output text)
 SUBNET_COUNT=$(wc -w <<< "$SUBNET_IDS")
 
 if (( SUBNET_COUNT < 2 )); then
-  echo "Erro: sao necessarias pelo menos 2 sub-redes (2 AZs) para o ALB do Beanstalk. Encontradas: $SUBNET_COUNT" >&2
+  echo "Erro: sao necessarias pelo menos 2 sub-redes (2 AZs) que suportem $INSTANCE_TYPE para o ALB do Beanstalk. Encontradas: $SUBNET_COUNT" >&2
   exit 1
 fi
 
@@ -277,7 +297,7 @@ DB_URL="jdbc:postgresql://${RDS_ENDPOINT}:5432/${DB_NAME}"
 cat > "$WORKDIR/option-settings.json" <<JSON
 [
   {"Namespace": "aws:autoscaling:launchconfiguration", "OptionName": "IamInstanceProfile", "Value": "${INSTANCE_PROFILE_NAME}"},
-  {"Namespace": "aws:autoscaling:launchconfiguration", "OptionName": "InstanceType", "Value": "t3.micro"},
+  {"Namespace": "aws:autoscaling:launchconfiguration", "OptionName": "InstanceType", "Value": "${INSTANCE_TYPE}"},
   {"Namespace": "aws:elasticbeanstalk:environment", "OptionName": "ServiceRole", "Value": "${SERVICE_ROLE_NAME}"},
   {"Namespace": "aws:elasticbeanstalk:environment", "OptionName": "EnvironmentType", "Value": "LoadBalanced"},
   {"Namespace": "aws:elasticbeanstalk:environment", "OptionName": "LoadBalancerType", "Value": "application"},
