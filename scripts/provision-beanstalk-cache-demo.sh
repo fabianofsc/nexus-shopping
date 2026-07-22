@@ -17,7 +17,9 @@ Variaveis de ambiente:
   DB_INSTANCE_IDENTIFIER   Opcional. Default: nexus-shopping-cache-demo.
   EB_APP_NAME              Opcional. Default: nexus-shopping.
   EB_ENV_NAME              Opcional. Default: nexus-shopping-cache-demo.
-  IMAGE_TAG                Opcional. Default: v3.5-cache-cloud.
+  IMAGE_TAG                Opcional. Default: v3.4-cache-distribuido (mesma
+                            imagem do commit marcado por v3.5-cache-cloud --
+                            essa tag nao tem imagem propria publicada).
 USAGE
 }
 
@@ -64,11 +66,15 @@ EOF
   exit 1
 fi
 
-AWS_REGION="${AWS_REGION:-$(aws configure get region)}"
+AWS_REGION="${AWS_REGION:-$(aws configure get region || true)}"
+if [[ -z "$AWS_REGION" ]]; then
+  echo "Erro: nenhuma regiao configurada. Defina AWS_REGION ou rode 'aws configure'." >&2
+  exit 1
+fi
 DB_INSTANCE_IDENTIFIER="${DB_INSTANCE_IDENTIFIER:-nexus-shopping-cache-demo}"
 EB_APP_NAME="${EB_APP_NAME:-nexus-shopping}"
 EB_ENV_NAME="${EB_ENV_NAME:-nexus-shopping-cache-demo}"
-IMAGE_TAG="${IMAGE_TAG:-v3.5-cache-cloud}"
+IMAGE_TAG="${IMAGE_TAG:-v3.4-cache-distribuido}"
 DB_NAME="nexus_shopping"
 DB_USERNAME="nexus"
 SERVICE_ROLE_NAME="aws-elasticbeanstalk-service-role"
@@ -308,13 +314,26 @@ else
   echo "  Ambiente ja existia ($EXISTING_STATUS) — atualizando versao/configuracao: $EB_ENV_NAME"
 fi
 
-echo "  Aguardando ambiente ficar Ready (pode levar 5-10 minutos)..."
+echo "  Aguardando ambiente ficar Ready e saudavel (pode levar 5-10 minutos)..."
+WAIT_ELAPSED=0
+WAIT_TIMEOUT=900
 while true; do
-  STATUS=$(aws elasticbeanstalk describe-environments --application-name "$EB_APP_NAME" \
-    --environment-names "$EB_ENV_NAME" --query 'Environments[0].Status' --output text)
-  echo "    status: $STATUS"
-  [[ "$STATUS" == "Ready" ]] && break
+  read -r STATUS HEALTH <<< "$(aws elasticbeanstalk describe-environments --application-name "$EB_APP_NAME" \
+    --environment-names "$EB_ENV_NAME" --query 'Environments[0].[Status,Health]' --output text)"
+  echo "    status: $STATUS | health: $HEALTH"
+  if [[ "$STATUS" == "Ready" && "$HEALTH" != "Red" ]]; then
+    break
+  fi
+  if [[ "$STATUS" == "Ready" && "$HEALTH" == "Red" ]]; then
+    echo "Erro: ambiente ficou Ready mas Health=Red -- o container provavelmente nao subiu (imagem errada, crash na inicializacao, etc). Verifique os logs: Elastic Beanstalk -> ambiente -> Logs -> Solicitar Logs." >&2
+    exit 1
+  fi
+  if (( WAIT_ELAPSED >= WAIT_TIMEOUT )); then
+    echo "Erro: ambiente nao ficou Ready em ${WAIT_TIMEOUT}s. Verifique o console do Elastic Beanstalk." >&2
+    exit 1
+  fi
   sleep 20
+  WAIT_ELAPSED=$((WAIT_ELAPSED + 20))
 done
 
 ENV_URL=$(aws elasticbeanstalk describe-environments --application-name "$EB_APP_NAME" \
