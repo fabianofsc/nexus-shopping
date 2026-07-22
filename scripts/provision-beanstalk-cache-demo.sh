@@ -20,6 +20,10 @@ Variaveis de ambiente:
   IMAGE_TAG                Opcional. Default: v3.4-cache-distribuido (mesma
                             imagem do commit marcado por v3.5-cache-cloud --
                             essa tag nao tem imagem propria publicada).
+  INSTANCE_TYPE            Opcional. Default: t4g.micro (ARM/Graviton). As
+                            imagens do nexus-shopping sao arm64, entao o host
+                            precisa ser ARM. So mude para um tipo x86_64
+                            (ex: t3.micro) se publicar uma imagem amd64.
 USAGE
 }
 
@@ -75,7 +79,11 @@ DB_INSTANCE_IDENTIFIER="${DB_INSTANCE_IDENTIFIER:-nexus-shopping-cache-demo}"
 EB_APP_NAME="${EB_APP_NAME:-nexus-shopping}"
 EB_ENV_NAME="${EB_ENV_NAME:-nexus-shopping-cache-demo}"
 IMAGE_TAG="${IMAGE_TAG:-v3.4-cache-distribuido}"
-INSTANCE_TYPE="${INSTANCE_TYPE:-t3.micro}"
+# As imagens publicadas do nexus-shopping sao arm64 (buildadas em Mac Apple
+# Silicon), entao o host precisa ser ARM/Graviton -- t4g.micro roda a imagem
+# nativamente. Um t3.micro (x86_64) faz o container morrer logo apos subir
+# ("image's platform (linux/arm64) does not match the detected host platform").
+INSTANCE_TYPE="${INSTANCE_TYPE:-t4g.micro}"
 DB_NAME="nexus_shopping"
 DB_USERNAME="nexus"
 SERVICE_ROLE_NAME="aws-elasticbeanstalk-service-role"
