@@ -82,6 +82,16 @@ services:
       timeout: 5s
       retries: 5
 
+  redisinsight:
+    image: redis/redisinsight:3.8.0
+    ports:
+      - "5540:5540"
+    networks:
+      - backend
+    depends_on:
+      redis:
+        condition: service_healthy
+
 networks:
   backend:
     driver: bridge
