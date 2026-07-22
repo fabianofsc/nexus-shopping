@@ -181,6 +181,11 @@ aws iam attach-role-policy --role-name "$EC2_ROLE_NAME" \
   --policy-arn arn:aws:iam::aws:policy/AWSElasticBeanstalkWebTier
 aws iam attach-role-policy --role-name "$EC2_ROLE_NAME" \
   --policy-arn arn:aws:iam::aws:policy/AWSElasticBeanstalkMulticontainerDocker
+# Sem isso a instancia nunca aparece em "aws ssm describe-instance-information"
+# -- o agente SSM ja vem instalado no Amazon Linux 2023, mas precisa de
+# credenciais com essa permissao para se registrar no servico.
+aws iam attach-role-policy --role-name "$EC2_ROLE_NAME" \
+  --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
 
 if ! aws iam get-instance-profile --instance-profile-name "$INSTANCE_PROFILE_NAME" >/dev/null 2>&1; then
   aws iam create-instance-profile --instance-profile-name "$INSTANCE_PROFILE_NAME" >/dev/null
