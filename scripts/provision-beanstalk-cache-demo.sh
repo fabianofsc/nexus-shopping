@@ -131,7 +131,7 @@ fi
 # roda sempre, fora do "if" de criacao, para cobrir o caso de uma role criada
 # numa tentativa anterior que falhou antes de anexar as policies.
 aws iam attach-role-policy --role-name "$SERVICE_ROLE_NAME" \
-  --policy-arn arn:aws:iam::aws:policy/service-role/AWSElasticBeanstalkManagedUpdatesCustomerRolePolicy
+  --policy-arn arn:aws:iam::aws:policy/AWSElasticBeanstalkManagedUpdatesCustomerRolePolicy
 aws iam attach-role-policy --role-name "$SERVICE_ROLE_NAME" \
   --policy-arn arn:aws:iam::aws:policy/service-role/AWSElasticBeanstalkEnhancedHealth
 
