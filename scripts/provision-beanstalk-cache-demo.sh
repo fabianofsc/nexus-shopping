@@ -123,14 +123,17 @@ if ! aws iam get-role --role-name "$SERVICE_ROLE_NAME" >/dev/null 2>&1; then
         "Condition": {"StringEquals": {"sts:ExternalId": "elasticbeanstalk"}}
       }]
     }' >/dev/null
-  aws iam attach-role-policy --role-name "$SERVICE_ROLE_NAME" \
-    --policy-arn arn:aws:iam::aws:policy/AWSElasticBeanstalkManagedUpdatesCustomerRolePolicy
-  aws iam attach-role-policy --role-name "$SERVICE_ROLE_NAME" \
-    --policy-arn arn:aws:iam::aws:policy/AWSElasticBeanstalkEnhancedHealth
   echo "  Criada: $SERVICE_ROLE_NAME"
 else
   echo "  Ja existe: $SERVICE_ROLE_NAME"
 fi
+# attach-role-policy e idempotente (anexar uma policy ja anexada nao da erro) --
+# roda sempre, fora do "if" de criacao, para cobrir o caso de uma role criada
+# numa tentativa anterior que falhou antes de anexar as policies.
+aws iam attach-role-policy --role-name "$SERVICE_ROLE_NAME" \
+  --policy-arn arn:aws:iam::aws:policy/service-role/AWSElasticBeanstalkManagedUpdatesCustomerRolePolicy
+aws iam attach-role-policy --role-name "$SERVICE_ROLE_NAME" \
+  --policy-arn arn:aws:iam::aws:policy/service-role/AWSElasticBeanstalkEnhancedHealth
 
 if ! aws iam get-role --role-name "$EC2_ROLE_NAME" >/dev/null 2>&1; then
   aws iam create-role --role-name "$EC2_ROLE_NAME" \
@@ -142,14 +145,14 @@ if ! aws iam get-role --role-name "$EC2_ROLE_NAME" >/dev/null 2>&1; then
         "Action": "sts:AssumeRole"
       }]
     }' >/dev/null
-  aws iam attach-role-policy --role-name "$EC2_ROLE_NAME" \
-    --policy-arn arn:aws:iam::aws:policy/AWSElasticBeanstalkWebTier
-  aws iam attach-role-policy --role-name "$EC2_ROLE_NAME" \
-    --policy-arn arn:aws:iam::aws:policy/AWSElasticBeanstalkMulticontainerDocker
   echo "  Criada: $EC2_ROLE_NAME"
 else
   echo "  Ja existe: $EC2_ROLE_NAME"
 fi
+aws iam attach-role-policy --role-name "$EC2_ROLE_NAME" \
+  --policy-arn arn:aws:iam::aws:policy/AWSElasticBeanstalkWebTier
+aws iam attach-role-policy --role-name "$EC2_ROLE_NAME" \
+  --policy-arn arn:aws:iam::aws:policy/AWSElasticBeanstalkMulticontainerDocker
 
 if ! aws iam get-instance-profile --instance-profile-name "$INSTANCE_PROFILE_NAME" >/dev/null 2>&1; then
   aws iam create-instance-profile --instance-profile-name "$INSTANCE_PROFILE_NAME" >/dev/null
