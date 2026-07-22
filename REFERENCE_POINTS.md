@@ -176,6 +176,7 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
   - TTL de 10 minutos para detalhe e 30 segundos para buscas; `save` e `updatePrice` invalidam todas as buscas cacheadas.
   - Chaves de busca incluem categoria ou nome, pagina e tamanho para evitar colisao entre slices.
   - `docker-compose.yml`: `APP_IMAGE` padrao aponta para `fabianofsc/nexus-shopping:v3.4-cache-distribuido` — `docker compose up -d` (sem `--build`) ja baixa a imagem publicada.
+  - `docker-compose.yml`: servico `redisinsight` (`redis/redisinsight:3.8.0`, nativo arm64/amd64) exposto em `:5540` para inspecao visual do cache, alternativa ao `redis-cli`.
 - **Imagem Docker Hub:** `fabianofsc/nexus-shopping:v3.4-cache-distribuido`
 - **Como clonar:**
   ```bash
