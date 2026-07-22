@@ -32,9 +32,37 @@ if [[ -z "${MY_IP:-}" ]]; then
   exit 1
 fi
 
-command -v aws >/dev/null || { echo "Erro: AWS CLI v2 nao encontrado no PATH." >&2; exit 1; }
+if ! command -v aws >/dev/null; then
+  cat <<'EOF' >&2
+Erro: AWS CLI v2 nao encontrado no PATH.
+
+Instalar no macOS (escolha uma opcao):
+  brew install awscli
+  # ou baixar o instalador oficial:
+  # https://awscli.amazonaws.com/AWSCLIV2.pkg
+
+Depois de instalar, confirme com:
+  aws --version
+EOF
+  exit 1
+fi
+
 command -v zip >/dev/null || { echo "Erro: 'zip' nao encontrado no PATH." >&2; exit 1; }
 command -v python3 >/dev/null || { echo "Erro: 'python3' nao encontrado no PATH." >&2; exit 1; }
+
+if ! aws sts get-caller-identity >/dev/null 2>&1; then
+  cat <<'EOF' >&2
+Erro: AWS CLI instalado, mas sem credenciais validas configuradas.
+
+Configurar via IAM Identity Center (recomendado -- gera credenciais
+temporarias, nao uma access key de longa duracao salva em disco):
+  aws configure sso
+
+Depois de configurar, confirme com:
+  aws sts get-caller-identity
+EOF
+  exit 1
+fi
 
 AWS_REGION="${AWS_REGION:-$(aws configure get region)}"
 DB_INSTANCE_IDENTIFIER="${DB_INSTANCE_IDENTIFIER:-nexus-shopping-cache-demo}"
