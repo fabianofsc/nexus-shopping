@@ -105,7 +105,7 @@ if (( SUBNET_COUNT < 2 )); then
   exit 1
 fi
 
-SUBNET_CSV=$(tr ' ' ',' <<< "$SUBNET_IDS")
+SUBNET_CSV=$(tr -s '[:space:]' '\n' <<< "$SUBNET_IDS" | paste -sd, -)
 echo "VPC: $VPC_ID | Sub-redes: $SUBNET_CSV"
 echo
 
