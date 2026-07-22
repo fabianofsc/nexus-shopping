@@ -166,7 +166,7 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
 ### v3.4-cache-distribuido
 **Cache distribuido Redis com Spring Cache no detalhe e nas buscas paginadas**
 
-- **Branch:** `codex/v3.4-cache-distribuido`
+- **Branch:** `codex/v3.4-cache-distribuido` (branch remota removida apos o merge; tag recriada em 2026-07-22 sobre o commit atualizado — mesmo tratamento historico de `v3.3-cache-aside`)
 - **Commit:** (veja `git show v3.4-cache-distribuido`)
 - **Proposito:** Evoluir o cache-aside local para Redis compartilhado entre instancias, mantendo o dominio e os use cases sem conhecimento de cache.
 - **Base:** `v3.3-cache-aside`
@@ -175,13 +175,15 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
   - Spring Cache no adapter JPA: detalhe em `products:detail` e buscas paginadas em `products:search`.
   - TTL de 10 minutos para detalhe e 30 segundos para buscas; `save` e `updatePrice` invalidam todas as buscas cacheadas.
   - Chaves de busca incluem categoria ou nome, pagina e tamanho para evitar colisao entre slices.
+  - `docker-compose.yml`: `APP_IMAGE` padrao aponta para `fabianofsc/nexus-shopping:v3.4-cache-distribuido` — `docker compose up -d` (sem `--build`) ja baixa a imagem publicada.
+- **Imagem Docker Hub:** `fabianofsc/nexus-shopping:v3.4-cache-distribuido`
 - **Como clonar:**
   ```bash
   git clone --branch v3.4-cache-distribuido https://github.com/fabianofsc/nexus-shopping.git
   ```
 - **Verificacao manual com multiplas instancias:**
   ```bash
-  docker compose up --build --scale app1=1 --scale app2=1 --scale app3=1
+  docker compose up -d --scale app1=1 --scale app2=1 --scale app3=1
   curl http://localhost:8080/products/1
   curl http://localhost:8080/products?name=Product%201&page=0&size=3
   ```
