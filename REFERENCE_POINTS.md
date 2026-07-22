@@ -154,19 +154,21 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
   - Config `nexus.cache.product.max-size` (10000) e `.ttl` (10m) via `application.yml` (`ProductCacheProperties` + `@Configuration` construindo `Cache<Long, Product>`)
   - Domínio e use cases permanecem cache-unaware; contrato dos endpoints inalterado
 - **Guardrails (fora de escopo, reservado à v3.4):** sem `@Cacheable`/`@CacheEvict`/Spring Cache abstraction, sem Redis/spring-data-redis, sem cache da busca paginada
-- **Imagem Docker Hub:** não publicada
+- **Imagem Docker Hub:** não publicada para a tag `v3.3-cache-aside` em si. **Atenção:** esta seção descreve o estado ORIGINAL de 3 instâncias (PR #17) — a tag `v3.3-cache-aside` foi recriada em 2026-07-20 apontando para uma topologia reduzida a 1 instância (ver nota histórica abaixo). O commit original de 3 instâncias permanece acessível pela branch `add-product-cache-aside`, que **tem** imagem publicada: `fabianofsc/nexus-shopping:add-product-cache-aside` (usada no Bloco 2 do roteiro de Cache Distribuído, para reproduzir o bug de incoerência entre instâncias).
 - **Como clonar:**
   ```bash
   git clone --branch v3.3-cache-aside https://github.com/fabianofsc/nexus-shopping.git
   ```
 - **Propósito de aprendizado:** Ver cache-aside explícito reduzir o custo de leituras quentes repetidas por chave, e observar (na aula) o limite da abordagem LOCAL — incoerência entre instâncias
 
+> **Nota histórica — `v3.3-cache-aside` foi recriada em 2026-07-20:** a tag original (PR #17, branch `add-product-cache-aside`) tinha a topologia de 3 instâncias descrita acima. Decisão do professor: mover a tag para apontar para o commit com a topologia reduzida (1 instância + Load Balancer, sem Redis) — mesmo tratamento de `v3.2.1-single-instance` — permitindo comparação "antes"/"depois" limpa no Bloco 1 de Cache. O código de cache-aside em si não mudou, só a infraestrutura. Branch atual da tag: `lb-single-instance-cache-aside` (protegida). Espelhado em [[Projeto Nexus Shopping]] no vault.
+
 ---
 
 ### v3.4-cache-distribuido
 **Cache distribuido Redis com Spring Cache no detalhe e nas buscas paginadas**
 
-- **Branch:** `codex/v3.4-cache-distribuido`
+- **Branch:** `codex/v3.4-cache-distribuido` (branch remota removida apos o merge; tag recriada em 2026-07-22 sobre o commit atualizado — mesmo tratamento historico de `v3.3-cache-aside`)
 - **Commit:** (veja `git show v3.4-cache-distribuido`)
 - **Proposito:** Evoluir o cache-aside local para Redis compartilhado entre instancias, mantendo o dominio e os use cases sem conhecimento de cache.
 - **Base:** `v3.3-cache-aside`
@@ -175,13 +177,16 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
   - Spring Cache no adapter JPA: detalhe em `products:detail` e buscas paginadas em `products:search`.
   - TTL de 10 minutos para detalhe e 30 segundos para buscas; `save` e `updatePrice` invalidam todas as buscas cacheadas.
   - Chaves de busca incluem categoria ou nome, pagina e tamanho para evitar colisao entre slices.
+  - `docker-compose.yml`: `APP_IMAGE` padrao aponta para `fabianofsc/nexus-shopping:v3.4-cache-distribuido` — `docker compose up -d` (sem `--build`) ja baixa a imagem publicada.
+  - `docker-compose.yml`: servico `redisinsight` (`redis/redisinsight:3.8.0`, nativo arm64/amd64) exposto em `:5540` para inspecao visual do cache, alternativa ao `redis-cli`.
+- **Imagem Docker Hub:** `fabianofsc/nexus-shopping:v3.4-cache-distribuido`
 - **Como clonar:**
   ```bash
   git clone --branch v3.4-cache-distribuido https://github.com/fabianofsc/nexus-shopping.git
   ```
 - **Verificacao manual com multiplas instancias:**
   ```bash
-  docker compose up --build --scale app1=1 --scale app2=1 --scale app3=1
+  docker compose up -d --scale app1=1 --scale app2=1 --scale app3=1
   curl http://localhost:8080/products/1
   curl http://localhost:8080/products?name=Product%201&page=0&size=3
   ```
