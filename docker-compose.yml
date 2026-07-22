@@ -84,6 +84,11 @@ services:
 
   redisinsight:
     image: redis/redisinsight:3.8.0
+    environment:
+      RI_ACCEPT_TERMS_AND_CONDITIONS: "true"
+      RI_REDIS_HOST0: redis
+      RI_REDIS_PORT0: 6379
+      RI_REDIS_ALIAS0: nexus-shopping-cache
     ports:
       - "5540:5540"
     networks:
