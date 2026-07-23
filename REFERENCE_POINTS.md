@@ -6,6 +6,23 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
 
 ## 📌 Tags de Referência
 
+### v0.1-docker-onboarding
+**Onboarding: imagens Docker minimas para uma pagina estatica e uma API de health check**
+
+- **Branch:** `codex/docker-onboarding`
+- **Commit:** (sera preenchido quando a tag for criada apos a revisao)
+- **Status:** ponto de onboarding preparado; tag ainda nao criada
+- **Proposito:** Introduzir os conceitos basicos de Docker antes das evolucoes da aplicacao principal
+- **Mudancas:**
+  - `examples/docker-onboarding/landing-page`: pagina estatica servida por `nginx:alpine`
+  - `examples/docker-onboarding/health-api`: API Node.js sem framework com `GET /health`, porta configuravel por `PORT` e resposta JSON para 404
+  - Dockerfiles pequenos que demonstram imagem base, `WORKDIR`, copia de manifestos, `npm ci`, `EXPOSE` e `CMD`
+- **Como clonar (depois da criacao da tag):**
+  ```bash
+  git clone --branch v0.1-docker-onboarding https://github.com/fabianofsc/nexus-shopping.git
+  ```
+- **Proposito de aprendizado:** Construir e executar os primeiros containers antes de aplicar Docker na aplicacao Spring Boot
+
 ### v1.0-baseline
 **Baseline: Sem Indexes Secundários**
 
