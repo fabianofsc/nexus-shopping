@@ -46,3 +46,39 @@ Tambem foram cobertos header ausente, carrinho vazio e carrinho ja fechado.
 - Application/domain continuam sem dependencias HTTP ou JPA adicionadas nesta task.
 - O contrato anterior de `CheckoutOrderUseCase.execute(): Order` foi preservado; o novo
   `executeWithResult()` expoe a distincao criada/replay necessaria ao adapter HTTP.
+
+## Complemento da revisao
+
+### P1 - Paginacao
+
+- RED: tres contratos HTTP invalidos retornaram erro diferente de Problem Details 400 e o teste
+  unitario observou `IllegalArgumentException` do `PageRequest`.
+- GREEN: `ListOrdersByCustomerUseCase` rejeita `page < 0` e `size` fora de `1..500` com
+  `OrderValidationException`. Os tres contratos HTTP retornam 400.
+
+### P1 - Cancelamento concorrente
+
+- RED: duas requisicoes HTTP simultaneas nao atenderam a assercao de exatamente um 200 e um 409.
+- GREEN: o cancelamento agora abre uma transacao unica, le o pedido com
+  `PESSIMISTIC_WRITE`, valida a transicao e persiste antes de liberar o lock. O contrato HTTP
+  concorrente retorna exatamente 200 e 409.
+
+### P2 - Checkout contra mutacao
+
+- Foi adicionada uma integracao H2 real para add, remove e clear. Ela bloqueia o checkout depois
+  de adquirir o lock do carrinho e prova que cada mutacao ja leu o snapshot ACTIVE antes de
+  disputar esse lock; apos o checkout, cada uma falha com `CartValidationException`, ha um unico
+  pedido, o carrinho fica CHECKED_OUT e seus itens nao sao alterados.
+- A protecao de validacao dentro de `updateCart` ja estava presente da entrega anterior; por isso
+  este teste de regressao ficou verde na primeira execucao, sem introduzir um defeito artificial.
+
+### P2 - Preparacoes explicitas
+
+- Os fluxos de `OrderControllerTest` agora usam helpers que exigem 200 para add e 201 para o
+  primeiro checkout antes de qualquer assercao posterior, eliminando os falsos verdes apontados.
+
+### Verificacao do complemento
+
+- Suite focada de `OrderControllerTest`, `OrderUseCasesTest` e
+  `CheckoutOrderMutationConcurrencyTest`: verde.
+- `ktlintCheck`: verde.
