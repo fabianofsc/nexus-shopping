@@ -1,0 +1,126 @@
+# Ambiente da aula "Escalando a Leitura com Replicas" (Disciplina 3 - Topico 3).
+#
+# Um primario e uma replica PostgreSQL em streaming replication fisica, para
+# demonstrar: replica read-only, pg_stat_replication, replication lag congelado
+# sob comando e o trade-off assincrono vs sincrono.
+#
+# A aplicacao NAO roteia leitura para a replica -- ela aponta so para o primario.
+# Roteamento leitura/escrita e assunto de Persistencia Distribuida.
+#
+# Ordem de subida (importante, e conteudo de aula):
+#   1) postgres-primary  -> banco vazio
+#   2) app               -> Flyway migra e semeia o catalogo
+#   3) postgres-replica  -> nasce de um pg_basebackup do estado atual
+#
+#   make start-replication
+#
+# Portas no host: primario 5432, replica 5433, app 8080.
+
+services:
+  postgres-primary:
+    image: postgres:16-alpine
+    container_name: nexus-postgres-primary
+    environment:
+      POSTGRES_DB: nexus_shopping
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: nexus
+      REPLICATION_USER: ${REPLICATION_USER:-replicator}
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:-replicator}
+    ports:
+      - "5432:5432"
+    volumes:
+      - primary-data:/var/lib/postgresql/data
+      - ./scripts/init-replication:/docker-entrypoint-initdb.d:ro
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus -d nexus_shopping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # A replica nao usa o entrypoint padrao da imagem: em vez de rodar initdb e
+  # criar um banco novo, ela copia o primario inteiro com pg_basebackup.
+  #   -Fp  formato plain (diretorio de dados normal, legivel)
+  #   -Xs  streaming do WAL durante a copia (o backup ja sai consistente)
+  #   -R   escreve standby.signal e primary_conninfo em postgresql.auto.conf
+  # O `if` deixa a subida idempotente: com o volume ja populado, so sobe o postgres.
+  postgres-replica:
+    image: postgres:16-alpine
+    container_name: nexus-postgres-replica
+    user: postgres
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    environment:
+      REPLICATION_USER: ${REPLICATION_USER:-replicator}
+      PGPASSWORD: ${REPLICATION_PASSWORD:-replicator}
+    ports:
+      - "5433:5432"
+    volumes:
+      - replica-data:/var/lib/postgresql/data
+    networks:
+      - backend
+    command:
+      - bash
+      - -c
+      - |
+        set -e
+        if [ ! -s "$$PGDATA/PG_VERSION" ]; then
+          echo "[replica] copiando o primario com pg_basebackup..."
+          rm -rf "$$PGDATA"/*
+          pg_basebackup \
+            -D "$$PGDATA" -Fp -Xs -R -P \
+            -d "postgresql://$${REPLICATION_USER:-replicator}:$$PGPASSWORD@postgres-primary:5432/postgres"
+          chmod 0700 "$$PGDATA"
+          echo "[replica] copia concluida, subindo em modo standby"
+        fi
+        exec postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus -d nexus_shopping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Mesma aplicacao das aulas anteriores, sem nenhuma alteracao de codigo.
+  # Serve para popular o catalogo (Flyway) e para escrever de verdade no primario
+  # durante a demonstracao de lag (PATCH /products/{id}/price).
+  app:
+    image: ${APP_IMAGE:-fabianofsc/nexus-shopping:v3.4-cache-distribuido}
+    container_name: nexus-app-replication
+    environment:
+      DB_URL: jdbc:postgresql://postgres-primary:5432/nexus_shopping
+      DB_USERNAME: nexus
+      DB_PASSWORD: nexus
+      PRODUCT_SEED_COUNT: ${PRODUCT_SEED_COUNT:-1000}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: nexus-redis-replication
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  primary-data:
+  replica-data:

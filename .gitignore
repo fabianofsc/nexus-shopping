@@ -12,3 +12,6 @@ jmeter.log
 *.pem
 docs/assets/*.html
 docker-compose.override.yml
+
+# Variáveis locais com segredos — nunca versionar
+.env

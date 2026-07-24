@@ -26,6 +26,10 @@ SIZE ?= 50
 SCENARIO ?= local
 RUN_ID ?= $(shell date +%Y%m%d-%H%M%S)
 
+REPLICATION_COMPOSE := docker compose -f docker-compose.replication.yml
+PRIMARY_CONTAINER ?= nexus-postgres-primary
+REPLICA_CONTAINER ?= nexus-postgres-replica
+
 JMETER_RESULTS_DIR := build/jmeter-results
 JMETER_REPORT_DIR := build/jmeter-report
 JMETER_HEAP ?= -Xms512m -Xmx2g -Djava.awt.headless=true -Dlog4j2.status=OFF
@@ -74,6 +78,11 @@ help:
 	@printf '%s\n' '  hub-reset-baseline Reseta banco sem aguardar health (uso avancado)'
 	@printf '%s\n' '  hub-reset-indexes  Reseta banco sem aguardar health (uso avancado)'
 	@printf '%s\n' '  hub-reset-pagination Reseta banco sem aguardar health (uso avancado)'
+	@printf '%s\n' ''
+	@printf '%s\n' 'Replicacao PostgreSQL (aula "Escalando a Leitura com Replicas"):'
+	@printf '%s\n' '  start-replication  Sobe primario, app (popula) e replica, nessa ordem'
+	@printf '%s\n' '  stop-replication   Derruba o ambiente de replicacao e remove os volumes'
+	@printf '%s\n' '  replication-status Mostra pg_stat_replication e o lag da replica'
 
 .PHONY: gradle-build gradle-test install-hooks boot-run boot-jar image
 gradle-build:
@@ -286,3 +295,23 @@ load-hub-indexes:
 load-hub-pagination:
 	make start-pagination HOST=$(HOST) PORT=$(PORT)
 	make jmeter-all SCENARIO=pagination
+
+# Ambiente da aula "Escalando a Leitura com Replicas" (Disciplina 3 - Topico 3).
+# A ordem de subida importa: o primario nasce vazio, o app popula o catalogo via
+# Flyway, e so entao a replica e criada -- por pg_basebackup do estado atual.
+.PHONY: start-replication stop-replication replication-status
+start-replication:
+	$(REPLICATION_COMPOSE) up -d postgres-primary
+	$(REPLICATION_COMPOSE) up -d app
+	make wait-health HOST=$(HOST) PORT=$(PORT)
+	$(REPLICATION_COMPOSE) up -d postgres-replica
+	@printf '%s\n' 'Primario: localhost:5432 | Replica: localhost:5433 | App: http://$(HOST):$(PORT)'
+
+stop-replication:
+	$(REPLICATION_COMPOSE) down -v
+
+replication-status:
+	docker exec $(PRIMARY_CONTAINER) psql -U nexus -d nexus_shopping -x -c \
+	  "SELECT client_addr, state, sync_state, sent_lsn, replay_lsn, pg_current_wal_lsn() - replay_lsn AS bytes_atrasados FROM pg_stat_replication;"
+	docker exec $(REPLICA_CONTAINER) psql -U nexus -d nexus_shopping -c \
+	  "SELECT pg_is_in_recovery() AS em_recovery, pg_is_wal_replay_paused() AS replay_pausado, now() - pg_last_xact_replay_timestamp() AS atraso;"

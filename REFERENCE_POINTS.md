@@ -213,6 +213,19 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
   ```
 - **Propósito de aprendizado:** Ver o mesmo protocolo/cliente Redis funcionando contra um serviço gerenciado (ElastiCache) em vez de um container Docker local — mesmo padrão didático de `v3.1-load-balancer-cloud` para o Load Balancer.
 
+### v3.6-read-replica
+**Réplica de leitura: PostgreSQL streaming replication (local) → RDS Read Replica**
+
+- **Commit:** (veja `git show v3.6-read-replica`)
+- **Propósito:** Marcar o ambiente da aula "Escalando a Leitura com Réplicas". Adiciona `docker-compose.replication.yml` (primário + réplica em streaming replication física), `scripts/init-replication/` e `scripts/provision-rds-replica-demo.sh`. **Não há mudança no código da aplicação** — ela continua apontando só para o primário; a réplica é demonstrada por fora (psql/pgAdmin, CloudWatch). Roteamento leitura/escrita na aplicação fica para Persistência Distribuída.
+- **Imagem Docker Hub:** `fabianofsc/nexus-shopping:v3.4-cache-distribuido` (mesma imagem; o app não mudou, só a topologia de banco)
+- **Como clonar:**
+  ```bash
+  git clone --branch v3.6-read-replica https://github.com/fabianofsc/nexus-shopping.git
+  make start-replication   # primário → app (semeia) → réplica
+  ```
+- **Propósito de aprendizado:** Ver o mecanismo da réplica por dentro — réplica read-only, `pg_stat_replication`, replication lag congelado sob comando (`pg_wal_replay_pause`) e o trade-off assíncrono vs síncrono (a escrita travando quando a réplica cai, CAP/PACELC na tela) — e depois o mesmo mecanismo gerenciado no RDS.
+
 ---
 
 ## 📊 Relação entre versões
@@ -235,6 +248,10 @@ v3.2-product-detail (GET /products/{id} + carga JMeter para cache)
 v3.3-cache-aside (cache-aside local com Caffeine)
     ↓
 v3.4-cache-distribuido (Redis compartilhado + Spring Cache + busca cacheada)
+    ↓
+v3.5-cache-cloud (ElastiCache gerenciado — mesmo commit de v3.4)
+    ↓
+v3.6-read-replica (streaming replication local + RDS Read Replica — sem mudança de código da app)
 ```
 
 **Comparar performance:**
@@ -287,6 +304,6 @@ git rev-parse v1.1-indexes
 
 ---
 
-**Última atualização:** 2026-07-17
+**Última atualização:** 2026-07-23
 **Responsible:** Fabiano Góes
-**Tags ativas:** v1.0-baseline, v1.1-indexes, v1.2-pagination, v2.0-hexagonal, v3.0-scalability, v3.1-load-balancer-cloud, v3.2-product-detail, v3.3-cache-aside, v3.4-cache-distribuido
+**Tags ativas:** v1.0-baseline, v1.1-indexes, v1.2-pagination, v2.0-hexagonal, v3.0-scalability, v3.1-load-balancer-cloud, v3.2-product-detail, v3.3-cache-aside, v3.4-cache-distribuido, v3.5-cache-cloud, v3.6-read-replica
