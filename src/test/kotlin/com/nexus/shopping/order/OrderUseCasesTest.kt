@@ -159,6 +159,15 @@ class OrderUseCasesTest {
     }
 
     @Test
+    fun `rejects invalid order page requests before accessing the repository`() {
+        val useCase = ListOrdersByCustomerUseCase(FakeOrderRepository())
+
+        assertFailsWith<OrderValidationException> { useCase.list(customerId = 10L, page = -1, size = 50) }
+        assertFailsWith<OrderValidationException> { useCase.list(customerId = 10L, page = 0, size = 0) }
+        assertFailsWith<OrderValidationException> { useCase.list(customerId = 10L, page = 0, size = 501) }
+    }
+
+    @Test
     fun `throws not found when the requested order does not exist`() {
         assertFailsWith<OrderNotFoundException> {
             GetOrderByIdUseCase(FakeOrderRepository()).execute(999L)
