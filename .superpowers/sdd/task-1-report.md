@@ -42,9 +42,10 @@
 - Lint: `./gradlew ktlintCheck` - passou.
 - Suite completa: `./gradlew test --console=plain` - passou em aproximadamente
   um minuto.
-- Revisao manual: sem imports de Spring, JPA, Hibernate, Spring Data ou HTTP
-  em `order/domain` e `order/application`; diff sem espacos invalidos; escopo
-  limitado ao nucleo Order.
+- Revisao manual: sem imports de JPA, Hibernate, Spring Data ou HTTP em
+  `order/domain` e `order/application`. Os use cases em `order/application`
+  usam `@Service`, seguindo o padrao dos demais contextos; diff sem espacos
+  invalidos; escopo limitado ao nucleo Order.
 
 ## Observacao de execucao
 
