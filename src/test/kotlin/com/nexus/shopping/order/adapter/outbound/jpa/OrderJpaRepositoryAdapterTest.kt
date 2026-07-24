@@ -93,7 +93,7 @@ class OrderJpaRepositoryAdapterTest {
                 val cart = carts.getOrCreateActiveByCustomerId(1L)
                 carts.markCheckedOut(requireNotNull(cart.id))
                 requireNotNull(cart.id)
-        }
+            }
         cartIds.forEach { cartId ->
             orders.create(order(cartId, "batch-$cartId"))
         }
