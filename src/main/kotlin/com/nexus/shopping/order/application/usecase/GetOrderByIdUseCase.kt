@@ -8,4 +8,13 @@ class GetOrderByIdUseCase(
     private val orderRepository: OrderRepositoryPort,
 ) {
     fun execute(id: Long): Order = orderRepository.findById(id) ?: throw OrderNotFoundException("Order $id not found.")
+
+    fun executeForCustomer(
+        customerId: Long,
+        id: Long,
+    ): Order {
+        val order = execute(id)
+        if (order.customerId != customerId) throw OrderNotFoundException("Order $id not found.")
+        return order
+    }
 }

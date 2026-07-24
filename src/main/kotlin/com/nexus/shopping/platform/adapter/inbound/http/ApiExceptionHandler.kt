@@ -1,5 +1,6 @@
 package com.nexus.shopping.platform.adapter.inbound.http
 
+import com.nexus.shopping.platform.application.exception.ConflictException
 import com.nexus.shopping.platform.application.exception.NotFoundException
 import com.nexus.shopping.platform.application.exception.ValidationException
 import jakarta.servlet.http.HttpServletRequest
@@ -38,6 +39,17 @@ class ApiExceptionHandler {
         problemDetailResponse(
             status = HttpStatus.NOT_FOUND,
             detail = exception.message ?: "Resource not found.",
+            request = request,
+        )
+
+    @ExceptionHandler(ConflictException::class)
+    fun handleConflict(
+        exception: ConflictException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ProblemDetail> =
+        problemDetailResponse(
+            status = HttpStatus.CONFLICT,
+            detail = exception.message ?: "Resource conflict.",
             request = request,
         )
 

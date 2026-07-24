@@ -21,6 +21,17 @@ interface SpringDataCartRepository : JpaRepository<CartEntity, Long> {
         @Param("status") status: CartStatus,
     ): Optional<CartEntity>
 
+    @Query(
+        """
+        SELECT c FROM CartEntity c
+        WHERE c.customerId = :customerId
+        ORDER BY c.id DESC
+        """,
+    )
+    fun findLatestByCustomerId(
+        @Param("customerId") customerId: Long,
+    ): List<CartEntity>
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM CartEntity c WHERE c.customerId = :customerId AND c.status = :status")
     fun findByCustomerIdAndStatusForUpdate(

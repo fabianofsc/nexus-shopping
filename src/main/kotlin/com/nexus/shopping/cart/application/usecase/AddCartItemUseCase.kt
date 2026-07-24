@@ -4,6 +4,7 @@ import com.nexus.shopping.cart.application.command.AddCartItemCommand
 import com.nexus.shopping.cart.application.exception.CartValidationException
 import com.nexus.shopping.cart.application.port.outbound.CartRepositoryPort
 import com.nexus.shopping.cart.domain.Cart
+import com.nexus.shopping.cart.domain.CartStatus
 import com.nexus.shopping.cart.domain.Currency
 import com.nexus.shopping.cart.domain.ProductSummary
 import com.nexus.shopping.platform.application.logging.infoWithContext
@@ -38,13 +39,14 @@ class AddCartItemUseCase(
                 currency = currency,
             )
 
-        val existingCart = cartRepository.getOrCreateActiveByCustomerId(command.customerId)
+        val existingCart = cartRepository.getOrCreateCartForMutationByCustomerId(command.customerId)
 
         // The mutation is applied inside updateCart(), against a freshly re-read and locked cart,
         // not against `existingCart` above - that snapshot may already be stale by the time this
         // runs, e.g. a concurrent add/remove on the same cart may have committed in between.
         val updatedCart =
             cartRepository.updateCart(requireNotNull(existingCart.id)) { cart ->
+                if (cart.status != CartStatus.ACTIVE) throwValidationFailed("cart must be ACTIVE to add items.")
                 cart.withItemAdded(productSummary, command.quantity)
             }
         logger.infoWithContext(

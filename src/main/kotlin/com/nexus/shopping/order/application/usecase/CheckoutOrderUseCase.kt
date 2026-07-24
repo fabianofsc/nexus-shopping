@@ -17,7 +17,9 @@ class CheckoutOrderUseCase(
     private val cartCheckout: CartCheckoutPort,
     private val transaction: TransactionPort,
 ) {
-    fun execute(command: CheckoutOrderCommand): Order {
+    fun execute(command: CheckoutOrderCommand): Order = executeWithResult(command).order
+
+    fun executeWithResult(command: CheckoutOrderCommand): CheckoutOrderResult {
         if (command.idempotencyKey.isBlank()) invalid("idempotencyKey must not be blank.")
         if (command.customerSnapshot.customerId != command.customerId) {
             invalid("customerSnapshot.customerId must match customerId.")
@@ -25,14 +27,14 @@ class CheckoutOrderUseCase(
         val fingerprint = CheckoutRequestFingerprint.from(command)
 
         return transaction.inTransaction {
-            findReplay(command, fingerprint)?.let { return@inTransaction it }
+            findReplay(command, fingerprint)?.let { return@inTransaction CheckoutOrderResult(it, created = false) }
 
             val lockedCart = cartCheckout.lockActiveCartByCustomerId(command.customerId)
             if (lockedCart == null) {
-                findReplay(command, fingerprint)?.let { return@inTransaction it }
+                findReplay(command, fingerprint)?.let { return@inTransaction CheckoutOrderResult(it, created = false) }
                 invalid("customerId ${command.customerId} does not have an active cart.")
             }
-            findReplay(command, fingerprint)?.let { return@inTransaction it }
+            findReplay(command, fingerprint)?.let { return@inTransaction CheckoutOrderResult(it, created = false) }
             if (lockedCart.items.isEmpty()) invalid("cart items must not be empty.")
 
             val requestedOrder =
@@ -49,7 +51,8 @@ class CheckoutOrderUseCase(
                     createdAt = null,
                     cancelledAt = null,
                 )
-            val persistedOrder = orderRepository.createIfAbsentByCustomerIdAndIdempotencyKey(requestedOrder)
+            val creation = orderRepository.createIfAbsentWithResultByCustomerIdAndIdempotencyKey(requestedOrder)
+            val persistedOrder = creation.order
 
             if (persistedOrder.requestFingerprint != fingerprint) {
                 conflict(command.idempotencyKey)
@@ -57,7 +60,7 @@ class CheckoutOrderUseCase(
             if (persistedOrder.cartId == lockedCart.cartId) {
                 cartCheckout.markCheckedOut(lockedCart.cartId)
             }
-            persistedOrder
+            CheckoutOrderResult(persistedOrder, creation.created)
         }
     }
 
@@ -74,6 +77,11 @@ class CheckoutOrderUseCase(
 
     private fun invalid(message: String): Nothing = throw OrderValidationException(message)
 }
+
+data class CheckoutOrderResult(
+    val order: Order,
+    val created: Boolean,
+)
 
 private object CheckoutRequestFingerprint {
     fun from(command: CheckoutOrderCommand): String {
