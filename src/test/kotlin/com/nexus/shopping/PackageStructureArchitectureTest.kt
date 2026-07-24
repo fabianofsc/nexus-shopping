@@ -1,5 +1,6 @@
 package com.nexus.shopping
 
+import org.springframework.stereotype.Service
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -82,6 +83,28 @@ class PackageStructureArchitectureTest {
 
         assertTrue(loggerContextSource.contains("fun Logger.infoWithContext"))
         assertTrue(loggerContextSource.contains("fun Logger.warnWithContext"))
+    }
+
+    @Test
+    fun `order use cases follow the service component pattern used by existing contexts`() {
+        val orderUseCases =
+            listOf(
+                "com.nexus.shopping.order.application.usecase.CheckoutOrderUseCase",
+                "com.nexus.shopping.order.application.usecase.GetOrderByIdUseCase",
+                "com.nexus.shopping.order.application.usecase.ListOrdersByCustomerUseCase",
+                "com.nexus.shopping.order.application.usecase.CancelOrderUseCase",
+            )
+
+        orderUseCases.forEach { useCase ->
+            assertTrue(Class.forName(useCase).isAnnotationPresent(Service::class.java))
+        }
+
+        val orderConfiguration =
+            ClassLoader.getSystemResource(
+                "com/nexus/shopping/order/adapter/inbound/http/OrderApplicationConfiguration.class",
+            )
+
+        assertTrue(orderConfiguration == null)
     }
 
     @Test

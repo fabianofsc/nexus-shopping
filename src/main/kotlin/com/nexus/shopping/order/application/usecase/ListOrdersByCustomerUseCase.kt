@@ -4,7 +4,9 @@ import com.nexus.shopping.order.application.exception.OrderValidationException
 import com.nexus.shopping.order.application.port.outbound.OrderRepositoryPort
 import com.nexus.shopping.order.domain.Order
 import com.nexus.shopping.platform.domain.PageResult
+import org.springframework.stereotype.Service
 
+@Service
 class ListOrdersByCustomerUseCase(
     private val orderRepository: OrderRepositoryPort,
 ) {

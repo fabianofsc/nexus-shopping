@@ -3,7 +3,9 @@ package com.nexus.shopping.order.application.usecase
 import com.nexus.shopping.order.application.exception.OrderNotFoundException
 import com.nexus.shopping.order.application.port.outbound.OrderRepositoryPort
 import com.nexus.shopping.order.domain.Order
+import org.springframework.stereotype.Service
 
+@Service
 class GetOrderByIdUseCase(
     private val orderRepository: OrderRepositoryPort,
 ) {

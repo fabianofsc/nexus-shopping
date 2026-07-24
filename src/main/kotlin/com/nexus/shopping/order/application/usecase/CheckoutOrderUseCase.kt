@@ -11,8 +11,10 @@ import com.nexus.shopping.order.domain.Order
 import com.nexus.shopping.order.domain.OrderItemSnapshot
 import com.nexus.shopping.order.domain.OrderStatus
 import com.nexus.shopping.order.domain.ShippingAddressSnapshot
+import org.springframework.stereotype.Service
 import java.security.MessageDigest
 
+@Service
 class CheckoutOrderUseCase(
     private val orderRepository: OrderRepositoryPort,
     private val cartCheckout: CartCheckoutPort,

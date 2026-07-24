@@ -6,7 +6,9 @@ import com.nexus.shopping.order.application.port.outbound.OrderRepositoryPort
 import com.nexus.shopping.order.application.port.outbound.TransactionPort
 import com.nexus.shopping.order.domain.Order
 import com.nexus.shopping.order.domain.OrderStateTransitionException
+import org.springframework.stereotype.Service
 
+@Service
 class CancelOrderUseCase(
     private val orderRepository: OrderRepositoryPort,
     private val transaction: TransactionPort = ImmediateTransaction,
