@@ -8,6 +8,9 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -33,9 +36,9 @@ class OrderControllerTest {
     @Test
     fun `POST checkout returns 201 with the order created from cart items`() {
         val port = environment.getRequiredProperty("local.server.port")
-        post(port, "/customers/1/cart/items", addItemBody())
+        addItem(port, 1L)
 
-        val response = post(port, "/customers/1/cart/checkout", checkoutBody(), "checkout-1")
+        val response = checkoutCreated(port, 1L, "checkout-1")
 
         assertEquals(201, response.statusCode())
         val order = mapper.readTree(response.body())
@@ -47,9 +50,9 @@ class OrderControllerTest {
     @Test
     fun `POST checkout replays the original order with 200 for the same idempotency key and payload`() {
         val port = environment.getRequiredProperty("local.server.port")
-        post(port, "/customers/2/cart/items", addItemBody())
+        addItem(port, 2L)
 
-        val created = post(port, "/customers/2/cart/checkout", checkoutBody(), "checkout-replay")
+        val created = checkoutCreated(port, 2L, "checkout-replay")
         val replay = post(port, "/customers/2/cart/checkout", checkoutBody(), "checkout-replay")
 
         assertEquals(201, created.statusCode())
@@ -60,18 +63,19 @@ class OrderControllerTest {
     @Test
     fun `POST checkout requires the Idempotency-Key header`() {
         val port = environment.getRequiredProperty("local.server.port")
-        post(port, "/customers/3/cart/items", addItemBody())
+        val customerId = createCustomer(port, "missing-idempotency-key")
+        addItem(port, customerId)
 
-        val response = post(port, "/customers/3/cart/checkout", checkoutBody())
+        val response = post(port, "/customers/$customerId/cart/checkout", checkoutBody())
 
-        assertProblemDetail(response, 400, "Bad Request", "/customers/3/cart/checkout")
+        assertProblemDetail(response, 400, "Bad Request", "/customers/$customerId/cart/checkout")
     }
 
     @Test
     fun `POST checkout returns 409 problem details when the key is reused with a different payload`() {
         val port = environment.getRequiredProperty("local.server.port")
-        post(port, "/customers/3/cart/items", addItemBody())
-        post(port, "/customers/3/cart/checkout", checkoutBody(), "checkout-conflict")
+        addItem(port, 3L)
+        checkoutCreated(port, 3L, "checkout-conflict")
 
         val response = post(port, "/customers/3/cart/checkout", checkoutBody(number = "999"), "checkout-conflict")
 
@@ -92,8 +96,8 @@ class OrderControllerTest {
     fun `POST checkout returns 400 for a cart already checked out`() {
         val port = environment.getRequiredProperty("local.server.port")
         val customerId = createCustomer(port, "closed-cart")
-        post(port, "/customers/$customerId/cart/items", addItemBody())
-        post(port, "/customers/$customerId/cart/checkout", checkoutBody(), "checkout-closed-original")
+        addItem(port, customerId)
+        checkoutCreated(port, customerId, "checkout-closed-original")
 
         val response = post(port, "/customers/$customerId/cart/checkout", checkoutBody(), "checkout-closed-new-key")
 
@@ -103,8 +107,8 @@ class OrderControllerTest {
     @Test
     fun `GET order detail returns the order for its customer`() {
         val port = environment.getRequiredProperty("local.server.port")
-        post(port, "/customers/4/cart/items", addItemBody())
-        val created = mapper.readTree(post(port, "/customers/4/cart/checkout", checkoutBody(), "checkout-detail").body())
+        addItem(port, 4L)
+        val created = mapper.readTree(checkoutCreated(port, 4L, "checkout-detail").body())
 
         val response = get(port, "/customers/4/orders/${created["id"].asLong()}")
 
@@ -117,8 +121,8 @@ class OrderControllerTest {
     @Test
     fun `GET order detail returns 404 when the order belongs to another customer`() {
         val port = environment.getRequiredProperty("local.server.port")
-        post(port, "/customers/5/cart/items", addItemBody())
-        val created = mapper.readTree(post(port, "/customers/5/cart/checkout", checkoutBody(), "checkout-owner").body())
+        addItem(port, 5L)
+        val created = mapper.readTree(checkoutCreated(port, 5L, "checkout-owner").body())
 
         val response = get(port, "/customers/6/orders/${created["id"].asLong()}")
 
@@ -128,8 +132,8 @@ class OrderControllerTest {
     @Test
     fun `GET orders returns a Slice page for the customer`() {
         val port = environment.getRequiredProperty("local.server.port")
-        post(port, "/customers/7/cart/items", addItemBody())
-        post(port, "/customers/7/cart/checkout", checkoutBody(), "checkout-list")
+        addItem(port, 7L)
+        checkoutCreated(port, 7L, "checkout-list")
 
         val response = get(port, "/customers/7/orders?page=0&size=50")
 
@@ -142,10 +146,37 @@ class OrderControllerTest {
     }
 
     @Test
+    fun `GET orders returns 400 problem details for a negative page`() {
+        val port = environment.getRequiredProperty("local.server.port")
+
+        val response = get(port, "/customers/1/orders?page=-1&size=50")
+
+        assertProblemDetail(response, 400, "Bad Request", "/customers/1/orders")
+    }
+
+    @Test
+    fun `GET orders returns 400 problem details for size zero`() {
+        val port = environment.getRequiredProperty("local.server.port")
+
+        val response = get(port, "/customers/1/orders?page=0&size=0")
+
+        assertProblemDetail(response, 400, "Bad Request", "/customers/1/orders")
+    }
+
+    @Test
+    fun `GET orders returns 400 problem details for size above the maximum`() {
+        val port = environment.getRequiredProperty("local.server.port")
+
+        val response = get(port, "/customers/1/orders?page=0&size=501")
+
+        assertProblemDetail(response, 400, "Bad Request", "/customers/1/orders")
+    }
+
+    @Test
     fun `POST cancel changes a waiting order to CANCELLED`() {
         val port = environment.getRequiredProperty("local.server.port")
-        post(port, "/customers/8/cart/items", addItemBody())
-        val created = mapper.readTree(post(port, "/customers/8/cart/checkout", checkoutBody(), "checkout-cancel").body())
+        addItem(port, 8L)
+        val created = mapper.readTree(checkoutCreated(port, 8L, "checkout-cancel").body())
 
         val response = post(port, "/customers/8/orders/${created["id"].asLong()}/cancel", "{}")
 
@@ -156,9 +187,10 @@ class OrderControllerTest {
     @Test
     fun `POST cancel returns 409 problem details when the order cannot transition again`() {
         val port = environment.getRequiredProperty("local.server.port")
-        post(port, "/customers/9/cart/items", addItemBody())
-        val created = mapper.readTree(post(port, "/customers/9/cart/checkout", checkoutBody(), "checkout-cancel-conflict").body())
-        post(port, "/customers/9/orders/${created["id"].asLong()}/cancel", "{}")
+        addItem(port, 9L)
+        val created = mapper.readTree(checkoutCreated(port, 9L, "checkout-cancel-conflict").body())
+        val firstCancellation = post(port, "/customers/9/orders/${created["id"].asLong()}/cancel", "{}")
+        assertEquals(200, firstCancellation.statusCode())
 
         val response = post(port, "/customers/9/orders/${created["id"].asLong()}/cancel", "{}")
 
@@ -168,8 +200,8 @@ class OrderControllerTest {
     @Test
     fun `POST cancel returns 404 when the order belongs to another customer`() {
         val port = environment.getRequiredProperty("local.server.port")
-        post(port, "/customers/10/cart/items", addItemBody())
-        val created = mapper.readTree(post(port, "/customers/10/cart/checkout", checkoutBody(), "checkout-cancel-owner").body())
+        addItem(port, 10L)
+        val created = mapper.readTree(checkoutCreated(port, 10L, "checkout-cancel-owner").body())
 
         val response = post(port, "/customers/11/orders/${created["id"].asLong()}/cancel", "{}")
 
@@ -177,11 +209,36 @@ class OrderControllerTest {
     }
 
     @Test
+    fun `concurrent cancellation returns exactly one 200 and one 409`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val customerId = createCustomer(port, "concurrent-cancel")
+        addItem(port, customerId)
+        val created = mapper.readTree(checkoutCreated(port, customerId, "checkout-concurrent-cancel").body())
+        val path = "/customers/$customerId/orders/${created["id"].asLong()}/cancel"
+        val barrier = CyclicBarrier(2)
+        val executor = Executors.newFixedThreadPool(2)
+
+        try {
+            val responses =
+                List(2) {
+                    executor.submit<HttpResponse<String>> {
+                        barrier.await(10, TimeUnit.SECONDS)
+                        post(port, path, "{}")
+                    }
+                }.map { it.get(20, TimeUnit.SECONDS) }
+
+            assertEquals(listOf(200, 409), responses.map { it.statusCode() }.sorted())
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
+    @Test
     fun `POST cart items returns 400 after checkout`() {
         val port = environment.getRequiredProperty("local.server.port")
         val customerId = createCustomer(port, "cart-add")
-        post(port, "/customers/$customerId/cart/items", addItemBody())
-        post(port, "/customers/$customerId/cart/checkout", checkoutBody(), "checkout-cart-add")
+        addItem(port, customerId)
+        checkoutCreated(port, customerId, "checkout-cart-add")
 
         val response = post(port, "/customers/$customerId/cart/items", addItemBody(productId = 20))
 
@@ -192,8 +249,8 @@ class OrderControllerTest {
     fun `DELETE cart item returns 400 after checkout`() {
         val port = environment.getRequiredProperty("local.server.port")
         val customerId = createCustomer(port, "cart-remove")
-        post(port, "/customers/$customerId/cart/items", addItemBody())
-        post(port, "/customers/$customerId/cart/checkout", checkoutBody(), "checkout-cart-remove")
+        addItem(port, customerId)
+        checkoutCreated(port, customerId, "checkout-cart-remove")
 
         val response = delete(port, "/customers/$customerId/cart/items/10")
 
@@ -204,8 +261,8 @@ class OrderControllerTest {
     fun `DELETE cart items returns 400 after checkout`() {
         val port = environment.getRequiredProperty("local.server.port")
         val customerId = createCustomer(port, "cart-clear")
-        post(port, "/customers/$customerId/cart/items", addItemBody())
-        post(port, "/customers/$customerId/cart/checkout", checkoutBody(), "checkout-cart-clear")
+        addItem(port, customerId)
+        checkoutCreated(port, customerId, "checkout-cart-clear")
 
         val response = delete(port, "/customers/$customerId/cart/items")
 
@@ -228,6 +285,24 @@ class OrderControllerTest {
                 }.POST(HttpRequest.BodyPublishers.ofString(body))
                 .build()
         return httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+    }
+
+    private fun addItem(
+        port: String,
+        customerId: Long,
+    ) {
+        val response = post(port, "/customers/$customerId/cart/items", addItemBody())
+        assertEquals(200, response.statusCode())
+    }
+
+    private fun checkoutCreated(
+        port: String,
+        customerId: Long,
+        idempotencyKey: String,
+    ): HttpResponse<String> {
+        val response = post(port, "/customers/$customerId/cart/checkout", checkoutBody(), idempotencyKey)
+        assertEquals(201, response.statusCode())
+        return response
     }
 
     private fun get(
