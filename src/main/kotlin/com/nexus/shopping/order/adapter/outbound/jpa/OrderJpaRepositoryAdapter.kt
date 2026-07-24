@@ -1,6 +1,5 @@
 package com.nexus.shopping.order.adapter.outbound.jpa
 
-import com.nexus.shopping.order.application.port.outbound.OrderCreationResult
 import com.nexus.shopping.order.application.port.outbound.OrderRepositoryPort
 import com.nexus.shopping.order.domain.Order
 import com.nexus.shopping.platform.domain.PageResult
@@ -36,12 +35,7 @@ class OrderJpaRepositoryAdapter(
     }
 
     @Transactional
-    override fun createIfAbsentByCustomerIdAndIdempotencyKey(order: Order): Order =
-        createIfAbsentWithResultByCustomerIdAndIdempotencyKey(order).order
-
-    @Transactional
-    override fun createIfAbsentWithResultByCustomerIdAndIdempotencyKey(order: Order): OrderCreationResult =
-        OrderCreationResult(repository.saveAndFlush(order.toEntity()).toDomain(), created = true)
+    override fun create(order: Order): Order = repository.saveAndFlush(order.toEntity()).toDomain()
 
     @Transactional
     override fun update(order: Order): Order {

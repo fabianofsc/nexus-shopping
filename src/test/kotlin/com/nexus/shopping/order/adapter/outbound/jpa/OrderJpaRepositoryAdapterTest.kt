@@ -40,7 +40,7 @@ class OrderJpaRepositoryAdapterTest {
         val cart = carts.getOrCreateActiveByCustomerId(1L)
         val requested = order(requireNotNull(cart.id))
 
-        val created = orders.createIfAbsentByCustomerIdAndIdempotencyKey(requested)
+        val created = orders.create(requested)
         val replay = orders.findByCustomerIdAndIdempotencyKey(1L, "checkout-1")
         val found = orders.findById(requireNotNull(created.id))
 
@@ -55,17 +55,17 @@ class OrderJpaRepositoryAdapterTest {
     fun `duplicate direct insert is not recovered inside the aborted transaction`() {
         val cart = carts.getOrCreateActiveByCustomerId(3L)
         val requested = order(requireNotNull(cart.id), "checkout-3")
-        orders.createIfAbsentByCustomerIdAndIdempotencyKey(requested)
+        orders.create(requested)
 
         assertFailsWith<DataIntegrityViolationException> {
-            orders.createIfAbsentByCustomerIdAndIdempotencyKey(requested)
+            orders.create(requested)
         }
     }
 
     @Test
     fun `finds by customer idempotency key and updates cancellation without replacing snapshots`() {
         val cart = carts.getOrCreateActiveByCustomerId(2L)
-        val created = orders.createIfAbsentByCustomerIdAndIdempotencyKey(order(requireNotNull(cart.id), "checkout-2"))
+        val created = orders.create(order(requireNotNull(cart.id), "checkout-2"))
 
         val cancelled = orders.update(created.cancel())
         val replay = orders.findByCustomerIdAndIdempotencyKey(2L, "checkout-2")
