@@ -53,9 +53,18 @@ private class FakeOrderRepository : OrderRepositoryPort {
 
     private fun persist(order: Order): Order {
         val persisted =
-            order.copy(
+            Order(
                 id = order.id ?: nextId++,
+                customerId = order.customerId,
+                cartId = order.cartId,
+                customerSnapshot = order.customerSnapshot,
+                shippingAddressSnapshot = order.shippingAddressSnapshot,
+                items = order.items,
+                status = order.status,
+                idempotencyKey = order.idempotencyKey,
+                requestFingerprint = order.requestFingerprint,
                 createdAt = order.createdAt ?: Instant.parse("2026-07-24T12:00:00Z"),
+                cancelledAt = order.cancelledAt,
             )
         ordersById[requireNotNull(persisted.id)] = persisted
         return persisted
@@ -63,7 +72,7 @@ private class FakeOrderRepository : OrderRepositoryPort {
 }
 
 class OrderUseCasesTest {
-    private fun checkoutCommand(fingerprint: String = "fingerprint-1") =
+    private fun checkoutCommand() =
         CheckoutOrderCommand(
             cartId = 100L,
             customerId = 10L,
@@ -72,7 +81,6 @@ class OrderUseCasesTest {
                 ShippingAddressSnapshot("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
             items = listOf(OrderItemSnapshot(1L, "Produto A", BigDecimal("19.90"), Currency.BRL, 2)),
             idempotencyKey = "checkout-1",
-            requestFingerprint = fingerprint,
         )
 
     @Test
@@ -88,7 +96,7 @@ class OrderUseCasesTest {
     }
 
     @Test
-    fun `checkout replays the original order for the same customer key and fingerprint`() {
+    fun `checkout replays the original order for the same customer key and payload`() {
         val repository = FakeOrderRepository()
         val useCase = CheckoutOrderUseCase(repository)
         val original = useCase.execute(checkoutCommand())
@@ -100,14 +108,30 @@ class OrderUseCasesTest {
     }
 
     @Test
-    fun `checkout rejects reuse of a customer idempotency key with a different fingerprint`() {
+    fun `checkout rejects reuse of a customer idempotency key with a different payload`() {
         val repository = FakeOrderRepository()
         val useCase = CheckoutOrderUseCase(repository)
         useCase.execute(checkoutCommand())
 
         assertFailsWith<OrderIdempotencyConflictException> {
-            useCase.execute(checkoutCommand(fingerprint = "different-fingerprint"))
+            useCase.execute(
+                checkoutCommand().copy(
+                    items = listOf(OrderItemSnapshot(1L, "Produto alterado", BigDecimal("19.90"), Currency.BRL, 2)),
+                ),
+            )
         }
+    }
+
+    @Test
+    fun `checkout isolates the order from later mutations to the input item list`() {
+        val items = mutableListOf(OrderItemSnapshot(1L, "Produto A", BigDecimal("19.90"), Currency.BRL, 2))
+        val command = checkoutCommand().copy(items = items)
+
+        val order = CheckoutOrderUseCase(FakeOrderRepository()).execute(command)
+        items.clear()
+
+        assertEquals(1, order.items.size)
+        assertEquals(BigDecimal("39.80"), order.totalAmount)
     }
 
     @Test
