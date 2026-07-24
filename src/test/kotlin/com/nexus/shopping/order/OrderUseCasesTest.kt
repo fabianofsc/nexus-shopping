@@ -131,6 +131,19 @@ class OrderUseCasesTest {
     }
 
     @Test
+    fun `checkout rejects a cart snapshot with multiple currencies`() {
+        val items =
+            listOf(
+                item(),
+                OrderItemSnapshot(2L, "Produto B", BigDecimal("10.00"), Currency.USD, 1),
+            )
+
+        assertFailsWith<OrderValidationException> {
+            checkoutUseCase(FakeOrderRepository(), items).execute(checkoutCommand())
+        }
+    }
+
+    @Test
     fun `checkout rejects a snapshot owned by another customer`() {
         assertFailsWith<OrderValidationException> {
             checkoutUseCase(FakeOrderRepository()).execute(

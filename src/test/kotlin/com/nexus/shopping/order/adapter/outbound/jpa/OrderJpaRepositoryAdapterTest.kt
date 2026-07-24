@@ -7,6 +7,9 @@ import com.nexus.shopping.order.domain.Order
 import com.nexus.shopping.order.domain.OrderItemSnapshot
 import com.nexus.shopping.order.domain.OrderStatus
 import com.nexus.shopping.order.domain.ShippingAddressSnapshot
+import jakarta.persistence.EntityManager
+import jakarta.persistence.EntityManagerFactory
+import org.hibernate.SessionFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.dao.DataIntegrityViolationException
@@ -16,6 +19,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 @SpringBootTest(
     properties = [
@@ -25,6 +29,7 @@ import kotlin.test.assertNotNull
         "spring.datasource.password=",
         "spring.flyway.placeholders.productSeedCount=3",
         "spring.jpa.hibernate.ddl-auto=none",
+        "spring.jpa.properties.hibernate.generate_statistics=true",
     ],
 )
 @Transactional
@@ -34,6 +39,12 @@ class OrderJpaRepositoryAdapterTest {
 
     @Autowired
     private lateinit var carts: CartJpaRepositoryAdapter
+
+    @Autowired
+    private lateinit var entityManager: EntityManager
+
+    @Autowired
+    private lateinit var entityManagerFactory: EntityManagerFactory
 
     @Test
     fun `persists historical order snapshots and finds them by idempotency key`() {
@@ -73,6 +84,31 @@ class OrderJpaRepositoryAdapterTest {
         assertNotNull(cancelled.cancelledAt)
         assertEquals(OrderStatus.CANCELLED, replay?.status)
         assertEquals(listOf(item()), replay?.items)
+    }
+
+    @Test
+    fun `lists a page of orders without one item query per order`() {
+        val cartIds =
+            (1..3).map {
+                val cart = carts.getOrCreateActiveByCustomerId(1L)
+                carts.markCheckedOut(requireNotNull(cart.id))
+                requireNotNull(cart.id)
+        }
+        cartIds.forEach { cartId ->
+            orders.create(order(cartId, "batch-$cartId"))
+        }
+
+        entityManager.clear()
+        val statistics = entityManagerFactory.unwrap(SessionFactory::class.java).statistics
+        statistics.clear()
+
+        val page = orders.findByCustomerId(customerId = 1L, page = 0, size = 10)
+
+        assertEquals(3, page.content.size)
+        assertTrue(
+            statistics.prepareStatementCount <= 2,
+            "Expected the order page and its items to use at most two statements, but used ${statistics.prepareStatementCount}.",
+        )
     }
 
     private fun order(
