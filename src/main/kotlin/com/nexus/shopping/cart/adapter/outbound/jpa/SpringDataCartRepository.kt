@@ -2,6 +2,8 @@ package com.nexus.shopping.cart.adapter.outbound.jpa
 
 import com.nexus.shopping.cart.domain.CartStatus
 import jakarta.persistence.LockModeType
+import org.springframework.data.domain.Pageable
+import org.springframework.data.domain.Slice
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
@@ -30,7 +32,8 @@ interface SpringDataCartRepository : JpaRepository<CartEntity, Long> {
     )
     fun findLatestByCustomerId(
         @Param("customerId") customerId: Long,
-    ): List<CartEntity>
+        pageable: Pageable,
+    ): Slice<CartEntity>
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM CartEntity c WHERE c.customerId = :customerId AND c.status = :status")

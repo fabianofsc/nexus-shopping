@@ -163,4 +163,36 @@ class CheckoutOrderTransactionUseCaseTest {
         assertEquals(0, orders.createdOrders)
         assertEquals(null, carts.checkedOutCartId)
     }
+
+    @Test
+    fun `checkout validates idempotency key and required snapshot fields before locking the cart`() {
+        val orders = CheckoutOrderRepositoryFake()
+        val carts = CheckoutCartFake(activeCart())
+        val useCase = CheckoutOrderUseCase(orders, carts, ImmediateTransaction)
+
+        assertFailsWith<OrderValidationException> {
+            useCase.execute(command().copy(idempotencyKey = "k".repeat(256)))
+        }
+        assertFailsWith<OrderValidationException> {
+            useCase.execute(command().copy(customerSnapshot = command().customerSnapshot.copy(name = " ")))
+        }
+        assertEquals(0, carts.lockCalls)
+        assertEquals(0, orders.createdOrders)
+    }
+
+    @Test
+    fun `checkout validates snapshot lengths and locked item values before persisting`() {
+        val orders = CheckoutOrderRepositoryFake()
+        val carts = CheckoutCartFake(activeCart(listOf(item().copy(productName = " "))))
+        val useCase = CheckoutOrderUseCase(orders, carts, ImmediateTransaction)
+
+        assertFailsWith<OrderValidationException> {
+            useCase.execute(command().copy(shippingAddressSnapshot = command().shippingAddressSnapshot.copy(street = "s".repeat(221))))
+        }
+        assertFailsWith<OrderValidationException> {
+            useCase.execute(command())
+        }
+        assertEquals(0, orders.createdOrders)
+        assertEquals(null, carts.checkedOutCartId)
+    }
 }

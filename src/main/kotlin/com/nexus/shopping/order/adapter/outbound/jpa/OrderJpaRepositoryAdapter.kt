@@ -4,9 +4,6 @@ import com.nexus.shopping.order.application.port.outbound.OrderCreationResult
 import com.nexus.shopping.order.application.port.outbound.OrderRepositoryPort
 import com.nexus.shopping.order.domain.Order
 import com.nexus.shopping.platform.domain.PageResult
-import jakarta.persistence.EntityManager
-import jakarta.persistence.PersistenceContext
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
@@ -15,9 +12,6 @@ import org.springframework.transaction.annotation.Transactional
 class OrderJpaRepositoryAdapter(
     private val repository: SpringDataOrderRepository,
 ) : OrderRepositoryPort {
-    @PersistenceContext
-    private lateinit var entityManager: EntityManager
-
     @Transactional(readOnly = true)
     override fun findById(id: Long): Order? = repository.findOrderById(id).orElse(null)?.toDomain()
 
@@ -47,15 +41,7 @@ class OrderJpaRepositoryAdapter(
 
     @Transactional
     override fun createIfAbsentWithResultByCustomerIdAndIdempotencyKey(order: Order): OrderCreationResult =
-        try {
-            OrderCreationResult(repository.saveAndFlush(order.toEntity()).toDomain(), created = true)
-        } catch (exception: DataIntegrityViolationException) {
-            entityManager.clear()
-            OrderCreationResult(
-                findByCustomerIdAndIdempotencyKey(order.customerId, order.idempotencyKey) ?: throw exception,
-                created = false,
-            )
-        }
+        OrderCreationResult(repository.saveAndFlush(order.toEntity()).toDomain(), created = true)
 
     @Transactional
     override fun update(order: Order): Order {
