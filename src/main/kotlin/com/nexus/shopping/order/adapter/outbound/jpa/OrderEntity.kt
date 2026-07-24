@@ -19,6 +19,7 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
+import org.hibernate.annotations.BatchSize
 import org.hibernate.annotations.CreationTimestamp
 import org.hibernate.annotations.SourceType
 import java.math.BigDecimal
@@ -68,7 +69,8 @@ class OrderEntity(
     var idempotencyKey: String = "",
     @Column(name = "request_fingerprint", nullable = false, length = 64)
     var requestFingerprint: String = "",
-    @OneToMany(mappedBy = "order", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
+    @BatchSize(size = 50)
+    @OneToMany(mappedBy = "order", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
     var items: MutableList<OrderItemEntity> = mutableListOf(),
     @CreationTimestamp(source = SourceType.DB)
     @Column(name = "created_at", nullable = false, updatable = false)

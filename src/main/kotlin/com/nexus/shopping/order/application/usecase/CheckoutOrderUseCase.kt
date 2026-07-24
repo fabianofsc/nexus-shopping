@@ -143,6 +143,9 @@ private object CheckoutPayloadValidator {
     }
 
     fun validateItems(items: List<OrderItemSnapshot>) {
+        if (items.map { it.currency }.toSet().size != 1) {
+            invalid("cart items must use a single currency.")
+        }
         items.forEachIndexed { index, item ->
             positive(item.productId, "items[$index].productId")
             required(item.productName, "items[$index].productName")
