@@ -6,6 +6,11 @@ import com.nexus.shopping.platform.domain.PageResult
 interface OrderRepositoryPort {
     fun findById(id: Long): Order?
 
+    fun findByCustomerIdAndIdempotencyKey(
+        customerId: Long,
+        idempotencyKey: String,
+    ): Order?
+
     fun findByCustomerId(
         customerId: Long,
         page: Int,

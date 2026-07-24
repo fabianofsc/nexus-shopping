@@ -21,6 +21,13 @@ interface SpringDataCartRepository : JpaRepository<CartEntity, Long> {
         @Param("status") status: CartStatus,
     ): Optional<CartEntity>
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM CartEntity c WHERE c.customerId = :customerId AND c.status = :status")
+    fun findByCustomerIdAndStatusForUpdate(
+        @Param("customerId") customerId: Long,
+        @Param("status") status: CartStatus,
+    ): Optional<CartEntity>
+
     /**
      * Locks the cart row (`SELECT ... FOR UPDATE`, portable between H2 and PostgreSQL) for the
      * duration of the caller's transaction, so concurrent read-modify-write cycles on the same

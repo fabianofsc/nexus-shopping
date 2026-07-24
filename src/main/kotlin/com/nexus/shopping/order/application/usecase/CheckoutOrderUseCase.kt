@@ -3,47 +3,74 @@ package com.nexus.shopping.order.application.usecase
 import com.nexus.shopping.order.application.command.CheckoutOrderCommand
 import com.nexus.shopping.order.application.exception.OrderIdempotencyConflictException
 import com.nexus.shopping.order.application.exception.OrderValidationException
+import com.nexus.shopping.order.application.port.outbound.CartCheckoutPort
 import com.nexus.shopping.order.application.port.outbound.OrderRepositoryPort
+import com.nexus.shopping.order.application.port.outbound.TransactionPort
 import com.nexus.shopping.order.domain.CustomerSnapshot
 import com.nexus.shopping.order.domain.Order
-import com.nexus.shopping.order.domain.OrderItemSnapshot
 import com.nexus.shopping.order.domain.OrderStatus
 import com.nexus.shopping.order.domain.ShippingAddressSnapshot
 import java.security.MessageDigest
 
 class CheckoutOrderUseCase(
     private val orderRepository: OrderRepositoryPort,
+    private val cartCheckout: CartCheckoutPort,
+    private val transaction: TransactionPort,
 ) {
     fun execute(command: CheckoutOrderCommand): Order {
         if (command.idempotencyKey.isBlank()) invalid("idempotencyKey must not be blank.")
-        if (command.items.isEmpty()) invalid("items must not be empty.")
         if (command.customerSnapshot.customerId != command.customerId) {
             invalid("customerSnapshot.customerId must match customerId.")
         }
+        val fingerprint = CheckoutRequestFingerprint.from(command)
 
-        val requestedOrder =
-            Order(
-                id = null,
-                customerId = command.customerId,
-                cartId = command.cartId,
-                customerSnapshot = command.customerSnapshot,
-                shippingAddressSnapshot = command.shippingAddressSnapshot,
-                items = command.items.toList(),
-                status = OrderStatus.WAITING_PAYMENT,
-                idempotencyKey = command.idempotencyKey,
-                requestFingerprint = CheckoutRequestFingerprint.from(command),
-                createdAt = null,
-                cancelledAt = null,
-            )
-        val persistedOrder = orderRepository.createIfAbsentByCustomerIdAndIdempotencyKey(requestedOrder)
+        return transaction.inTransaction {
+            findReplay(command, fingerprint)?.let { return@inTransaction it }
 
-        if (persistedOrder.requestFingerprint != requestedOrder.requestFingerprint) {
-            throw OrderIdempotencyConflictException(
-                "Idempotency key ${command.idempotencyKey} was already used with a different payload.",
-            )
+            val lockedCart = cartCheckout.lockActiveCartByCustomerId(command.customerId)
+            if (lockedCart == null) {
+                findReplay(command, fingerprint)?.let { return@inTransaction it }
+                invalid("customerId ${command.customerId} does not have an active cart.")
+            }
+            findReplay(command, fingerprint)?.let { return@inTransaction it }
+            if (lockedCart.items.isEmpty()) invalid("cart items must not be empty.")
+
+            val requestedOrder =
+                Order(
+                    id = null,
+                    customerId = command.customerId,
+                    cartId = lockedCart.cartId,
+                    customerSnapshot = command.customerSnapshot,
+                    shippingAddressSnapshot = command.shippingAddressSnapshot,
+                    items = lockedCart.items,
+                    status = OrderStatus.WAITING_PAYMENT,
+                    idempotencyKey = command.idempotencyKey,
+                    requestFingerprint = fingerprint,
+                    createdAt = null,
+                    cancelledAt = null,
+                )
+            val persistedOrder = orderRepository.createIfAbsentByCustomerIdAndIdempotencyKey(requestedOrder)
+
+            if (persistedOrder.requestFingerprint != fingerprint) {
+                conflict(command.idempotencyKey)
+            }
+            if (persistedOrder.cartId == lockedCart.cartId) {
+                cartCheckout.markCheckedOut(lockedCart.cartId)
+            }
+            persistedOrder
         }
-        return persistedOrder
     }
+
+    private fun findReplay(
+        command: CheckoutOrderCommand,
+        fingerprint: String,
+    ): Order? =
+        orderRepository.findByCustomerIdAndIdempotencyKey(command.customerId, command.idempotencyKey)?.also {
+            if (it.requestFingerprint != fingerprint) conflict(command.idempotencyKey)
+        }
+
+    private fun conflict(idempotencyKey: String): Nothing =
+        throw OrderIdempotencyConflictException("Idempotency key $idempotencyKey was already used with a different payload.")
 
     private fun invalid(message: String): Nothing = throw OrderValidationException(message)
 }
@@ -53,13 +80,8 @@ private object CheckoutRequestFingerprint {
         val canonicalPayload =
             buildString {
                 appendField(command.customerId.toString())
-                appendField(command.cartId.toString())
                 appendCustomer(command.customerSnapshot)
                 appendShippingAddress(command.shippingAddressSnapshot)
-                command.items
-                    .map(::canonicalItem)
-                    .sorted()
-                    .forEach { item -> appendField(item) }
             }
         return MessageDigest
             .getInstance("SHA-256")
@@ -86,15 +108,6 @@ private object CheckoutRequestFingerprint {
         appendField(snapshot.zipCode)
         appendField(snapshot.country)
     }
-
-    private fun canonicalItem(item: OrderItemSnapshot): String =
-        buildString {
-            appendField(item.productId.toString())
-            appendField(item.productName)
-            appendField(item.unitPriceAmount.stripTrailingZeros().toPlainString())
-            appendField(item.currency.name)
-            appendField(item.quantity.toString())
-        }
 
     private fun StringBuilder.appendNullable(value: String?) {
         appendField(value)

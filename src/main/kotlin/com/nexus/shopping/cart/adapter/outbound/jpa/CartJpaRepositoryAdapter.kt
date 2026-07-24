@@ -5,6 +5,9 @@ import com.nexus.shopping.cart.application.port.outbound.CartRepositoryPort
 import com.nexus.shopping.cart.domain.Cart
 import com.nexus.shopping.cart.domain.CartItem
 import com.nexus.shopping.cart.domain.CartStatus
+import com.nexus.shopping.order.application.port.outbound.CartCheckoutPort
+import com.nexus.shopping.order.application.port.outbound.CheckoutCartSnapshot
+import com.nexus.shopping.order.domain.OrderItemSnapshot
 import jakarta.persistence.EntityManager
 import jakarta.persistence.PersistenceContext
 import org.springframework.stereotype.Repository
@@ -13,7 +16,8 @@ import org.springframework.transaction.annotation.Transactional
 @Repository
 class CartJpaRepositoryAdapter(
     private val repository: SpringDataCartRepository,
-) : CartRepositoryPort {
+) : CartRepositoryPort,
+    CartCheckoutPort {
     @PersistenceContext
     private lateinit var entityManager: EntityManager
 
@@ -78,6 +82,40 @@ class CartJpaRepositoryAdapter(
         entity.status = mutated.status
         reconcileItems(entity, mutated.items)
         return repository.saveAndFlush(entity).toDomain()
+    }
+
+    @Transactional
+    override fun lockActiveCartByCustomerId(customerId: Long): CheckoutCartSnapshot? =
+        repository
+            .findByCustomerIdAndStatusForUpdate(customerId, CartStatus.ACTIVE)
+            .orElse(null)
+            ?.let { entity ->
+                CheckoutCartSnapshot(
+                    cartId = requireNotNull(entity.id),
+                    customerId = entity.customerId,
+                    items =
+                        entity.items.map { item ->
+                            OrderItemSnapshot(
+                                productId = item.productId,
+                                productName = item.productName,
+                                unitPriceAmount = item.unitPriceAmount,
+                                currency =
+                                    com.nexus.shopping.order.domain.Currency
+                                        .valueOf(item.currency.name),
+                                quantity = item.quantity,
+                            )
+                        },
+                )
+            }
+
+    @Transactional
+    override fun markCheckedOut(cartId: Long) {
+        val entity =
+            repository.findByIdForUpdate(cartId).orElseThrow {
+                IllegalStateException("Cart $cartId not found.")
+            }
+        entity.status = CartStatus.CHECKED_OUT
+        repository.saveAndFlush(entity)
     }
 
     /** Returns true if customerId references an existing row, having taken a write lock on it. */
