@@ -3,6 +3,11 @@ package com.nexus.shopping.order.domain
 import java.math.BigDecimal
 import java.time.Instant
 
+/**
+ * O construtor privado obriga a criacao pela factory, que faz uma copia defensiva dos itens.
+ * [ConsistentCopyVisibility] da ao [copy] gerado a mesma visibilidade privada, impedindo que chamadas
+ * como `order.copy(status = ...)` contornem as transicoes controladas pelo dominio.
+ */
 @ConsistentCopyVisibility
 data class Order private constructor(
     val id: Long?,
