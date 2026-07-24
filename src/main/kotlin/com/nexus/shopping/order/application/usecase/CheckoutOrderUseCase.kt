@@ -8,6 +8,7 @@ import com.nexus.shopping.order.application.port.outbound.OrderRepositoryPort
 import com.nexus.shopping.order.application.port.outbound.TransactionPort
 import com.nexus.shopping.order.domain.CustomerSnapshot
 import com.nexus.shopping.order.domain.Order
+import com.nexus.shopping.order.domain.OrderItemSnapshot
 import com.nexus.shopping.order.domain.OrderStatus
 import com.nexus.shopping.order.domain.ShippingAddressSnapshot
 import java.security.MessageDigest
@@ -20,10 +21,7 @@ class CheckoutOrderUseCase(
     fun execute(command: CheckoutOrderCommand): Order = executeWithResult(command).order
 
     fun executeWithResult(command: CheckoutOrderCommand): CheckoutOrderResult {
-        if (command.idempotencyKey.isBlank()) invalid("idempotencyKey must not be blank.")
-        if (command.customerSnapshot.customerId != command.customerId) {
-            invalid("customerSnapshot.customerId must match customerId.")
-        }
+        CheckoutPayloadValidator.validate(command)
         val fingerprint = CheckoutRequestFingerprint.from(command)
 
         return transaction.inTransaction {
@@ -36,6 +34,7 @@ class CheckoutOrderUseCase(
             }
             findReplay(command, fingerprint)?.let { return@inTransaction CheckoutOrderResult(it, created = false) }
             if (lockedCart.items.isEmpty()) invalid("cart items must not be empty.")
+            CheckoutPayloadValidator.validateItems(lockedCart.items)
 
             val requestedOrder =
                 Order(
@@ -128,4 +127,92 @@ private object CheckoutRequestFingerprint {
             append(value.length).append(':').append(value)
         }
     }
+}
+
+private object CheckoutPayloadValidator {
+    fun validate(command: CheckoutOrderCommand) {
+        positive(command.customerId, "customerId")
+        length(command.idempotencyKey, "idempotencyKey", 255)
+        required(command.idempotencyKey, "idempotencyKey")
+        if (command.customerSnapshot.customerId != command.customerId) {
+            invalid("customerSnapshot.customerId must match customerId.")
+        }
+        validateCustomer(command.customerSnapshot)
+        validateShippingAddress(command.shippingAddressSnapshot)
+    }
+
+    fun validateItems(items: List<OrderItemSnapshot>) {
+        items.forEachIndexed { index, item ->
+            positive(item.productId, "items[$index].productId")
+            required(item.productName, "items[$index].productName")
+            length(item.productName, "items[$index].productName", 220)
+            if (item.unitPriceAmount.signum() < 0) invalid("items[$index].unitPriceAmount must not be negative.")
+            if (item.unitPriceAmount.precision() > 12 || item.unitPriceAmount.scale() > 2) {
+                invalid("items[$index].unitPriceAmount exceeds NUMERIC(12, 2).")
+            }
+            if (item.quantity <= 0) invalid("items[$index].quantity must be greater than zero.")
+        }
+    }
+
+    private fun validateCustomer(snapshot: CustomerSnapshot) {
+        required(snapshot.name, "customerSnapshot.name")
+        length(snapshot.name, "customerSnapshot.name", 220)
+        required(snapshot.document, "customerSnapshot.document")
+        length(snapshot.document, "customerSnapshot.document", 64)
+        required(snapshot.documentType, "customerSnapshot.documentType")
+        length(snapshot.documentType, "customerSnapshot.documentType", 32)
+        required(snapshot.email, "customerSnapshot.email")
+        length(snapshot.email, "customerSnapshot.email", 320)
+        nullableLength(snapshot.phone, "customerSnapshot.phone", 64)
+    }
+
+    private fun validateShippingAddress(snapshot: ShippingAddressSnapshot) {
+        required(snapshot.street, "shippingAddressSnapshot.street")
+        length(snapshot.street, "shippingAddressSnapshot.street", 220)
+        required(snapshot.number, "shippingAddressSnapshot.number")
+        length(snapshot.number, "shippingAddressSnapshot.number", 32)
+        nullableLength(snapshot.complement, "shippingAddressSnapshot.complement", 220)
+        required(snapshot.neighborhood, "shippingAddressSnapshot.neighborhood")
+        length(snapshot.neighborhood, "shippingAddressSnapshot.neighborhood", 220)
+        required(snapshot.city, "shippingAddressSnapshot.city")
+        length(snapshot.city, "shippingAddressSnapshot.city", 160)
+        required(snapshot.state, "shippingAddressSnapshot.state")
+        length(snapshot.state, "shippingAddressSnapshot.state", 80)
+        required(snapshot.zipCode, "shippingAddressSnapshot.zipCode")
+        length(snapshot.zipCode, "shippingAddressSnapshot.zipCode", 32)
+        required(snapshot.country, "shippingAddressSnapshot.country")
+        length(snapshot.country, "shippingAddressSnapshot.country", 80)
+    }
+
+    private fun positive(
+        value: Long,
+        field: String,
+    ) {
+        if (value <= 0) invalid("$field must be greater than zero.")
+    }
+
+    private fun required(
+        value: String,
+        field: String,
+    ) {
+        if (value.isBlank()) invalid("$field must not be blank.")
+    }
+
+    private fun length(
+        value: String,
+        field: String,
+        maximum: Int,
+    ) {
+        if (value.length > maximum) invalid("$field must not exceed $maximum characters.")
+    }
+
+    private fun nullableLength(
+        value: String?,
+        field: String,
+        maximum: Int,
+    ) {
+        if (value != null) length(value, field, maximum)
+    }
+
+    private fun invalid(message: String): Nothing = throw OrderValidationException(message)
 }

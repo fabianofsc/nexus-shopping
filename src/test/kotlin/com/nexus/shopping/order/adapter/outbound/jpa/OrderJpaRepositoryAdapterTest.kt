@@ -9,10 +9,12 @@ import com.nexus.shopping.order.domain.OrderStatus
 import com.nexus.shopping.order.domain.ShippingAddressSnapshot
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 
 @SpringBootTest(
@@ -34,12 +36,12 @@ class OrderJpaRepositoryAdapterTest {
     private lateinit var carts: CartJpaRepositoryAdapter
 
     @Test
-    fun `persists historical order snapshots and returns the same order for an idempotent key`() {
+    fun `persists historical order snapshots and finds them by idempotency key`() {
         val cart = carts.getOrCreateActiveByCustomerId(1L)
         val requested = order(requireNotNull(cart.id))
 
         val created = orders.createIfAbsentByCustomerIdAndIdempotencyKey(requested)
-        val replay = orders.createIfAbsentByCustomerIdAndIdempotencyKey(requested)
+        val replay = orders.findByCustomerIdAndIdempotencyKey(1L, "checkout-1")
         val found = orders.findById(requireNotNull(created.id))
 
         assertEquals(created, replay)
@@ -47,6 +49,17 @@ class OrderJpaRepositoryAdapterTest {
         assertEquals("Ana Silva", found?.customerSnapshot?.name)
         assertEquals("Rua A", found?.shippingAddressSnapshot?.street)
         assertEquals(listOf(item()), found?.items)
+    }
+
+    @Test
+    fun `duplicate direct insert is not recovered inside the aborted transaction`() {
+        val cart = carts.getOrCreateActiveByCustomerId(3L)
+        val requested = order(requireNotNull(cart.id), "checkout-3")
+        orders.createIfAbsentByCustomerIdAndIdempotencyKey(requested)
+
+        assertFailsWith<DataIntegrityViolationException> {
+            orders.createIfAbsentByCustomerIdAndIdempotencyKey(requested)
+        }
     }
 
     @Test
@@ -67,16 +80,19 @@ class OrderJpaRepositoryAdapterTest {
         idempotencyKey: String = "checkout-1",
     ) = Order(
         id = null,
-        customerId = if (idempotencyKey == "checkout-2") 2L else 1L,
+        customerId =
+            when (idempotencyKey) {
+                "checkout-2" -> 2L
+                "checkout-3" -> 3L
+                else -> 1L
+            },
         cartId = cartId,
         customerSnapshot =
             CustomerSnapshot(
-                if (idempotencyKey ==
-                    "checkout-2"
-                ) {
-                    2L
-                } else {
-                    1L
+                when (idempotencyKey) {
+                    "checkout-2" -> 2L
+                    "checkout-3" -> 3L
+                    else -> 1L
                 },
                 "Ana Silva",
                 "12345678900",

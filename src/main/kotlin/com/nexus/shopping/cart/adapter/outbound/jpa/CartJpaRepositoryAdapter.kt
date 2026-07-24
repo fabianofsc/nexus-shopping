@@ -10,6 +10,7 @@ import com.nexus.shopping.order.application.port.outbound.CheckoutCartSnapshot
 import com.nexus.shopping.order.domain.OrderItemSnapshot
 import jakarta.persistence.EntityManager
 import jakarta.persistence.PersistenceContext
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
 
@@ -67,7 +68,11 @@ class CartJpaRepositoryAdapter(
             throw CartValidationException("customerId $customerId does not reference an existing customer.")
         }
 
-        repository.findLatestByCustomerId(customerId).firstOrNull()?.let { return it.toDomain() }
+        repository
+            .findLatestByCustomerId(customerId, PageRequest.of(0, 1))
+            .content
+            .firstOrNull()
+            ?.let { return it.toDomain() }
 
         val newCart =
             Cart(

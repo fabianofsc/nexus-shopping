@@ -72,6 +72,34 @@ class OrderControllerTest {
     }
 
     @Test
+    fun `POST checkout returns 400 for an idempotency key longer than the schema limit`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val customerId = createCustomer(port, "long-idempotency-key")
+        addItem(port, customerId)
+
+        val response = post(port, "/customers/$customerId/cart/checkout", checkoutBody(), "k".repeat(256))
+
+        assertProblemDetail(response, 400, "Bad Request", "/customers/$customerId/cart/checkout")
+    }
+
+    @Test
+    fun `POST checkout returns 400 for blank or oversized snapshots`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val blankCustomer = createCustomer(port, "blank-checkout-snapshot")
+        val oversizedAddress = createCustomer(port, "long-checkout-snapshot")
+        addItem(port, blankCustomer)
+        addItem(port, oversizedAddress)
+
+        val blankResponse =
+            post(port, "/customers/$blankCustomer/cart/checkout", checkoutBody(customerName = " "), "blank-snapshot")
+        val oversizedResponse =
+            post(port, "/customers/$oversizedAddress/cart/checkout", checkoutBody(street = "s".repeat(221)), "long-snapshot")
+
+        assertProblemDetail(blankResponse, 400, "Bad Request", "/customers/$blankCustomer/cart/checkout")
+        assertProblemDetail(oversizedResponse, 400, "Bad Request", "/customers/$oversizedAddress/cart/checkout")
+    }
+
+    @Test
     fun `POST checkout returns 409 problem details when the key is reused with a different payload`() {
         val port = environment.getRequiredProperty("local.server.port")
         addItem(port, 3L)
@@ -388,18 +416,21 @@ class OrderControllerTest {
         assertEquals(expectedInstance, problem["instance"].asText())
     }
 
-    private fun checkoutBody(number: String = "123") =
-        """
+    private fun checkoutBody(
+        number: String = "123",
+        customerName: String = "Ana Silva",
+        street: String = "Rua das Flores",
+    ) = """
         {
           "customerSnapshot": {
-            "name": "Ana Silva",
+            "name": "$customerName",
             "document": "12345678900",
             "documentType": "CPF",
             "email": "ana@example.com",
             "phone": "+5511999990000"
           },
           "shippingAddressSnapshot": {
-            "street": "Rua das Flores",
+            "street": "$street",
             "number": "$number",
             "complement": "Apto 45",
             "neighborhood": "Centro",

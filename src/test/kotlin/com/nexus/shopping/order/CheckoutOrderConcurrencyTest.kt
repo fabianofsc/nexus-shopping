@@ -70,6 +70,25 @@ class CheckoutOrderConcurrencyTest {
         assertEquals("CHECKED_OUT", jdbcTemplate.queryForObject("SELECT status FROM carts WHERE customer_id = 4", String::class.java))
     }
 
+    @Test
+    fun `concurrent replays keep a new active cart open after the original cart was checked out`() {
+        val customerId = 5L
+        prepareCart(customerId)
+        val checkout = CheckoutOrderUseCase(orders, carts, transactions)
+        val original = checkout.execute(command(customerId, "original-key"))
+        val newCartId = createFreshActiveCart(customerId)
+
+        val results = concurrently(12) { checkout.executeWithResult(command(customerId, "original-key")).order }
+
+        assertTrue(results.all { it.isSuccess }, "Expected all old-key replays to succeed: $results")
+        assertEquals(setOf(original.id), results.map { it.getOrThrow().id }.toSet())
+        assertEquals(
+            "ACTIVE",
+            jdbcTemplate.queryForObject("SELECT status FROM carts WHERE id = ?", String::class.java, newCartId),
+        )
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM orders WHERE customer_id = ?", Int::class.java, customerId))
+    }
+
     private fun prepareCart(customerId: Long) {
         val cart = carts.getOrCreateActiveByCustomerId(customerId)
         carts.updateCart(requireNotNull(cart.id)) {
@@ -83,6 +102,19 @@ class CheckoutOrderConcurrencyTest {
                     ),
             )
         }
+    }
+
+    private fun createFreshActiveCart(customerId: Long): Long {
+        jdbcTemplate.update("INSERT INTO carts (customer_id, status) VALUES (?, 'ACTIVE')", customerId)
+        val cartId = jdbcTemplate.queryForObject("SELECT MAX(id) FROM carts WHERE customer_id = ?", Long::class.java, customerId)
+        jdbcTemplate.update(
+            """
+            INSERT INTO cart_items (cart_id, product_id, product_name, unit_price_amount, currency, quantity)
+            VALUES (?, 10, 'Produto 10', 19.90, 'BRL', 2)
+            """.trimIndent(),
+            cartId,
+        )
+        return requireNotNull(cartId)
     }
 
     private fun command(

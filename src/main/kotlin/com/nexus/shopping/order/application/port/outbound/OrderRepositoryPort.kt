@@ -24,16 +24,15 @@ interface OrderRepositoryPort {
     ): PageResult<Order>
 
     /**
-     * Atomically stores [order] only when its (customerId, idempotencyKey) is new. When that key
-     * already exists, returns the stored order. The caller compares the fingerprint to distinguish
-     * an idempotent replay from a conflicting reuse of the key.
+     * Stores [order] after the caller has checked replay and acquired the checkout cart lock.
+     * A database uniqueness violation is deliberately propagated: recovering it in this same
+     * transaction is invalid on PostgreSQL because that transaction is already aborted.
      */
     fun createIfAbsentByCustomerIdAndIdempotencyKey(order: Order): Order
 
     /**
-     * Preserves the original insert-or-replay contract while allowing callers that expose HTTP
-     * semantics to distinguish a new order from an idempotent replay. Adapters with a database
-     * unique constraint must override this atomically; the default keeps simple fakes compatible.
+     * Returns a newly persisted order. Replays are resolved by the caller before this method is
+     * reached, while it holds the cart lock; the default keeps simple fakes compatible.
      */
     fun createIfAbsentWithResultByCustomerIdAndIdempotencyKey(order: Order): OrderCreationResult {
         val existing = findByCustomerIdAndIdempotencyKey(order.customerId, order.idempotencyKey)

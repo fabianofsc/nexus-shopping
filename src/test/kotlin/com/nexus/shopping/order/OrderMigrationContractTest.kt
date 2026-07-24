@@ -60,6 +60,9 @@ class OrderMigrationContractTest {
             assertEquals(1, count(connection, "order_items"))
             assertFailsWith<java.sql.SQLException> {
                 connection.createStatement().use { statement ->
+                    statement.executeUpdate("INSERT INTO carts (customer_id, status) VALUES (1, 'ACTIVE')")
+                }
+                connection.createStatement().use { statement ->
                     statement.executeUpdate(
                         """
                         INSERT INTO orders (
@@ -75,6 +78,8 @@ class OrderMigrationContractTest {
                         """.trimIndent(),
                     )
                 }
+            }.also { exception ->
+                assertTrue(exception.message.orEmpty().contains("UQ_ORDERS_CUSTOMER_IDEMPOTENCY_KEY", ignoreCase = true))
             }
             assertFailsWith<java.sql.SQLException> {
                 connection.createStatement().use { statement ->
