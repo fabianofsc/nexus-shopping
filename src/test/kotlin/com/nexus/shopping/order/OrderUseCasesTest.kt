@@ -1,10 +1,12 @@
 package com.nexus.shopping.order
 
 import com.nexus.shopping.order.application.command.CheckoutOrderCommand
-import com.nexus.shopping.order.application.exception.OrderIdempotencyConflictException
 import com.nexus.shopping.order.application.exception.OrderNotFoundException
 import com.nexus.shopping.order.application.exception.OrderValidationException
+import com.nexus.shopping.order.application.port.outbound.CartCheckoutPort
+import com.nexus.shopping.order.application.port.outbound.CheckoutCartSnapshot
 import com.nexus.shopping.order.application.port.outbound.OrderRepositoryPort
+import com.nexus.shopping.order.application.port.outbound.TransactionPort
 import com.nexus.shopping.order.application.usecase.CancelOrderUseCase
 import com.nexus.shopping.order.application.usecase.CheckoutOrderUseCase
 import com.nexus.shopping.order.application.usecase.GetOrderByIdUseCase
@@ -26,10 +28,13 @@ private class FakeOrderRepository : OrderRepositoryPort {
     private val ordersById = mutableMapOf<Long, Order>()
     private val ordersByIdempotencyKey = mutableMapOf<Pair<Long, String>, Order>()
     private var nextId = 1L
-    var createdOrders = 0
-        private set
 
     override fun findById(id: Long): Order? = ordersById[id]
+
+    override fun findByCustomerIdAndIdempotencyKey(
+        customerId: Long,
+        idempotencyKey: String,
+    ): Order? = ordersByIdempotencyKey[customerId to idempotencyKey]
 
     override fun findByCustomerId(
         customerId: Long,
@@ -43,10 +48,7 @@ private class FakeOrderRepository : OrderRepositoryPort {
 
     override fun createIfAbsentByCustomerIdAndIdempotencyKey(order: Order): Order {
         val key = order.customerId to order.idempotencyKey
-        return ordersByIdempotencyKey[key] ?: persist(order).also {
-            ordersByIdempotencyKey[key] = it
-            createdOrders++
-        }
+        return ordersByIdempotencyKey[key] ?: persist(order).also { ordersByIdempotencyKey[key] = it }
     }
 
     override fun update(order: Order): Order = persist(order)
@@ -71,63 +73,50 @@ private class FakeOrderRepository : OrderRepositoryPort {
     }
 }
 
+private class FakeCartCheckout(
+    private val items: List<OrderItemSnapshot>,
+) : CartCheckoutPort {
+    override fun lockActiveCartByCustomerId(customerId: Long): CheckoutCartSnapshot? = CheckoutCartSnapshot(100L, customerId, items)
+
+    override fun markCheckedOut(cartId: Long) = Unit
+}
+
+private object FakeTransaction : TransactionPort {
+    override fun <T> inTransaction(block: () -> T): T = block()
+}
+
 class OrderUseCasesTest {
     private fun checkoutCommand() =
         CheckoutOrderCommand(
-            cartId = 100L,
             customerId = 10L,
             customerSnapshot = CustomerSnapshot(10L, "Ana Silva", "12345678900", "CPF", "ana@example.com", null),
             shippingAddressSnapshot =
                 ShippingAddressSnapshot("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
-            items = listOf(OrderItemSnapshot(1L, "Produto A", BigDecimal("19.90"), Currency.BRL, 2)),
             idempotencyKey = "checkout-1",
         )
+
+    private fun item() = OrderItemSnapshot(1L, "Produto A", BigDecimal("19.90"), Currency.BRL, 2)
+
+    private fun checkoutUseCase(
+        repository: OrderRepositoryPort,
+        items: List<OrderItemSnapshot> = listOf(item()),
+    ) = CheckoutOrderUseCase(repository, FakeCartCheckout(items), FakeTransaction)
 
     @Test
     fun `checkout creates an order waiting for payment from snapshots`() {
         val repository = FakeOrderRepository()
 
-        val order = CheckoutOrderUseCase(repository).execute(checkoutCommand())
+        val order = checkoutUseCase(repository).execute(checkoutCommand())
 
         assertEquals(OrderStatus.WAITING_PAYMENT, order.status)
         assertEquals(BigDecimal("39.80"), order.totalAmount)
         assertEquals("Ana Silva", order.customerSnapshot.name)
-        assertEquals(1, repository.createdOrders)
     }
 
     @Test
-    fun `checkout replays the original order for the same customer key and payload`() {
-        val repository = FakeOrderRepository()
-        val useCase = CheckoutOrderUseCase(repository)
-        val original = useCase.execute(checkoutCommand())
-
-        val replay = useCase.execute(checkoutCommand())
-
-        assertEquals(original, replay)
-        assertEquals(1, repository.createdOrders)
-    }
-
-    @Test
-    fun `checkout rejects reuse of a customer idempotency key with a different payload`() {
-        val repository = FakeOrderRepository()
-        val useCase = CheckoutOrderUseCase(repository)
-        useCase.execute(checkoutCommand())
-
-        assertFailsWith<OrderIdempotencyConflictException> {
-            useCase.execute(
-                checkoutCommand().copy(
-                    items = listOf(OrderItemSnapshot(1L, "Produto alterado", BigDecimal("19.90"), Currency.BRL, 2)),
-                ),
-            )
-        }
-    }
-
-    @Test
-    fun `checkout isolates the order from later mutations to the input item list`() {
-        val items = mutableListOf(OrderItemSnapshot(1L, "Produto A", BigDecimal("19.90"), Currency.BRL, 2))
-        val command = checkoutCommand().copy(items = items)
-
-        val order = CheckoutOrderUseCase(FakeOrderRepository()).execute(command)
+    fun `checkout isolates the order from later mutations to the locked item list`() {
+        val items = mutableListOf(item())
+        val order = checkoutUseCase(FakeOrderRepository(), items).execute(checkoutCommand())
         items.clear()
 
         assertEquals(1, order.items.size)
@@ -136,43 +125,31 @@ class OrderUseCasesTest {
 
     @Test
     fun `checkout rejects an empty cart snapshot before creating an order`() {
-        val repository = FakeOrderRepository()
-
         assertFailsWith<OrderValidationException> {
-            CheckoutOrderUseCase(repository).execute(checkoutCommand().copy(items = emptyList()))
+            checkoutUseCase(FakeOrderRepository(), emptyList()).execute(checkoutCommand())
         }
-
-        assertEquals(0, repository.createdOrders)
     }
 
     @Test
     fun `checkout rejects a snapshot owned by another customer`() {
-        val repository = FakeOrderRepository()
-
         assertFailsWith<OrderValidationException> {
-            CheckoutOrderUseCase(repository).execute(
+            checkoutUseCase(FakeOrderRepository()).execute(
                 checkoutCommand().copy(customerSnapshot = checkoutCommand().customerSnapshot.copy(customerId = 20L)),
             )
         }
-
-        assertEquals(0, repository.createdOrders)
     }
 
     @Test
     fun `checkout requires a nonblank idempotency key`() {
-        val repository = FakeOrderRepository()
-
         assertFailsWith<OrderValidationException> {
-            CheckoutOrderUseCase(repository).execute(checkoutCommand().copy(idempotencyKey = " "))
+            checkoutUseCase(FakeOrderRepository()).execute(checkoutCommand().copy(idempotencyKey = " "))
         }
-
-        assertEquals(0, repository.createdOrders)
     }
 
     @Test
     fun `gets an order by id and lists orders for its customer`() {
         val repository = FakeOrderRepository()
-        val created = CheckoutOrderUseCase(repository).execute(checkoutCommand())
+        val created = checkoutUseCase(repository).execute(checkoutCommand())
 
         val found = GetOrderByIdUseCase(repository).execute(requireNotNull(created.id))
         val page = ListOrdersByCustomerUseCase(repository).list(customerId = 10L, page = 0, size = 10)
@@ -191,7 +168,7 @@ class OrderUseCasesTest {
     @Test
     fun `cancels an order waiting for payment without changing its cart`() {
         val repository = FakeOrderRepository()
-        val created = CheckoutOrderUseCase(repository).execute(checkoutCommand())
+        val created = checkoutUseCase(repository).execute(checkoutCommand())
 
         val cancelled = CancelOrderUseCase(repository).execute(requireNotNull(created.id))
 

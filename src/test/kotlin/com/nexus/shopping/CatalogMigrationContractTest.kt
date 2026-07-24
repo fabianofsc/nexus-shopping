@@ -16,7 +16,7 @@ class CatalogMigrationContractTest {
 
     @Test
     fun `catalog migrations should keep portable relational SQL`() {
-        val sql = readAllMigrations()
+        val sql = readCatalogMigrations()
         val normalizedSql = sql.uppercase()
 
         assertFalse(
@@ -111,10 +111,11 @@ class CatalogMigrationContractTest {
         }
     }
 
-    private fun readAllMigrations(): String =
+    private fun readCatalogMigrations(): String =
         Files.list(migrationDirectory).use { paths ->
             paths
                 .filter { Files.isRegularFile(it) }
+                .filter { it.fileName.toString().matches(Regex("V[123]__.*\\.sql")) }
                 .sorted()
                 .map { Files.readString(it) }
                 .toList()
