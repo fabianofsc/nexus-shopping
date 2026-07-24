@@ -61,6 +61,26 @@ class CartJpaRepositoryAdapter(
         return repository.saveAndFlush(newCart.toNewEntity()).toDomain()
     }
 
+    @Transactional
+    override fun getOrCreateCartForMutationByCustomerId(customerId: Long): Cart {
+        if (!lockCustomerRow(customerId)) {
+            throw CartValidationException("customerId $customerId does not reference an existing customer.")
+        }
+
+        repository.findLatestByCustomerId(customerId).firstOrNull()?.let { return it.toDomain() }
+
+        val newCart =
+            Cart(
+                id = null,
+                customerId = customerId,
+                status = CartStatus.ACTIVE,
+                items = emptyList(),
+                createdAt = null,
+                updatedAt = null,
+            )
+        return repository.saveAndFlush(newCart.toNewEntity()).toDomain()
+    }
+
     /**
      * Loads the cart under a pessimistic write lock (`findByIdForUpdate`) and evaluates [mutate]
      * against that freshly-locked read - not against whatever snapshot the caller may have read
@@ -74,9 +94,6 @@ class CartJpaRepositoryAdapter(
         cartId: Long,
         mutate: (Cart) -> Cart,
     ): Cart {
-        // TODO: once Order/checkout exists, revalidate status == ACTIVE here (inside the lock)
-        // before applying `mutate`, so an add/remove can no longer land on a cart that a
-        // concurrent checkout already moved to CHECKED_OUT between getOrCreate and this call.
         val entity = repository.findByIdForUpdate(cartId).orElseThrow { IllegalStateException("Cart $cartId not found.") }
         val mutated = mutate(entity.toDomain())
         entity.status = mutated.status
