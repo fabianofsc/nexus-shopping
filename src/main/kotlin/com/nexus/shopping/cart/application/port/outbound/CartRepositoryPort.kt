@@ -13,6 +13,13 @@ interface CartRepositoryPort {
     fun getOrCreateActiveByCustomerId(customerId: Long): Cart
 
     /**
+     * Finds the customer's latest cart for a mutation, creating an ACTIVE cart only when no cart
+     * exists yet. Callers must still validate the status inside [updateCart], after the write lock
+     * was acquired, because checkout may close the cart between this lookup and the mutation.
+     */
+    fun getOrCreateCartForMutationByCustomerId(customerId: Long): Cart = getOrCreateActiveByCustomerId(customerId)
+
+    /**
      * Applies [mutate] to the cart identified by [cartId] and persists the result, guaranteeing the
      * read-modify-write cycle is atomic per cart: implementations must load the current state under
      * a write lock and evaluate [mutate] against that freshly-locked read, not against a snapshot

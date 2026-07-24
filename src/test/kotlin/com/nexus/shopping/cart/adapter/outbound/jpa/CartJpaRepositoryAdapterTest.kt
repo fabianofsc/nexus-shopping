@@ -7,6 +7,7 @@ import com.nexus.shopping.cart.domain.Currency
 import com.nexus.shopping.cart.domain.ProductSummary
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.data.domain.PageRequest
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
@@ -32,6 +33,9 @@ class CartJpaRepositoryAdapterTest {
 
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
+
+    @Autowired
+    private lateinit var springDataRepository: SpringDataCartRepository
 
     private fun item(
         productId: Long,
@@ -140,5 +144,16 @@ class CartJpaRepositoryAdapterTest {
         assertEquals(2, result.items.size)
         val productIds = result.items.map { it.productSummary.productId }.toSet()
         assertEquals(setOf(10L, 20L), productIds)
+    }
+
+    @Test
+    fun `latest cart query returns a one-row slice instead of materializing customer history`() {
+        jdbcTemplate.update("INSERT INTO carts (customer_id, status) VALUES (7, 'CHECKED_OUT')")
+        jdbcTemplate.update("INSERT INTO carts (customer_id, status) VALUES (7, 'ACTIVE')")
+
+        val slice = springDataRepository.findLatestByCustomerId(7L, PageRequest.of(0, 1))
+
+        assertEquals(1, slice.content.size)
+        assertEquals(CartStatus.ACTIVE, slice.content.single().status)
     }
 }
