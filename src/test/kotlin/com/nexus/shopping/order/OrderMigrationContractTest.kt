@@ -12,7 +12,7 @@ import kotlin.test.assertTrue
 
 class OrderMigrationContractTest {
     @Test
-    fun `orders and order_items preserve snapshots and enforce checkout uniqueness`() {
+    fun `orders preserve snapshots, keep status unconstrained and enforce checkout uniqueness`() {
         DriverManager.getConnection("jdbc:h2:mem:order_migration_contract;DB_CLOSE_DELAY=-1", "sa", "").use { connection ->
             Flyway
                 .configure()
@@ -34,7 +34,7 @@ class OrderMigrationContractTest {
                     ) VALUES (
                         1, 1, 'Ana Silva', '12345678900', 'CPF', 'ana@example.com',
                         'Rua A', '10', 'Centro', 'Sao Paulo', 'SP', '01000-000', 'BR',
-                        'WAITING_PAYMENT', 'checkout-1', 'fingerprint-1'
+                        'DOMAIN_OWNED_STATUS', 'checkout-1', 'fingerprint-1'
                     )
                     """.trimIndent(),
                 )

@@ -20,9 +20,6 @@ CREATE TABLE orders (
     request_fingerprint VARCHAR(64) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     cancelled_at TIMESTAMP,
-    CONSTRAINT orders_status_check CHECK (
-        status IN ('WAITING_PAYMENT', 'PAYMENT_PROCESSING', 'PAYMENT_FAILED', 'CONFIRMED', 'CANCELLED')
-    ),
     CONSTRAINT uq_orders_cart_id UNIQUE (cart_id),
     CONSTRAINT uq_orders_customer_idempotency_key UNIQUE (customer_id, idempotency_key),
     CONSTRAINT fk_orders_customer FOREIGN KEY (customer_id) REFERENCES customers (id),
