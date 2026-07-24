@@ -26,10 +26,19 @@
    RED e passaram apos as validacoes correspondentes.
 4. O caso de chave de idempotencia em branco falhou em RED e passou apos a
    validacao explicita.
+5. A correcao de revisao para listas mutaveis foi escrita primeiro em RED:
+   limpar a lista original apos criar o pedido mantinha o defeito no dominio
+   e no checkout; passou apos copias defensivas no use case e em `Order`.
+6. O teste RED para a mesma chave com item alterado provou que o fingerprint
+   fornecido pelo chamador era inseguro. O command deixou de recebe-lo e o
+   use case agora o deriva com SHA-256 de uma representacao delimitada,
+   deterministica e canonica dos snapshots, carrinho e itens.
+7. O teste de transicao invalida passou a percorrer `PAYMENT_PROCESSING`,
+   `PAYMENT_FAILED`, `CONFIRMED` e `CANCELLED`.
 
 ## Verificacao
 
-- Focado: `./gradlew test --tests 'com.nexus.shopping.order.OrderUseCasesTest' --tests 'com.nexus.shopping.order.domain.OrderTest'` - passou (12 testes).
+- Focado: `./gradlew test --tests 'com.nexus.shopping.order.OrderUseCasesTest' --tests 'com.nexus.shopping.order.domain.OrderTest'` - passou (14 testes apos as correcoes de revisao).
 - Lint: `./gradlew ktlintCheck` - passou.
 - Suite completa: `./gradlew test --console=plain` - passou em aproximadamente
   um minuto.
