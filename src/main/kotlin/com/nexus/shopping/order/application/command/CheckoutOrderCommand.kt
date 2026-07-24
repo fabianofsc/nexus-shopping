@@ -11,5 +11,4 @@ data class CheckoutOrderCommand(
     val shippingAddressSnapshot: ShippingAddressSnapshot,
     val items: List<OrderItemSnapshot>,
     val idempotencyKey: String,
-    val requestFingerprint: String,
 )
