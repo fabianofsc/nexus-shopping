@@ -6,6 +6,12 @@ import com.nexus.shopping.platform.domain.PageResult
 interface OrderRepositoryPort {
     fun findById(id: Long): Order?
 
+    /**
+     * Returns the current order while holding a write lock until the surrounding transaction
+     * finishes. The default preserves the lightweight fake implementations used by unit tests.
+     */
+    fun findByIdForUpdate(id: Long): Order? = findById(id)
+
     fun findByCustomerIdAndIdempotencyKey(
         customerId: Long,
         idempotencyKey: String,
