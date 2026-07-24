@@ -28,22 +28,7 @@ interface OrderRepositoryPort {
      * A database uniqueness violation is deliberately propagated: recovering it in this same
      * transaction is invalid on PostgreSQL because that transaction is already aborted.
      */
-    fun createIfAbsentByCustomerIdAndIdempotencyKey(order: Order): Order
-
-    /**
-     * Returns a newly persisted order. Replays are resolved by the caller before this method is
-     * reached, while it holds the cart lock; the default keeps simple fakes compatible.
-     */
-    fun createIfAbsentWithResultByCustomerIdAndIdempotencyKey(order: Order): OrderCreationResult {
-        val existing = findByCustomerIdAndIdempotencyKey(order.customerId, order.idempotencyKey)
-        if (existing != null) return OrderCreationResult(existing, created = false)
-        return OrderCreationResult(createIfAbsentByCustomerIdAndIdempotencyKey(order), created = true)
-    }
+    fun create(order: Order): Order
 
     fun update(order: Order): Order
 }
-
-data class OrderCreationResult(
-    val order: Order,
-    val created: Boolean,
-)

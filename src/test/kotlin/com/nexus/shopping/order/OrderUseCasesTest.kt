@@ -46,7 +46,7 @@ private class FakeOrderRepository : OrderRepositoryPort {
         return PageResult(content, page, size, content.size, (page + 1) * size < all.size)
     }
 
-    override fun createIfAbsentByCustomerIdAndIdempotencyKey(order: Order): Order {
+    override fun create(order: Order): Order {
         val key = order.customerId to order.idempotencyKey
         return ordersByIdempotencyKey[key] ?: persist(order).also { ordersByIdempotencyKey[key] = it }
     }

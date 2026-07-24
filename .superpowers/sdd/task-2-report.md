@@ -85,3 +85,14 @@ integral independente permanece pendente.
    de um novo cart ACTIVE. Ela ficou GREEN na primeira execucao, pois a protecao de
    replay ja existia; este fato e registrado sem inventar um RED. A ressalva
    historica do primeiro teste de concorrencia permanece valida.
+
+## Achado final: NUMERIC e nomenclatura de criacao
+
+- RED: `BigDecimal("99999999999")` era aceito porque a validacao usava apenas
+  `precision() <= 12`; GREEN: a validacao agora usa `stripTrailingZeros()`, aceita
+  `1.230` (escala efetiva 2), rejeita escala efetiva maior que 2, mais de 10
+  digitos inteiros e o caso de escala negativa `1E+11`.
+- RED: os fakes e testes de adapter nao compilavam contra o contrato desejado de
+  criacao simples; GREEN: `createIfAbsent...`/`OrderCreationResult.created` foram
+  substituidos por `create` e `CheckoutOrderResult.replayed`. O adapter apenas
+  insere ou propaga a violacao; o use case decide replay antes do insert sob lock.

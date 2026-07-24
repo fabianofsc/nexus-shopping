@@ -41,7 +41,7 @@ private class CheckoutOrderRepositoryFake : OrderRepositoryPort {
         idempotencyKey: String,
     ): Order? = ordersByKey[customerId to idempotencyKey]
 
-    override fun createIfAbsentByCustomerIdAndIdempotencyKey(order: Order): Order {
+    override fun create(order: Order): Order {
         val key = order.customerId to order.idempotencyKey
         return ordersByKey[key] ?: persist(order).also { ordersByKey[key] = it }
     }
@@ -128,11 +128,13 @@ class CheckoutOrderTransactionUseCaseTest {
         val orders = CheckoutOrderRepositoryFake()
         val carts = CheckoutCartFake(activeCart())
         val useCase = CheckoutOrderUseCase(orders, carts, ImmediateTransaction)
-        val original = useCase.execute(command())
+        val original = useCase.executeWithResult(command())
 
-        val replay = useCase.execute(command())
+        val replay = useCase.executeWithResult(command())
 
-        assertEquals(original, replay)
+        assertEquals(original.order, replay.order)
+        assertEquals(false, original.replayed)
+        assertEquals(true, replay.replayed)
         assertEquals(1, carts.lockCalls)
         assertEquals(1, orders.createdOrders)
     }
@@ -194,5 +196,26 @@ class CheckoutOrderTransactionUseCaseTest {
         }
         assertEquals(0, orders.createdOrders)
         assertEquals(null, carts.checkedOutCartId)
+    }
+
+    @Test
+    fun `checkout validates effective NUMERIC 12 2 precision while accepting trailing zeros`() {
+        val orders = CheckoutOrderRepositoryFake()
+        val carts = CheckoutCartFake(activeCart(listOf(item().copy(unitPriceAmount = BigDecimal("99999999999")))))
+        val useCase = CheckoutOrderUseCase(orders, carts, ImmediateTransaction)
+
+        assertFailsWith<OrderValidationException> {
+            useCase.execute(command())
+        }
+
+        carts.lockedCart = activeCart(listOf(item().copy(unitPriceAmount = BigDecimal("1E+11"))))
+        assertFailsWith<OrderValidationException> {
+            useCase.execute(command())
+        }
+
+        carts.lockedCart = activeCart(listOf(item().copy(unitPriceAmount = BigDecimal("1.230"))))
+        val order = useCase.execute(command())
+
+        assertEquals(BigDecimal("1.230"), order.items.single().unitPriceAmount)
     }
 }

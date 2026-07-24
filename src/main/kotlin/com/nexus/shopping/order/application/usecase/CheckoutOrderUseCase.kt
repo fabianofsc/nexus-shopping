@@ -25,14 +25,14 @@ class CheckoutOrderUseCase(
         val fingerprint = CheckoutRequestFingerprint.from(command)
 
         return transaction.inTransaction {
-            findReplay(command, fingerprint)?.let { return@inTransaction CheckoutOrderResult(it, created = false) }
+            findReplay(command, fingerprint)?.let { return@inTransaction CheckoutOrderResult(it, replayed = true) }
 
             val lockedCart = cartCheckout.lockActiveCartByCustomerId(command.customerId)
             if (lockedCart == null) {
-                findReplay(command, fingerprint)?.let { return@inTransaction CheckoutOrderResult(it, created = false) }
+                findReplay(command, fingerprint)?.let { return@inTransaction CheckoutOrderResult(it, replayed = true) }
                 invalid("customerId ${command.customerId} does not have an active cart.")
             }
-            findReplay(command, fingerprint)?.let { return@inTransaction CheckoutOrderResult(it, created = false) }
+            findReplay(command, fingerprint)?.let { return@inTransaction CheckoutOrderResult(it, replayed = true) }
             if (lockedCart.items.isEmpty()) invalid("cart items must not be empty.")
             CheckoutPayloadValidator.validateItems(lockedCart.items)
 
@@ -50,8 +50,7 @@ class CheckoutOrderUseCase(
                     createdAt = null,
                     cancelledAt = null,
                 )
-            val creation = orderRepository.createIfAbsentWithResultByCustomerIdAndIdempotencyKey(requestedOrder)
-            val persistedOrder = creation.order
+            val persistedOrder = orderRepository.create(requestedOrder)
 
             if (persistedOrder.requestFingerprint != fingerprint) {
                 conflict(command.idempotencyKey)
@@ -59,7 +58,7 @@ class CheckoutOrderUseCase(
             if (persistedOrder.cartId == lockedCart.cartId) {
                 cartCheckout.markCheckedOut(lockedCart.cartId)
             }
-            CheckoutOrderResult(persistedOrder, creation.created)
+            CheckoutOrderResult(persistedOrder, replayed = false)
         }
     }
 
@@ -79,7 +78,7 @@ class CheckoutOrderUseCase(
 
 data class CheckoutOrderResult(
     val order: Order,
-    val created: Boolean,
+    val replayed: Boolean,
 )
 
 private object CheckoutRequestFingerprint {
@@ -147,7 +146,10 @@ private object CheckoutPayloadValidator {
             required(item.productName, "items[$index].productName")
             length(item.productName, "items[$index].productName", 220)
             if (item.unitPriceAmount.signum() < 0) invalid("items[$index].unitPriceAmount must not be negative.")
-            if (item.unitPriceAmount.precision() > 12 || item.unitPriceAmount.scale() > 2) {
+            val normalizedAmount = item.unitPriceAmount.stripTrailingZeros()
+            val effectiveScale = normalizedAmount.scale().coerceAtLeast(0)
+            val integerDigits = (normalizedAmount.precision() - normalizedAmount.scale()).coerceAtLeast(1)
+            if (effectiveScale > 2 || integerDigits > 10) {
                 invalid("items[$index].unitPriceAmount exceeds NUMERIC(12, 2).")
             }
             if (item.quantity <= 0) invalid("items[$index].quantity must be greater than zero.")
