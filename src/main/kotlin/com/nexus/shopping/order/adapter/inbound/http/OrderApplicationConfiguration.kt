@@ -26,5 +26,8 @@ class OrderApplicationConfiguration {
     fun listOrdersByCustomerUseCase(orderRepository: OrderRepositoryPort) = ListOrdersByCustomerUseCase(orderRepository)
 
     @Bean
-    fun cancelOrderUseCase(orderRepository: OrderRepositoryPort) = CancelOrderUseCase(orderRepository)
+    fun cancelOrderUseCase(
+        orderRepository: OrderRepositoryPort,
+        transaction: TransactionPort,
+    ) = CancelOrderUseCase(orderRepository, transaction)
 }

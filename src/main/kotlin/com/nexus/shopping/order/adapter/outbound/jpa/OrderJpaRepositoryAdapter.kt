@@ -21,6 +21,9 @@ class OrderJpaRepositoryAdapter(
     @Transactional(readOnly = true)
     override fun findById(id: Long): Order? = repository.findOrderById(id).orElse(null)?.toDomain()
 
+    @Transactional
+    override fun findByIdForUpdate(id: Long): Order? = repository.findOrderByIdForUpdate(id).orElse(null)?.toDomain()
+
     @Transactional(readOnly = true)
     override fun findByCustomerIdAndIdempotencyKey(
         customerId: Long,
