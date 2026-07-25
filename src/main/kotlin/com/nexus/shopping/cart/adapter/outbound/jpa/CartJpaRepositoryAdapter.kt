@@ -5,15 +5,20 @@ import com.nexus.shopping.cart.application.port.outbound.CartRepositoryPort
 import com.nexus.shopping.cart.domain.Cart
 import com.nexus.shopping.cart.domain.CartItem
 import com.nexus.shopping.cart.domain.CartStatus
+import com.nexus.shopping.order.application.port.outbound.CartCheckoutPort
+import com.nexus.shopping.order.application.port.outbound.CheckoutCartSnapshot
+import com.nexus.shopping.order.domain.OrderItemSnapshot
 import jakarta.persistence.EntityManager
 import jakarta.persistence.PersistenceContext
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
 
 @Repository
 class CartJpaRepositoryAdapter(
     private val repository: SpringDataCartRepository,
-) : CartRepositoryPort {
+) : CartRepositoryPort,
+    CartCheckoutPort {
     @PersistenceContext
     private lateinit var entityManager: EntityManager
 
@@ -57,6 +62,30 @@ class CartJpaRepositoryAdapter(
         return repository.saveAndFlush(newCart.toNewEntity()).toDomain()
     }
 
+    @Transactional
+    override fun getOrCreateCartForMutationByCustomerId(customerId: Long): Cart {
+        if (!lockCustomerRow(customerId)) {
+            throw CartValidationException("customerId $customerId does not reference an existing customer.")
+        }
+
+        repository
+            .findLatestByCustomerId(customerId, PageRequest.of(0, 1))
+            .content
+            .firstOrNull()
+            ?.let { return it.toDomain() }
+
+        val newCart =
+            Cart(
+                id = null,
+                customerId = customerId,
+                status = CartStatus.ACTIVE,
+                items = emptyList(),
+                createdAt = null,
+                updatedAt = null,
+            )
+        return repository.saveAndFlush(newCart.toNewEntity()).toDomain()
+    }
+
     /**
      * Loads the cart under a pessimistic write lock (`findByIdForUpdate`) and evaluates [mutate]
      * against that freshly-locked read - not against whatever snapshot the caller may have read
@@ -70,14 +99,45 @@ class CartJpaRepositoryAdapter(
         cartId: Long,
         mutate: (Cart) -> Cart,
     ): Cart {
-        // TODO: once Order/checkout exists, revalidate status == ACTIVE here (inside the lock)
-        // before applying `mutate`, so an add/remove can no longer land on a cart that a
-        // concurrent checkout already moved to CHECKED_OUT between getOrCreate and this call.
         val entity = repository.findByIdForUpdate(cartId).orElseThrow { IllegalStateException("Cart $cartId not found.") }
         val mutated = mutate(entity.toDomain())
         entity.status = mutated.status
         reconcileItems(entity, mutated.items)
         return repository.saveAndFlush(entity).toDomain()
+    }
+
+    @Transactional
+    override fun lockActiveCartByCustomerId(customerId: Long): CheckoutCartSnapshot? =
+        repository
+            .findByCustomerIdAndStatusForUpdate(customerId, CartStatus.ACTIVE)
+            .orElse(null)
+            ?.let { entity ->
+                CheckoutCartSnapshot(
+                    cartId = requireNotNull(entity.id),
+                    customerId = entity.customerId,
+                    items =
+                        entity.items.map { item ->
+                            OrderItemSnapshot(
+                                productId = item.productId,
+                                productName = item.productName,
+                                unitPriceAmount = item.unitPriceAmount,
+                                currency =
+                                    com.nexus.shopping.order.domain.Currency
+                                        .valueOf(item.currency.name),
+                                quantity = item.quantity,
+                            )
+                        },
+                )
+            }
+
+    @Transactional
+    override fun markCheckedOut(cartId: Long) {
+        val entity =
+            repository.findByIdForUpdate(cartId).orElseThrow {
+                IllegalStateException("Cart $cartId not found.")
+            }
+        entity.status = CartStatus.CHECKED_OUT
+        repository.saveAndFlush(entity)
     }
 
     /** Returns true if customerId references an existing row, having taken a write lock on it. */
