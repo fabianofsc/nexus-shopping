@@ -226,6 +226,8 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
   ```
 - **Propósito de aprendizado:** Ver o mecanismo da réplica por dentro — réplica read-only, `pg_stat_replication`, replication lag congelado sob comando (`pg_wal_replay_pause`) e o trade-off assíncrono vs síncrono (a escrita travando quando a réplica cai, CAP/PACELC na tela) — e depois o mesmo mecanismo gerenciado no RDS.
 
+> **Nota — `v3.6-read-replica` recriada em 2026-07-25:** durante a gravação ao vivo do Bloco 2, o script original travou na criação da réplica (Secrets Manager no primário bloqueia "Criar réplica de leitura" — limitação da AWS) e o `docker-compose.yml` não deixava apontar o `app1` para o RDS via variável de ambiente (valores estavam fixos, não `${VAR}`). Tag recriada sobre o commit com as correções — mesmo tratamento histórico de `v3.3-cache-aside`/`v3.4-cache-distribuido`. Espelhado em `referencias/Projeto Nexus Shopping.md` no vault.
+
 ---
 
 ## 📊 Relação entre versões
@@ -304,6 +306,6 @@ git rev-parse v1.1-indexes
 
 ---
 
-**Última atualização:** 2026-07-23
+**Última atualização:** 2026-07-25
 **Responsible:** Fabiano Góes
 **Tags ativas:** v1.0-baseline, v1.1-indexes, v1.2-pagination, v2.0-hexagonal, v3.0-scalability, v3.1-load-balancer-cloud, v3.2-product-detail, v3.3-cache-aside, v3.4-cache-distribuido, v3.5-cache-cloud, v3.6-read-replica
