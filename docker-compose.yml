@@ -7,9 +7,9 @@ x-app: &app-base
     dockerfile: Dockerfile
   image: ${APP_IMAGE:-nexus-shopping:local}
   environment:
-    DB_URL: jdbc:postgresql://postgres:5432/nexus_shopping
-    DB_USERNAME: nexus
-    DB_PASSWORD: nexus
+    DB_URL: ${DB_URL:-jdbc:postgresql://postgres:5432/nexus_shopping}
+    DB_USERNAME: ${DB_USERNAME:-nexus}
+    DB_PASSWORD: ${DB_PASSWORD:-nexus}
     PRODUCT_SEED_COUNT: ${PRODUCT_SEED_COUNT:-1000}
     SPRING_DATA_REDIS_HOST: redis
     SPRING_DATA_REDIS_PORT: 6379

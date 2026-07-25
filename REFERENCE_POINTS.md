@@ -217,12 +217,12 @@ Este documento lista as branches e tags imutáveis que servem como pontos de ref
 **Réplica de leitura: PostgreSQL streaming replication (local) → RDS Read Replica**
 
 - **Commit:** (veja `git show v3.6-read-replica`)
-- **Propósito:** Marcar o ambiente da aula "Escalando a Leitura com Réplicas". Adiciona `docker-compose.replication.yml` (primário + réplica em streaming replication física), `scripts/init-replication/` e `scripts/provision-rds-replica-demo.sh`. **Não há mudança no código da aplicação** — ela continua apontando só para o primário; a réplica é demonstrada por fora (psql/pgAdmin, CloudWatch). Roteamento leitura/escrita na aplicação fica para Persistência Distribuída.
+- **Propósito:** Marcar o ambiente da aula "Escalando a Leitura com Réplicas". Adiciona `docker-compose.replication.yml` (primário + réplica em streaming replication física), `scripts/init-replication/`, `scripts/provision-rds-replica-demo.sh` e `docker-compose.rds.yml` (override mínimo que publica a porta 8080 do `app1` no host, para popular/testar contra o RDS do Bloco 2 sem precisar do nginx). **Não há mudança no código da aplicação** — ela continua apontando só para o primário; a réplica é demonstrada por fora (psql/pgAdmin, CloudWatch). Roteamento leitura/escrita na aplicação fica para Persistência Distribuída.
 - **Imagem Docker Hub:** `fabianofsc/nexus-shopping:v3.4-cache-distribuido` (mesma imagem; o app não mudou, só a topologia de banco)
 - **Como clonar:**
   ```bash
   git clone --branch v3.6-read-replica https://github.com/fabianofsc/nexus-shopping.git
-  make start-replication   # primário → app (semeia) → réplica
+  make start-replication   # primário → app (popula) → réplica
   ```
 - **Propósito de aprendizado:** Ver o mecanismo da réplica por dentro — réplica read-only, `pg_stat_replication`, replication lag congelado sob comando (`pg_wal_replay_pause`) e o trade-off assíncrono vs síncrono (a escrita travando quando a réplica cai, CAP/PACELC na tela) — e depois o mesmo mecanismo gerenciado no RDS.
 

@@ -17,6 +17,8 @@ so o banco precisa existir na AWS.
 Variaveis de ambiente:
   MY_IP                   Obrigatorio. Seu IP publico em CIDR (ex: 203.0.113.10/32).
                            Usado para liberar 5432 no Security Group do RDS.
+                           Para descobrir o seu: curl https://checkip.amazonaws.com
+                           (devolve so o numero -- adicione /32 no final).
   AWS_REGION               Opcional. Default: regiao configurada no seu AWS CLI.
   DB_INSTANCE_IDENTIFIER   Opcional. Default: nexus-shopping-replica-demo.
   BACKUP_RETENTION_DAYS    Opcional. Default: 1. NAO use 0 -- ver nota abaixo.
@@ -27,6 +29,15 @@ IMPORTANTE -- backup automatizado e pre-requisito da replica:
   partir de um snapshot + WAL. Com retention 0 a opcao aparece desabilitada no
   console, sem explicar o porque. Por isso este script nasce com 1 dia, e nao
   com o 0 usado no script da demo de cache.
+
+IMPORTANTE -- Secrets Manager bloqueia replica de leitura:
+  Limitacao documentada da AWS: uma instancia com credenciais gerenciadas
+  pelo Secrets Manager NAO pode ter replica de leitura criada (o console
+  mostra "Secrets Manager nao oferece suporte a criacao do recurso de
+  replica de leitura" e pede para desativar a integracao primeiro). Este
+  script usa Secrets Manager so para gerar a senha na criacao e desativa a
+  integracao logo em seguida, reaproveitando o mesmo valor -- a instancia
+  ja sai pronta para "Ações -> Criar replica de leitura" no console.
 USAGE
 }
 
@@ -132,6 +143,8 @@ if ! aws rds describe-db-instances --db-instance-identifier "$DB_INSTANCE_IDENTI
     --output text)
   echo "  Versao do engine: PostgreSQL $PG_VERSION"
 
+  # --manage-master-user-password (Secrets Manager) so a criacao gera uma senha
+  # forte sozinha -- mas isso e so temporario. Ver nota tecnica abaixo.
   aws rds create-db-instance \
     --db-instance-identifier "$DB_INSTANCE_IDENTIFIER" \
     --db-instance-class db.t3.micro \
@@ -165,10 +178,33 @@ aws rds wait db-instance-available --db-instance-identifier "$DB_INSTANCE_IDENTI
 
 RDS_ENDPOINT=$(aws rds describe-db-instances --db-instance-identifier "$DB_INSTANCE_IDENTIFIER" \
   --query 'DBInstances[0].Endpoint.Address' --output text)
+
+# NOTA TECNICA -- limitacao documentada da AWS: um RDS com credenciais
+# gerenciadas pelo Secrets Manager NAO pode ter replica de leitura criada
+# ("Secrets Manager nao oferece suporte a criacao do recurso de replica de
+# leitura"). Como o proposito deste script e preparar um primario para
+# exatamente isso, usamos Secrets Manager so para gerar uma senha forte na
+# criacao, e desativamos a integracao logo em seguida, reaproveitando o
+# mesmo valor de senha -- a instancia fica pronta para "Criar replica de
+# leitura" sem nenhum passo manual extra no console.
 RDS_SECRET_ARN=$(aws rds describe-db-instances --db-instance-identifier "$DB_INSTANCE_IDENTIFIER" \
   --query 'DBInstances[0].MasterUserSecret.SecretArn' --output text)
-DB_PASSWORD=$(aws secretsmanager get-secret-value --secret-id "$RDS_SECRET_ARN" \
-  --query SecretString --output text | python3 -c 'import json,sys; print(json.load(sys.stdin)["password"])')
+
+if [[ "$RDS_SECRET_ARN" != "None" && -n "$RDS_SECRET_ARN" ]]; then
+  DB_PASSWORD=$(aws secretsmanager get-secret-value --secret-id "$RDS_SECRET_ARN" \
+    --query SecretString --output text | python3 -c 'import json,sys; print(json.load(sys.stdin)["password"])')
+  echo "==> Desativando gerenciamento via Secrets Manager (pre-requisito para criar replica de leitura)..."
+  aws rds modify-db-instance --db-instance-identifier "$DB_INSTANCE_IDENTIFIER" \
+    --no-manage-master-user-password --master-user-password "$DB_PASSWORD" \
+    --apply-immediately >/dev/null
+  aws rds wait db-instance-available --db-instance-identifier "$DB_INSTANCE_IDENTIFIER"
+  echo "  Credenciais autogerenciadas -- senha continua a mesma."
+else
+  echo "==> Instancia ja esta com credenciais autogerenciadas (rodada anterior deste script)."
+  echo "    A senha nao pode ser recuperada de novo -- use a que foi mostrada na criacao."
+  DB_PASSWORD="<ja-autogerenciada -- use a senha mostrada quando a instancia foi criada>"
+fi
+
 FINAL_RETENTION=$(aws rds describe-db-instances --db-instance-identifier "$DB_INSTANCE_IDENTIFIER" \
   --query 'DBInstances[0].BackupRetentionPeriod' --output text)
 
