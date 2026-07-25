@@ -1,0 +1,22 @@
+# Override minimo, generico: publica a porta 8080 direto no host para o
+# app1, sem precisar subir o nginx nem as outras instancias.
+#
+# Uso tipico: quando so uma instancia esta em jogo (ex: apontando para um
+# banco externo, testando a API isoladamente via curl/Postman) e o cenario
+# de load balancing entre app1/app2/app3 nao e relevante para o momento.
+#
+# NAO pode ir para o docker-compose.yml base: as aulas de Load Balancer/Auto
+# Scaling sobem app1+app2+app3+nginx juntos, e o nginx ja publica 8080 -- se
+# app1 tambem publicasse por default, essas aulas quebrariam por porta
+# duplicada. Por isso fica como override, opt-in via -f.
+#
+# Exemplo (aula "Escalando a Leitura com Replicas", Bloco 2 -- apontar o
+# app1 para um Postgres externo/RDS em vez do container local):
+#   DB_URL=jdbc:postgresql://<endpoint-externo>:5432/nexus_shopping \
+#   DB_USERNAME=nexus \
+#   DB_PASSWORD='<senha>' \
+#   docker compose -f docker-compose.yml -f docker-compose.single-instance.yml up -d app1
+services:
+  app1:
+    ports:
+      - "8080:8080"
