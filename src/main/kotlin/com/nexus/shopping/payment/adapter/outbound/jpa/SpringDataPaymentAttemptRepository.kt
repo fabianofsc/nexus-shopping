@@ -29,6 +29,26 @@ interface SpringDataPaymentAttemptRepository : JpaRepository<PaymentAttemptEntit
     @Query(
         """
         UPDATE PaymentAttemptEntity p
+        SET p.processingLeaseToken = :processingLeaseToken,
+            p.processingLeaseUntil = :processingLeaseUntil
+        WHERE p.referenceId = :referenceId
+          AND p.idempotencyKey = :idempotencyKey
+          AND p.status = com.nexus.shopping.payment.domain.PaymentStatus.REQUESTED
+          AND p.processingLeaseUntil < :now
+        """,
+    )
+    fun reclaimExpiredLease(
+        @Param("referenceId") referenceId: String,
+        @Param("idempotencyKey") idempotencyKey: String,
+        @Param("processingLeaseToken") processingLeaseToken: String,
+        @Param("processingLeaseUntil") processingLeaseUntil: Instant,
+        @Param("now") now: Instant,
+    ): Int
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(
+        """
+        UPDATE PaymentAttemptEntity p
         SET p.status = :status,
             p.providerTransactionId = :providerTransactionId,
             p.completedAt = :completedAt,

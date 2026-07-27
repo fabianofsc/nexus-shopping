@@ -10,6 +10,8 @@ import com.nexus.shopping.payment.domain.PaymentStatus
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.Callable
@@ -38,6 +40,9 @@ class PaymentJpaRepositoryAdapterTest {
 
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
+
+    @Autowired
+    private lateinit var transactionManager: PlatformTransactionManager
 
     @Test
     fun `reserve persists fingerprint and returns existing winner for an idempotent replay`() {
@@ -100,14 +105,15 @@ class PaymentJpaRepositoryAdapterTest {
 
         try {
             val results =
-                listOf(first, second).map { attempt ->
-                    executor.submit(
-                        Callable {
-                            barrier.await(5, TimeUnit.SECONDS)
-                            attempts.reserve(attempt)
-                        },
-                    )
-                }.map { future -> future.get(10, TimeUnit.SECONDS) }
+                listOf(first, second)
+                    .map { attempt ->
+                        executor.submit(
+                            Callable {
+                                barrier.await(5, TimeUnit.SECONDS)
+                                attempts.reserve(attempt)
+                            },
+                        )
+                    }.map { future -> future.get(10, TimeUnit.SECONDS) }
 
             assertEquals(1, results.count { it is PaymentAttemptReservation.Created })
             assertEquals(1, results.count { it is PaymentAttemptReservation.Existing })
@@ -117,36 +123,106 @@ class PaymentJpaRepositoryAdapterTest {
         }
     }
 
+    @Test
+    fun `reserve commits independently when the caller transaction rolls back`() {
+        val requested = requested(referenceId = "order-independent", idempotencyKey = "payment-independent")
+
+        TransactionTemplate(transactionManager).executeWithoutResult { outerTransaction ->
+            assertIs<PaymentAttemptReservation.Created>(attempts.reserve(requested))
+            outerTransaction.setRollbackOnly()
+        }
+
+        assertEquals(1, count("order-independent", "payment-independent"))
+    }
+
+    @Test
+    fun `concurrent reclaim assigns an expired requested lease to exactly one new owner`() {
+        val now = Instant.now()
+        val expired =
+            requested(
+                referenceId = "order-reclaim",
+                idempotencyKey = "payment-reclaim",
+                processingLeaseUntil = now.minusSeconds(5),
+            )
+        assertIs<PaymentAttemptReservation.Created>(attempts.reserve(expired))
+
+        val barrier = CyclicBarrier(2)
+        val first = expired.copyWithNewAttemptReference("lease-reclaim-first", now.plusSeconds(30))
+        val second = expired.copyWithNewAttemptReference("lease-reclaim-second", now.plusSeconds(30))
+        val executor = Executors.newFixedThreadPool(2)
+
+        try {
+            val results =
+                listOf(first, second)
+                    .map { attempt ->
+                        executor.submit(
+                            Callable {
+                                barrier.await(5, TimeUnit.SECONDS)
+                                attempts.reserve(attempt)
+                            },
+                        )
+                    }.map { future -> future.get(10, TimeUnit.SECONDS) }
+
+            val winner = assertIs<PaymentAttemptReservation.Created>(results.single { it is PaymentAttemptReservation.Created }).attempt
+            assertEquals(1, results.count { it is PaymentAttemptReservation.Created })
+            assertEquals(1, results.count { it is PaymentAttemptReservation.Existing })
+            assertNull(
+                attempts.complete(
+                    expired.attemptReference,
+                    expired.processingLeaseToken!!,
+                    PaymentStatus.APPROVED,
+                    "provider-stale",
+                    now.plusSeconds(1),
+                ),
+            )
+            assertEquals(
+                PaymentStatus.APPROVED,
+                attempts
+                    .complete(
+                        winner.attemptReference,
+                        winner.processingLeaseToken!!,
+                        PaymentStatus.APPROVED,
+                        "provider-winner",
+                        now.plusSeconds(2),
+                    )?.status,
+            )
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
     private fun requested(
         referenceId: String,
         idempotencyKey: String,
-    ) =
-        PaymentAttempt.requested(
-            attemptReference = "pay-${UUID.randomUUID()}",
-            referenceId = referenceId,
-            amount = PaymentAmount.of("19.90".toBigDecimal()),
-            currency = PaymentCurrency.of("BRL"),
-            provider = PaymentProvider.LOGGING_PROVIDER,
-            idempotencyKey = idempotencyKey,
-            authorizationFingerprint = "fingerprint-${UUID.randomUUID()}",
-            processingLeaseToken = "lease-${UUID.randomUUID()}",
-            processingLeaseUntil = Instant.parse("2026-07-26T12:05:00Z"),
-            createdAt = Instant.parse("2026-07-26T12:00:00Z"),
-        )
+        processingLeaseUntil: Instant = Instant.now().plusSeconds(60),
+    ) = PaymentAttempt.requested(
+        attemptReference = "pay-${UUID.randomUUID()}",
+        referenceId = referenceId,
+        amount = PaymentAmount.of("19.90".toBigDecimal()),
+        currency = PaymentCurrency.of("BRL"),
+        provider = PaymentProvider.LOGGING_PROVIDER,
+        idempotencyKey = idempotencyKey,
+        authorizationFingerprint = "fingerprint-${UUID.randomUUID()}",
+        processingLeaseToken = "lease-${UUID.randomUUID()}",
+        processingLeaseUntil = processingLeaseUntil,
+        createdAt = Instant.parse("2026-07-26T12:00:00Z"),
+    )
 
-    private fun PaymentAttempt.copyWithNewAttemptReference() =
-        PaymentAttempt.requested(
-            attemptReference = "pay-${UUID.randomUUID()}",
-            referenceId = referenceId,
-            amount = amount,
-            currency = currency,
-            provider = provider,
-            idempotencyKey = idempotencyKey,
-            authorizationFingerprint = authorizationFingerprint,
-            processingLeaseToken = processingLeaseToken!!,
-            processingLeaseUntil = processingLeaseUntil!!,
-            createdAt = createdAt!!,
-        )
+    private fun PaymentAttempt.copyWithNewAttemptReference(
+        processingLeaseToken: String = this.processingLeaseToken!!,
+        processingLeaseUntil: Instant = this.processingLeaseUntil!!,
+    ) = PaymentAttempt.requested(
+        attemptReference = "pay-${UUID.randomUUID()}",
+        referenceId = referenceId,
+        amount = amount,
+        currency = currency,
+        provider = provider,
+        idempotencyKey = idempotencyKey,
+        authorizationFingerprint = authorizationFingerprint,
+        processingLeaseToken = processingLeaseToken,
+        processingLeaseUntil = processingLeaseUntil,
+        createdAt = createdAt!!,
+    )
 
     private fun count(
         referenceId: String,

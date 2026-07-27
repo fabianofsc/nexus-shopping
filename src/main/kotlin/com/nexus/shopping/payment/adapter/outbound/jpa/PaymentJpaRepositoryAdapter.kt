@@ -7,6 +7,7 @@ import com.nexus.shopping.payment.domain.PaymentStatus
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
 
@@ -15,7 +16,10 @@ class PaymentJpaRepositoryAdapter(
     private val repository: SpringDataPaymentAttemptRepository,
     transactionManager: PlatformTransactionManager,
 ) : PaymentAttemptRepositoryPort {
-    private val transactions = TransactionTemplate(transactionManager)
+    private val transactions =
+        TransactionTemplate(transactionManager).apply {
+            propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
+        }
 
     override fun reserve(attempt: PaymentAttempt): PaymentAttemptReservation =
         try {
@@ -57,7 +61,26 @@ class PaymentJpaRepositoryAdapter(
             transactions.execute {
                 val existing = repository.findByReferenceIdAndIdempotencyKey(attempt.referenceId, attempt.idempotencyKey).orElse(null)
                 if (existing != null) {
-                    PaymentAttemptReservation.Existing(existing.toDomain())
+                    val reclaimed =
+                        existing.authorizationFingerprint == attempt.authorizationFingerprint &&
+                            repository.reclaimExpiredLease(
+                                referenceId = attempt.referenceId,
+                                idempotencyKey = attempt.idempotencyKey,
+                                processingLeaseToken = requireNotNull(attempt.processingLeaseToken),
+                                processingLeaseUntil = requireNotNull(attempt.processingLeaseUntil),
+                                now = Instant.now(),
+                            ) == 1
+                    val winner =
+                        requireNotNull(
+                            repository
+                                .findByReferenceIdAndIdempotencyKey(attempt.referenceId, attempt.idempotencyKey)
+                                .orElse(null),
+                        )
+                    if (reclaimed) {
+                        PaymentAttemptReservation.Created(winner.toDomain())
+                    } else {
+                        PaymentAttemptReservation.Existing(winner.toDomain())
+                    }
                 } else {
                     PaymentAttemptReservation.Created(repository.saveAndFlush(attempt.toEntity()).toDomain())
                 }

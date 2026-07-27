@@ -52,8 +52,8 @@ class PaymentAttemptEntity(
     @Column(name = "completed_at")
     var completedAt: Instant? = null,
 ) {
-    fun toDomain(): PaymentAttempt {
-        return PaymentAttempt.restored(
+    fun toDomain(): PaymentAttempt =
+        PaymentAttempt.restored(
             id = requireNotNull(id) { "PaymentAttemptEntity.id must be available before mapping to domain." },
             attemptReference = attemptReference,
             referenceId = referenceId,
@@ -69,7 +69,6 @@ class PaymentAttemptEntity(
             createdAt = requireNotNull(createdAt) { "PaymentAttemptEntity.createdAt must be available before mapping to domain." },
             completedAt = completedAt,
         )
-}
 }
 
 fun PaymentAttempt.toEntity(): PaymentAttemptEntity =
