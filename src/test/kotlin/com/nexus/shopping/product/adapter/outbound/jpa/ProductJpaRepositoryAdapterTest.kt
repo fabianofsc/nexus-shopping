@@ -19,7 +19,7 @@ import kotlin.test.assertTrue
         "spring.datasource.driver-class-name=org.h2.Driver",
         "spring.datasource.username=sa",
         "spring.datasource.password=",
-        "spring.flyway.placeholders.productSeedCount=600",
+        "spring.flyway.placeholders.productSeedCount=1",
         "spring.jpa.hibernate.ddl-auto=none",
     ],
 )
@@ -30,6 +30,8 @@ class ProductJpaRepositoryAdapterTest : RedisIntegrationTest() {
 
     @Test
     fun `findByCategoryId returns a slice with hasNext without count query`() {
+        saveProduct(name = "Category 1 Product", sku = "SKU-CATEGORY-1", slug = "category-1-product")
+
         val result = repository.findByCategoryId(categoryId = 1L, page = 0, size = 1)
 
         assertEquals(0, result.page)
@@ -42,6 +44,8 @@ class ProductJpaRepositoryAdapterTest : RedisIntegrationTest() {
 
     @Test
     fun `findByCategoryId returns second slice without hasNext`() {
+        saveProduct(name = "Category 1 Product", sku = "SKU-CATEGORY-1", slug = "category-1-product")
+
         val result = repository.findByCategoryId(categoryId = 1L, page = 1, size = 1)
 
         assertEquals(1, result.page)
@@ -53,6 +57,10 @@ class ProductJpaRepositoryAdapterTest : RedisIntegrationTest() {
 
     @Test
     fun `findByName uses prefix range bounds`() {
+        saveProduct(name = "Product 10", sku = "SKU-PREFIX-10", slug = "product-prefix-10")
+        saveProduct(name = "Product 100", sku = "SKU-PREFIX-100", slug = "product-prefix-100")
+        saveProduct(name = "Product 101", sku = "SKU-PREFIX-101", slug = "product-prefix-101")
+
         val result = repository.findByName(name = "Product 1", page = 0, size = 3)
 
         assertEquals(0, result.page)
@@ -140,5 +148,26 @@ class ProductJpaRepositoryAdapterTest : RedisIntegrationTest() {
         assertEquals(0, result.count)
         assertFalse(result.hasNext)
         assertTrue(result.content.isEmpty())
+    }
+
+    private fun saveProduct(
+        name: String,
+        sku: String,
+        slug: String,
+    ) {
+        repository.save(
+            CreateProductCommand(
+                brandId = 1L,
+                categoryId = 1L,
+                sku = sku,
+                name = name,
+                slug = slug,
+                description = null,
+                status = "ACTIVE",
+                priceAmount = BigDecimal("10.00"),
+                currency = "BRL",
+                inventoryQuantity = 0,
+            ),
+        )
     }
 }
