@@ -3,8 +3,11 @@ package com.nexus.shopping.order
 import com.nexus.shopping.cart.adapter.outbound.jpa.CartJpaRepositoryAdapter
 import com.nexus.shopping.cart.application.command.AddCartItemCommand
 import com.nexus.shopping.cart.application.exception.CartValidationException
+import com.nexus.shopping.cart.application.port.inbound.CartCheckoutInputPort
+import com.nexus.shopping.cart.application.port.inbound.CartCheckoutReservation
 import com.nexus.shopping.cart.application.port.outbound.CartRepositoryPort
 import com.nexus.shopping.cart.application.usecase.AddCartItemUseCase
+import com.nexus.shopping.cart.application.usecase.CartCheckoutUseCase
 import com.nexus.shopping.cart.application.usecase.ClearCartUseCase
 import com.nexus.shopping.cart.application.usecase.RemoveCartItemUseCase
 import com.nexus.shopping.cart.domain.Cart
@@ -13,8 +16,6 @@ import com.nexus.shopping.cart.domain.ProductSummary
 import com.nexus.shopping.order.adapter.outbound.jpa.JpaTransactionAdapter
 import com.nexus.shopping.order.adapter.outbound.jpa.OrderJpaRepositoryAdapter
 import com.nexus.shopping.order.application.command.CheckoutOrderCommand
-import com.nexus.shopping.order.application.port.outbound.CartCheckoutPort
-import com.nexus.shopping.order.application.port.outbound.CheckoutCartSnapshot
 import com.nexus.shopping.order.application.usecase.CheckoutOrderUseCase
 import com.nexus.shopping.order.domain.CustomerSnapshot
 import com.nexus.shopping.order.domain.Order
@@ -87,7 +88,7 @@ class CheckoutOrderMutationConcurrencyTest {
         val checkout =
             CheckoutOrderUseCase(
                 orders,
-                BlockingCartCheckout(carts, checkoutLocked, releaseCheckout),
+                BlockingCartCheckout(CartCheckoutUseCase(carts), checkoutLocked, releaseCheckout),
                 transactions,
             )
         val signalingRepository = SignalingCartRepository(carts, mutationReadActiveCart)
@@ -148,17 +149,17 @@ class CheckoutOrderMutationConcurrencyTest {
 }
 
 private class BlockingCartCheckout(
-    private val delegate: CartCheckoutPort,
+    private val delegate: CartCheckoutInputPort,
     private val checkoutLocked: CountDownLatch,
     private val releaseCheckout: CountDownLatch,
-) : CartCheckoutPort {
-    override fun lockActiveCartByCustomerId(customerId: Long): CheckoutCartSnapshot? =
-        delegate.lockActiveCartByCustomerId(customerId)?.also {
+) : CartCheckoutInputPort {
+    override fun reserveActiveCart(customerId: Long): CartCheckoutReservation =
+        delegate.reserveActiveCart(customerId).also {
             checkoutLocked.countDown()
             check(releaseCheckout.await(20, TimeUnit.SECONDS)) { "Timed out waiting to release checkout" }
         }
 
-    override fun markCheckedOut(cartId: Long) = delegate.markCheckedOut(cartId)
+    override fun confirmCheckout(reservationId: Long) = delegate.confirmCheckout(reservationId)
 }
 
 private class SignalingCartRepository(

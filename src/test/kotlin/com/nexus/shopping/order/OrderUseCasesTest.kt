@@ -1,10 +1,14 @@
 package com.nexus.shopping.order
 
+import com.nexus.shopping.cart.application.port.inbound.CartCheckoutInputPort
+import com.nexus.shopping.cart.application.port.inbound.CartCheckoutReservation
+import com.nexus.shopping.cart.domain.Cart
+import com.nexus.shopping.cart.domain.CartItem
+import com.nexus.shopping.cart.domain.CartStatus
+import com.nexus.shopping.cart.domain.ProductSummary
 import com.nexus.shopping.order.application.command.CheckoutOrderCommand
 import com.nexus.shopping.order.application.exception.OrderNotFoundException
 import com.nexus.shopping.order.application.exception.OrderValidationException
-import com.nexus.shopping.order.application.port.outbound.CartCheckoutPort
-import com.nexus.shopping.order.application.port.outbound.CheckoutCartSnapshot
 import com.nexus.shopping.order.application.port.outbound.OrderRepositoryPort
 import com.nexus.shopping.order.application.port.outbound.TransactionPort
 import com.nexus.shopping.order.application.usecase.CancelOrderUseCase
@@ -75,10 +79,32 @@ private class FakeOrderRepository : OrderRepositoryPort {
 
 private class FakeCartCheckout(
     private val items: List<OrderItemSnapshot>,
-) : CartCheckoutPort {
-    override fun lockActiveCartByCustomerId(customerId: Long): CheckoutCartSnapshot? = CheckoutCartSnapshot(100L, customerId, items)
+) : CartCheckoutInputPort {
+    override fun reserveActiveCart(customerId: Long): CartCheckoutReservation =
+        CartCheckoutReservation(
+            Cart(
+                id = 100L,
+                customerId = customerId,
+                status = CartStatus.ACTIVE,
+                items =
+                    items.map { item ->
+                        CartItem(
+                            ProductSummary(
+                                item.productId,
+                                item.productName,
+                                item.unitPriceAmount,
+                                com.nexus.shopping.cart.domain.Currency
+                                    .valueOf(item.currency.name),
+                            ),
+                            item.quantity,
+                        )
+                    },
+                createdAt = null,
+                updatedAt = null,
+            ),
+        )
 
-    override fun markCheckedOut(cartId: Long) = Unit
+    override fun confirmCheckout(reservationId: Long) = Unit
 }
 
 private object FakeTransaction : TransactionPort {

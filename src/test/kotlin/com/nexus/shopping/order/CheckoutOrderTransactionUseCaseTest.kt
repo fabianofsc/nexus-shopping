@@ -1,10 +1,15 @@
 package com.nexus.shopping.order
 
+import com.nexus.shopping.cart.application.exception.CartValidationException
+import com.nexus.shopping.cart.application.port.inbound.CartCheckoutInputPort
+import com.nexus.shopping.cart.application.port.inbound.CartCheckoutReservation
+import com.nexus.shopping.cart.domain.Cart
+import com.nexus.shopping.cart.domain.CartItem
+import com.nexus.shopping.cart.domain.CartStatus
+import com.nexus.shopping.cart.domain.ProductSummary
 import com.nexus.shopping.order.application.command.CheckoutOrderCommand
 import com.nexus.shopping.order.application.exception.OrderIdempotencyConflictException
 import com.nexus.shopping.order.application.exception.OrderValidationException
-import com.nexus.shopping.order.application.port.outbound.CartCheckoutPort
-import com.nexus.shopping.order.application.port.outbound.CheckoutCartSnapshot
 import com.nexus.shopping.order.application.port.outbound.OrderRepositoryPort
 import com.nexus.shopping.order.application.port.outbound.TransactionPort
 import com.nexus.shopping.order.application.usecase.CheckoutOrderUseCase
@@ -68,20 +73,21 @@ private class CheckoutOrderRepositoryFake : OrderRepositoryPort {
 }
 
 private class CheckoutCartFake(
-    var lockedCart: CheckoutCartSnapshot?,
-) : CartCheckoutPort {
+    var lockedCart: CartCheckoutReservation?,
+) : CartCheckoutInputPort {
     var lockCalls = 0
         private set
     var checkedOutCartId: Long? = null
         private set
 
-    override fun lockActiveCartByCustomerId(customerId: Long): CheckoutCartSnapshot? {
+    override fun reserveActiveCart(customerId: Long): CartCheckoutReservation {
         lockCalls++
         return lockedCart?.takeIf { it.customerId == customerId }
+            ?: throw CartValidationException("customerId $customerId does not have an active cart.")
     }
 
-    override fun markCheckedOut(cartId: Long) {
-        checkedOutCartId = cartId
+    override fun confirmCheckout(reservationId: Long) {
+        checkedOutCartId = reservationId
         lockedCart = null
     }
 }
@@ -101,10 +107,27 @@ class CheckoutOrderTransactionUseCaseTest {
         )
 
     private fun activeCart(items: List<OrderItemSnapshot> = listOf(item())) =
-        CheckoutCartSnapshot(
-            cartId = 100L,
-            customerId = 10L,
-            items = items,
+        CartCheckoutReservation(
+            Cart(
+                id = 100L,
+                customerId = 10L,
+                status = CartStatus.ACTIVE,
+                items =
+                    items.map { item ->
+                        CartItem(
+                            ProductSummary(
+                                item.productId,
+                                item.productName,
+                                item.unitPriceAmount,
+                                com.nexus.shopping.cart.domain.Currency
+                                    .valueOf(item.currency.name),
+                            ),
+                            item.quantity,
+                        )
+                    },
+                createdAt = null,
+                updatedAt = null,
+            ),
         )
 
     private fun item() = OrderItemSnapshot(1L, "Produto A", BigDecimal("19.90"), Currency.BRL, 2)

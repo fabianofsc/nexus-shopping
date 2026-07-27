@@ -1,6 +1,7 @@
 package com.nexus.shopping.order
 
 import com.nexus.shopping.cart.adapter.outbound.jpa.CartJpaRepositoryAdapter
+import com.nexus.shopping.cart.application.usecase.CartCheckoutUseCase
 import com.nexus.shopping.cart.domain.CartItem
 import com.nexus.shopping.cart.domain.ProductSummary
 import com.nexus.shopping.order.adapter.outbound.jpa.JpaTransactionAdapter
@@ -50,7 +51,8 @@ class CheckoutOrderConcurrencyTest {
     fun `concurrent same-key checkouts create one order and replay it after the cart closes`() {
         prepareCart(3L)
 
-        val results = concurrently(12) { CheckoutOrderUseCase(orders, carts, transactions).execute(command(3L, "same-key")) }
+        val results =
+            concurrently(12) { CheckoutOrderUseCase(orders, CartCheckoutUseCase(carts), transactions).execute(command(3L, "same-key")) }
 
         assertEquals(12, results.size)
         assertTrue(results.all { it.isSuccess }, "Expected all idempotent requests to succeed: $results")
@@ -63,7 +65,10 @@ class CheckoutOrderConcurrencyTest {
     fun `concurrent different-key checkouts allow only one cart checkout to win`() {
         prepareCart(4L)
 
-        val results = concurrently(12) { index -> CheckoutOrderUseCase(orders, carts, transactions).execute(command(4L, "key-$index")) }
+        val results =
+            concurrently(
+                12,
+            ) { index -> CheckoutOrderUseCase(orders, CartCheckoutUseCase(carts), transactions).execute(command(4L, "key-$index")) }
 
         assertEquals(1, results.count { it.isSuccess })
         assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM orders WHERE customer_id = 4", Int::class.java))
@@ -74,7 +79,7 @@ class CheckoutOrderConcurrencyTest {
     fun `concurrent replays keep a new active cart open after the original cart was checked out`() {
         val customerId = 5L
         prepareCart(customerId)
-        val checkout = CheckoutOrderUseCase(orders, carts, transactions)
+        val checkout = CheckoutOrderUseCase(orders, CartCheckoutUseCase(carts), transactions)
         val original = checkout.execute(command(customerId, "original-key"))
         val newCartId = createFreshActiveCart(customerId)
 

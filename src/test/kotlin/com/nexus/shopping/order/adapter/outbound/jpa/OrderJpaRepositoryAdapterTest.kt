@@ -91,7 +91,7 @@ class OrderJpaRepositoryAdapterTest {
         val cartIds =
             (1..3).map {
                 val cart = carts.getOrCreateActiveByCustomerId(1L)
-                carts.markCheckedOut(requireNotNull(cart.id))
+                carts.confirmCheckout(requireNotNull(cart.id))
                 requireNotNull(cart.id)
             }
         cartIds.forEach { cartId ->
