@@ -41,13 +41,14 @@ class PackageStructureArchitectureTest {
     }
 
     @Test
-    fun `only Integration adapters depend on bounded context input ports`() {
+    fun `only bounded contexts and Integration adapters depend on their input ports`() {
         noClasses()
             .that()
-            .resideInAPackage("..integration..")
-            .and()
-            .resideOutsideOfPackage("..integration..adapter..")
-            .should()
+            .resideOutsideOfPackages(
+                "..cart..",
+                "..order..",
+                "..integration..adapter..",
+            ).should()
             .dependOnClassesThat()
             .resideInAnyPackage(
                 "..cart.application.port.inbound..",
