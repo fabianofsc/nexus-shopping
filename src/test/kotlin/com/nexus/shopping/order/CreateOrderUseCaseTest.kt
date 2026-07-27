@@ -48,6 +48,10 @@ private class CreateOrderRepositoryFake : OrderRepositoryPort {
 
     override fun update(order: Order): Order = order
 
+    fun seed(order: Order) {
+        ordersByKey[order.customerId to order.idempotencyKey] = order
+    }
+
     private fun persist(order: Order) =
         Order(
             id = nextId++,
@@ -99,6 +103,37 @@ class CreateOrderUseCaseTest {
         assertEquals(false, original.replayed)
         assertEquals(true, replay.replayed)
         assertEquals(original.order, replay.order)
+    }
+
+    @Test
+    fun `replays an order persisted with the legacy fingerprint when the complete payload matches`() {
+        val repository = CreateOrderRepositoryFake()
+        val legacyOrder = legacyOrder(command())
+        repository.seed(legacyOrder)
+
+        val replay = CreateOrderUseCase(repository).create(command())
+
+        assertEquals(true, replay.replayed)
+        assertEquals(legacyOrder, replay.order)
+    }
+
+    @Test
+    fun `rejects a legacy fingerprint replay when base cart or item payload differs`() {
+        val differentPayloads =
+            listOf(
+                command().copy(shippingAddressSnapshot = command().shippingAddressSnapshot.copy(number = "11")),
+                command().copy(cartId = 101L),
+                command(items = listOf(item().copy(quantity = 3))),
+            )
+
+        differentPayloads.forEach { differentPayload ->
+            val repository = CreateOrderRepositoryFake()
+            repository.seed(legacyOrder(command()))
+
+            assertFailsWith<com.nexus.shopping.order.application.exception.OrderIdempotencyConflictException> {
+                CreateOrderUseCase(repository).create(differentPayload)
+            }
+        }
     }
 
     @Test
@@ -206,6 +241,21 @@ class CreateOrderUseCaseTest {
             CreateOrderUseCase(repository).create(command())
         }
     }
+
+    private fun legacyOrder(command: CreateOrderCommand) =
+        Order(
+            id = 77L,
+            customerId = command.customerId,
+            cartId = command.cartId,
+            customerSnapshot = command.customerSnapshot,
+            shippingAddressSnapshot = command.shippingAddressSnapshot,
+            items = command.items,
+            status = OrderStatus.WAITING_PAYMENT,
+            idempotencyKey = command.idempotencyKey,
+            requestFingerprint = "b093438ecf85c45315d5eba700e5031232deefc539b26a6fa5f6ada7f2d62bc8",
+            createdAt = Instant.parse("2026-07-25T12:00:00Z"),
+            cancelledAt = null,
+        )
 }
 
 private class ConcurrentCreateOrderRepositoryFake(

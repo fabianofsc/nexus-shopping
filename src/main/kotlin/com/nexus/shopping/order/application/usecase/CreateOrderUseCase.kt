@@ -32,14 +32,22 @@ class CreateOrderUseCase(
             orderRepository.findByCustomerIdAndIdempotencyKey(command.customerId, command.idempotencyKey)
                 ?: return null
         val replayFingerprint =
-            OrderCreationRequestFingerprint.from(
+            OrderCreationRequestFingerprint.current(
                 customerId = command.customerId,
                 cartId = existing.cartId,
                 customerSnapshot = command.customerSnapshot,
                 shippingAddressSnapshot = command.shippingAddressSnapshot,
                 items = existing.items,
             )
-        if (existing.requestFingerprint != replayFingerprint) conflict(command.idempotencyKey)
+        val legacyReplayFingerprint =
+            OrderCreationRequestFingerprint.legacy(
+                customerId = command.customerId,
+                customerSnapshot = command.customerSnapshot,
+                shippingAddressSnapshot = command.shippingAddressSnapshot,
+            )
+        if (existing.requestFingerprint != replayFingerprint && existing.requestFingerprint != legacyReplayFingerprint) {
+            conflict(command.idempotencyKey)
+        }
         return CreatedOrder(existing, replayed = true)
     }
 
@@ -52,7 +60,7 @@ class CreateOrderUseCase(
         )
         OrderCreationPayloadValidator.validateCart(command.cartId, command.items)
         val fingerprint =
-            OrderCreationRequestFingerprint.from(
+            OrderCreationRequestFingerprint.current(
                 customerId = command.customerId,
                 cartId = command.cartId,
                 customerSnapshot = command.customerSnapshot,
@@ -61,7 +69,7 @@ class CreateOrderUseCase(
             )
         val existing = orderRepository.findByCustomerIdAndIdempotencyKey(command.customerId, command.idempotencyKey)
         if (existing != null) {
-            if (existing.requestFingerprint != fingerprint) conflict(command.idempotencyKey)
+            validateReplay(existing, command, fingerprint)
             return CreatedOrder(existing, replayed = true)
         }
 
@@ -80,8 +88,28 @@ class CreateOrderUseCase(
                 cancelledAt = null,
             )
         val persistenceResult = orderRepository.create(order)
-        if (persistenceResult.order.requestFingerprint != fingerprint) conflict(command.idempotencyKey)
+        validateReplay(persistenceResult.order, command, fingerprint)
         return CreatedOrder(persistenceResult.order, replayed = !persistenceResult.created)
+    }
+
+    private fun validateReplay(
+        existing: Order,
+        command: CreateOrderCommand,
+        currentFingerprint: String,
+    ) {
+        if (existing.requestFingerprint == currentFingerprint) return
+
+        val legacyFingerprint =
+            OrderCreationRequestFingerprint.legacy(
+                customerId = command.customerId,
+                customerSnapshot = command.customerSnapshot,
+                shippingAddressSnapshot = command.shippingAddressSnapshot,
+            )
+        val sameCompletePayload =
+            existing.requestFingerprint == legacyFingerprint &&
+                existing.cartId == command.cartId &&
+                existing.items == command.items
+        if (!sameCompletePayload) conflict(command.idempotencyKey)
     }
 
     private fun conflict(idempotencyKey: String): Nothing =
@@ -89,7 +117,8 @@ class CreateOrderUseCase(
 }
 
 internal object OrderCreationRequestFingerprint {
-    fun from(
+    /** Current V2 format: base snapshots plus cart id and every ordered item field. */
+    fun current(
         customerId: Long,
         cartId: Long,
         customerSnapshot: CustomerSnapshot,
@@ -104,10 +133,25 @@ internal object OrderCreationRequestFingerprint {
                 appendShippingAddress(shippingAddressSnapshot)
                 appendItems(items)
             }
-        return MessageDigest
-            .getInstance("SHA-256")
-            .digest(canonicalPayload.toByteArray(Charsets.UTF_8))
-            .joinToString("") { byte -> "%02x".format(byte) }
+        return digest(canonicalPayload)
+    }
+
+    /**
+     * Legacy V1 format persisted before checkout integration boundaries. The fallback is read-only:
+     * new orders always store V2, while legacy replays additionally compare persisted cart/items.
+     */
+    fun legacy(
+        customerId: Long,
+        customerSnapshot: CustomerSnapshot,
+        shippingAddressSnapshot: ShippingAddressSnapshot,
+    ): String {
+        val canonicalPayload =
+            buildString {
+                appendField(customerId.toString())
+                appendCustomer(customerSnapshot)
+                appendShippingAddress(shippingAddressSnapshot)
+            }
+        return digest(canonicalPayload)
     }
 
     private fun StringBuilder.appendCustomer(snapshot: CustomerSnapshot) {
@@ -144,6 +188,12 @@ internal object OrderCreationRequestFingerprint {
     private fun StringBuilder.appendField(value: String?) {
         if (value == null) append("-1:") else append(value.length).append(':').append(value)
     }
+
+    private fun digest(canonicalPayload: String): String =
+        MessageDigest
+            .getInstance("SHA-256")
+            .digest(canonicalPayload.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> "%02x".format(byte) }
 }
 
 internal object OrderCreationPayloadValidator {
