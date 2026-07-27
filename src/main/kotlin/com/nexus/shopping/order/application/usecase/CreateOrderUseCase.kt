@@ -5,6 +5,8 @@ import com.nexus.shopping.order.application.exception.OrderIdempotencyConflictEx
 import com.nexus.shopping.order.application.exception.OrderValidationException
 import com.nexus.shopping.order.application.port.inbound.CreateOrderInputPort
 import com.nexus.shopping.order.application.port.inbound.CreatedOrder
+import com.nexus.shopping.order.application.port.inbound.FindOrderReplayCommand
+import com.nexus.shopping.order.application.port.inbound.FindOrderReplayInputPort
 import com.nexus.shopping.order.application.port.outbound.OrderRepositoryPort
 import com.nexus.shopping.order.domain.CustomerSnapshot
 import com.nexus.shopping.order.domain.Order
@@ -17,7 +19,30 @@ import java.security.MessageDigest
 @Service
 class CreateOrderUseCase(
     private val orderRepository: OrderRepositoryPort,
-) : CreateOrderInputPort {
+) : CreateOrderInputPort,
+    FindOrderReplayInputPort {
+    override fun findReplay(command: FindOrderReplayCommand): CreatedOrder? {
+        OrderCreationPayloadValidator.validateBase(
+            customerId = command.customerId,
+            customerSnapshot = command.customerSnapshot,
+            shippingAddressSnapshot = command.shippingAddressSnapshot,
+            idempotencyKey = command.idempotencyKey,
+        )
+        val existing =
+            orderRepository.findByCustomerIdAndIdempotencyKey(command.customerId, command.idempotencyKey)
+                ?: return null
+        val replayFingerprint =
+            OrderCreationRequestFingerprint.from(
+                customerId = command.customerId,
+                cartId = existing.cartId,
+                customerSnapshot = command.customerSnapshot,
+                shippingAddressSnapshot = command.shippingAddressSnapshot,
+                items = existing.items,
+            )
+        if (existing.requestFingerprint != replayFingerprint) conflict(command.idempotencyKey)
+        return CreatedOrder(existing, replayed = true)
+    }
+
     override fun create(command: CreateOrderCommand): CreatedOrder {
         OrderCreationPayloadValidator.validateBase(
             customerId = command.customerId,
@@ -29,8 +54,10 @@ class CreateOrderUseCase(
         val fingerprint =
             OrderCreationRequestFingerprint.from(
                 customerId = command.customerId,
+                cartId = command.cartId,
                 customerSnapshot = command.customerSnapshot,
                 shippingAddressSnapshot = command.shippingAddressSnapshot,
+                items = command.items,
             )
         val existing = orderRepository.findByCustomerIdAndIdempotencyKey(command.customerId, command.idempotencyKey)
         if (existing != null) {
@@ -52,7 +79,9 @@ class CreateOrderUseCase(
                 createdAt = null,
                 cancelledAt = null,
             )
-        return CreatedOrder(orderRepository.create(order), replayed = false)
+        val persistenceResult = orderRepository.create(order)
+        if (persistenceResult.order.requestFingerprint != fingerprint) conflict(command.idempotencyKey)
+        return CreatedOrder(persistenceResult.order, replayed = !persistenceResult.created)
     }
 
     private fun conflict(idempotencyKey: String): Nothing =
@@ -62,14 +91,18 @@ class CreateOrderUseCase(
 internal object OrderCreationRequestFingerprint {
     fun from(
         customerId: Long,
+        cartId: Long,
         customerSnapshot: CustomerSnapshot,
         shippingAddressSnapshot: ShippingAddressSnapshot,
+        items: List<OrderItemSnapshot>,
     ): String {
         val canonicalPayload =
             buildString {
                 appendField(customerId.toString())
+                appendField(cartId.toString())
                 appendCustomer(customerSnapshot)
                 appendShippingAddress(shippingAddressSnapshot)
+                appendItems(items)
             }
         return MessageDigest
             .getInstance("SHA-256")
@@ -95,6 +128,17 @@ internal object OrderCreationRequestFingerprint {
         appendField(snapshot.state)
         appendField(snapshot.zipCode)
         appendField(snapshot.country)
+    }
+
+    private fun StringBuilder.appendItems(items: List<OrderItemSnapshot>) {
+        appendField(items.size.toString())
+        items.forEach { item ->
+            appendField(item.productId.toString())
+            appendField(item.productName)
+            appendField(item.unitPriceAmount.toPlainString())
+            appendField(item.currency.name)
+            appendField(item.quantity.toString())
+        }
     }
 
     private fun StringBuilder.appendField(value: String?) {

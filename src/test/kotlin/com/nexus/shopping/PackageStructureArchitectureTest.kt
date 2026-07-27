@@ -89,7 +89,7 @@ class PackageStructureArchitectureTest {
     fun `order use cases follow the service component pattern used by existing contexts`() {
         val orderUseCases =
             listOf(
-                "com.nexus.shopping.order.application.usecase.CheckoutOrderUseCase",
+                "com.nexus.shopping.order.application.usecase.CreateOrderUseCase",
                 "com.nexus.shopping.order.application.usecase.GetOrderByIdUseCase",
                 "com.nexus.shopping.order.application.usecase.ListOrdersByCustomerUseCase",
                 "com.nexus.shopping.order.application.usecase.CancelOrderUseCase",

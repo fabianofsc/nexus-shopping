@@ -21,6 +21,10 @@ private class FakeRemoveCartItemRepository(
 
     override fun findActiveByCustomerId(customerId: Long): Cart? = activeCart
 
+    override fun reserveActiveCart(customerId: Long): Cart? = findActiveByCustomerId(customerId)
+
+    override fun confirmCheckout(reservationId: Long) = error("Not used by remove item")
+
     override fun getOrCreateActiveByCustomerId(customerId: Long): Cart =
         activeCart ?: save(
             Cart(

@@ -12,12 +12,10 @@ import jakarta.persistence.EntityManagerFactory
 import org.hibernate.SessionFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -53,30 +51,32 @@ class OrderJpaRepositoryAdapterTest {
 
         val created = orders.create(requested)
         val replay = orders.findByCustomerIdAndIdempotencyKey(1L, "checkout-1")
-        val found = orders.findById(requireNotNull(created.id))
+        val found = orders.findById(requireNotNull(created.order.id))
 
-        assertEquals(created, replay)
-        assertEquals(created, found)
+        assertEquals(created.order, replay)
+        assertEquals(created.order, found)
         assertEquals("Ana Silva", found?.customerSnapshot?.name)
         assertEquals("Rua A", found?.shippingAddressSnapshot?.street)
         assertEquals(listOf(item()), found?.items)
     }
 
     @Test
-    fun `duplicate direct insert is not recovered inside the aborted transaction`() {
+    fun `duplicate direct insert returns the existing order without exposing a uniqueness violation`() {
         val cart = carts.getOrCreateActiveByCustomerId(3L)
         val requested = order(requireNotNull(cart.id), "checkout-3")
-        orders.create(requested)
+        val created = orders.create(requested)
 
-        assertFailsWith<DataIntegrityViolationException> {
-            orders.create(requested)
-        }
+        val replay = orders.create(requested)
+
+        assertEquals(true, created.created)
+        assertEquals(false, replay.created)
+        assertEquals(created.order, replay.order)
     }
 
     @Test
     fun `finds by customer idempotency key and updates cancellation without replacing snapshots`() {
         val cart = carts.getOrCreateActiveByCustomerId(2L)
-        val created = orders.create(order(requireNotNull(cart.id), "checkout-2"))
+        val created = orders.create(order(requireNotNull(cart.id), "checkout-2")).order
 
         val cancelled = orders.update(created.cancel())
         val replay = orders.findByCustomerIdAndIdempotencyKey(2L, "checkout-2")
