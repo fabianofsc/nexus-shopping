@@ -1,6 +1,5 @@
 package com.nexus.shopping.payment.domain
 
-import com.nexus.shopping.payment.application.exception.PaymentValidationException
 import java.time.Instant
 
 @ConsistentCopyVisibility
@@ -26,10 +25,10 @@ data class PaymentAttempt private constructor(
         completedAt: Instant,
     ): PaymentAttempt {
         if (status != PaymentStatus.REQUESTED) {
-            throw PaymentValidationException("only requested payment attempts can be completed.")
+            throw PaymentDomainValidationException("only requested payment attempts can be completed.")
         }
         if (resultStatus == PaymentStatus.REQUESTED) {
-            throw PaymentValidationException("payment completion status must be terminal.")
+            throw PaymentDomainValidationException("payment completion status must be terminal.")
         }
         return copy(
             status = resultStatus,

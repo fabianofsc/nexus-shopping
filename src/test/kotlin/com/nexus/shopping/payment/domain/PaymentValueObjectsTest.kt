@@ -1,6 +1,5 @@
 package com.nexus.shopping.payment.domain
 
-import com.nexus.shopping.payment.application.exception.PaymentValidationException
 import java.math.BigDecimal
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -22,7 +21,7 @@ class PaymentValueObjectsTest {
             BigDecimal("1.999"),
             BigDecimal("10000000000.00"),
         ).forEach { value ->
-            assertFailsWith<PaymentValidationException> { PaymentAmount.of(value) }
+            assertFailsWith<PaymentDomainValidationException> { PaymentAmount.of(value) }
         }
     }
 
@@ -34,7 +33,7 @@ class PaymentValueObjectsTest {
     @Test
     fun `rejects non ISO or non uppercase currency codes`() {
         listOf("brl", "BR", "ZZZ").forEach { code ->
-            assertFailsWith<PaymentValidationException> { PaymentCurrency.of(code) }
+            assertFailsWith<PaymentDomainValidationException> { PaymentCurrency.of(code) }
         }
     }
 }

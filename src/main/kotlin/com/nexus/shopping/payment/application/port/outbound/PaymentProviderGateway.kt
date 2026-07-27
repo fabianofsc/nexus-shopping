@@ -14,7 +14,10 @@ data class ProviderProcessingRequest(
     val currency: PaymentCurrency,
     val paymentToken: String,
     val providerDispatchKey: String,
-)
+) {
+    override fun toString(): String =
+        "ProviderProcessingRequest(referenceId=$referenceId, amount=$amount, currency=$currency, paymentToken=<redacted>, providerDispatchKey=$providerDispatchKey)"
+}
 
 data class ProviderProcessingResult(
     val status: PaymentStatus,

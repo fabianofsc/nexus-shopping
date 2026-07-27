@@ -8,4 +8,7 @@ data class ProcessPaymentCommand(
     val currency: String,
     val paymentToken: String,
     val idempotencyKey: String,
-)
+) {
+    override fun toString(): String =
+        "ProcessPaymentCommand(referenceId=$referenceId, amount=$amount, currency=$currency, paymentToken=<redacted>, idempotencyKey=$idempotencyKey)"
+}

@@ -12,13 +12,13 @@ import com.nexus.shopping.payment.application.usecase.ProcessPaymentUseCase
 import com.nexus.shopping.payment.domain.PaymentAmount
 import com.nexus.shopping.payment.domain.PaymentAttempt
 import com.nexus.shopping.payment.domain.PaymentCurrency
-import com.nexus.shopping.payment.domain.PaymentProvider
 import com.nexus.shopping.payment.domain.PaymentStatus
 import java.math.BigDecimal
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ProcessPaymentUseCaseTest {
@@ -36,7 +36,12 @@ class ProcessPaymentUseCaseTest {
             "a522033ce2401cf44d22150676765f6173fa7190032c7684c344c9f278b60ea5",
             repository.attempts.single().authorizationFingerprint,
         )
-        assertTrue(repository.attempts.single().toString().contains("opaque-token").not())
+        assertFalse(
+            repository.attempts
+                .single()
+                .toString()
+                .contains("opaque-token"),
+        )
     }
 
     @Test
@@ -49,6 +54,37 @@ class ProcessPaymentUseCaseTest {
             "v1_edb959fdea610389a04d691e46b65164dbbac2fde27d29776972ff8e3e257869",
             provider.requests.single().providerDispatchKey,
         )
+    }
+
+    @Test
+    fun `derives provider dispatch key from UTF-8 byte prefixed non ASCII fields`() {
+        val provider = ApprovedProvider()
+
+        ProcessPaymentUseCase(PaymentAttemptRepositoryFake(), provider, FixedFingerprintSecret()).process(
+            command(referenceId = "checkout:é", idempotencyKey = "key-ç"),
+        )
+
+        assertEquals(
+            "v1_5eb2178088d786fc3cc60b797f02705f061dd9666bfc8471a5190a1be5a5810f",
+            provider.requests.single().providerDispatchKey,
+        )
+    }
+
+    @Test
+    fun `redacts payment tokens from command and provider request string representations`() {
+        val token = "opaque-token-must-not-appear"
+        val command = command(paymentToken = token)
+        val providerRequest =
+            ProviderProcessingRequest(
+                referenceId = command.referenceId,
+                amount = PaymentAmount.of(command.amount),
+                currency = PaymentCurrency.of(command.currency),
+                paymentToken = token,
+                providerDispatchKey = "provider-key",
+            )
+
+        assertFalse(command.toString().contains(token))
+        assertFalse(providerRequest.toString().contains(token))
     }
 
     @Test
@@ -76,14 +112,17 @@ class ProcessPaymentUseCaseTest {
         }
     }
 
-    private fun command(paymentToken: String = "opaque-token") =
-        ProcessPaymentCommand(
-            referenceId = "checkout:42",
-            amount = BigDecimal("19.90"),
-            currency = "BRL",
-            paymentToken = paymentToken,
-            idempotencyKey = "checkout-key-1",
-        )
+    private fun command(
+        paymentToken: String = "opaque-token",
+        referenceId: String = "checkout:42",
+        idempotencyKey: String = "checkout-key-1",
+    ) = ProcessPaymentCommand(
+        referenceId = referenceId,
+        amount = BigDecimal("19.90"),
+        currency = "BRL",
+        paymentToken = paymentToken,
+        idempotencyKey = idempotencyKey,
+    )
 }
 
 private class FixedFingerprintSecret : PaymentAuthorizationFingerprintSecretPort {

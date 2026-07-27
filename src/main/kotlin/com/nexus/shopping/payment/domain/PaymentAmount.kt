@@ -1,6 +1,5 @@
 package com.nexus.shopping.payment.domain
 
-import com.nexus.shopping.payment.application.exception.PaymentValidationException
 import java.math.BigDecimal
 import java.math.RoundingMode
 
@@ -23,6 +22,6 @@ data class PaymentAmount private constructor(
             return PaymentAmount(normalized)
         }
 
-        private fun invalid(message: String): Nothing = throw PaymentValidationException(message)
+        private fun invalid(message: String): Nothing = throw PaymentDomainValidationException(message)
     }
 }

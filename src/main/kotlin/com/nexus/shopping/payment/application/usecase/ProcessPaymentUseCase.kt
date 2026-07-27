@@ -15,8 +15,8 @@ import com.nexus.shopping.payment.application.port.outbound.ProviderProcessingRe
 import com.nexus.shopping.payment.domain.PaymentAmount
 import com.nexus.shopping.payment.domain.PaymentAttempt
 import com.nexus.shopping.payment.domain.PaymentCurrency
+import com.nexus.shopping.payment.domain.PaymentDomainValidationException
 import com.nexus.shopping.payment.domain.PaymentProvider
-import com.nexus.shopping.payment.domain.PaymentStatus
 import java.nio.charset.StandardCharsets.UTF_8
 import java.security.MessageDigest
 import java.time.Instant
@@ -31,8 +31,12 @@ class ProcessPaymentUseCase(
 ) : ProcessPaymentInputPort,
     ValidatePaymentInputPort {
     override fun validate(command: ValidatePaymentInputCommand) {
-        PaymentAmount.of(command.amount)
-        PaymentCurrency.of(command.currency)
+        try {
+            PaymentAmount.of(command.amount)
+            PaymentCurrency.of(command.currency)
+        } catch (exception: PaymentDomainValidationException) {
+            throw PaymentValidationException(exception.message ?: "Invalid payment input.")
+        }
     }
 
     override fun process(command: ProcessPaymentCommand): PaymentProcessingResult {
@@ -195,5 +199,5 @@ internal object PaymentProviderDispatchKey {
 }
 
 private fun StringBuilder.appendField(value: String) {
-    append(value.length).append(':').append(value)
+    append(value.toByteArray(UTF_8).size).append(':').append(value)
 }
