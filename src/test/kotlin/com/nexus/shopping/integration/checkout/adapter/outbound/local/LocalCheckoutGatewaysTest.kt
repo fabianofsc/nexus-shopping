@@ -88,7 +88,9 @@ class LocalCheckoutGatewaysTest {
 
         assertEquals(expectedCreateOrderCommand, capturedCommand)
         assertEquals(1L, result.id)
+        assertEquals("checkout:1", result.orderReference)
         assertEquals(100L, result.cartId)
+        assertEquals("ana@example.com", result.recipientEmail)
         assertEquals(listOf(checkoutItem), result.items)
         assertEquals(BigDecimal("39.80"), result.totalAmount)
         assertEquals("WAITING_PAYMENT", result.status)
@@ -120,6 +122,8 @@ class LocalCheckoutGatewaysTest {
         assertEquals(expectedReplayCommand, capturedCommand)
         assertEquals(true, result?.replayed)
         assertEquals(1L, result?.id)
+        assertEquals("checkout:1", result?.orderReference)
+        assertEquals("ana@example.com", result?.recipientEmail)
         assertEquals(listOf(checkoutItem), result?.items)
     }
 

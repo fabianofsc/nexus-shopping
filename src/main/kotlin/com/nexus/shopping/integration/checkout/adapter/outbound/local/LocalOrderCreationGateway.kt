@@ -56,11 +56,14 @@ private fun CheckoutShippingAddressData.toOrderSnapshot() =
 private fun CheckoutItemData.toOrderSnapshot() =
     OrderItemSnapshot(productId, productName, unitPriceAmount, Currency.valueOf(currency), quantity)
 
-private fun CreatedOrder.toCheckoutData() =
-    CheckoutOrderData(
-        id = requireNotNull(order.id),
+private fun CreatedOrder.toCheckoutData(): CheckoutOrderData {
+    val orderId = requireNotNull(order.id)
+    return CheckoutOrderData(
+        id = orderId,
+        orderReference = "checkout:$orderId",
         customerId = order.customerId,
         cartId = order.cartId,
+        recipientEmail = order.customerSnapshot.email,
         customerSnapshot =
             CheckoutCustomerData(
                 order.customerSnapshot.customerId,
@@ -97,3 +100,4 @@ private fun CreatedOrder.toCheckoutData() =
         cancelledAt = order.cancelledAt,
         replayed = replayed,
     )
+}

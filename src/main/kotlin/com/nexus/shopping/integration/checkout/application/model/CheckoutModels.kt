@@ -58,8 +58,10 @@ data class CreateOrderData(
 
 data class CheckoutOrderData(
     val id: Long,
+    val orderReference: String,
     val customerId: Long,
     val cartId: Long,
+    val recipientEmail: String,
     val customerSnapshot: CheckoutCustomerData,
     val shippingAddressSnapshot: CheckoutShippingAddressData,
     val items: List<CheckoutItemData>,

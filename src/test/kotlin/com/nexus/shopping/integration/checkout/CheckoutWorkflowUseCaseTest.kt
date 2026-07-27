@@ -39,6 +39,8 @@ class CheckoutWorkflowUseCaseTest {
             events,
         )
         assertEquals(false, result.replayed)
+        assertEquals("checkout:1", result.orderReference)
+        assertEquals("ana@example.com", result.recipientEmail)
         assertEquals(100L, orders.createdData?.cartId)
         assertEquals(listOf(item()), orders.createdData?.items)
     }
@@ -114,8 +116,10 @@ class CheckoutWorkflowUseCaseTest {
     private fun order(replayed: Boolean) =
         CheckoutOrderData(
             id = 1L,
+            orderReference = "checkout:1",
             customerId = 10L,
             cartId = 100L,
+            recipientEmail = "ana@example.com",
             customerSnapshot = command().customerSnapshot,
             shippingAddressSnapshot = command().shippingAddressSnapshot,
             items = listOf(item()),
