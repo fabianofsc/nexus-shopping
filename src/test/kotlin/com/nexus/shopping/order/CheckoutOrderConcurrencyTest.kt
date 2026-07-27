@@ -3,13 +3,11 @@ package com.nexus.shopping.order
 import com.nexus.shopping.cart.adapter.outbound.jpa.CartJpaRepositoryAdapter
 import com.nexus.shopping.cart.domain.CartItem
 import com.nexus.shopping.cart.domain.ProductSummary
-import com.nexus.shopping.order.adapter.outbound.jpa.JpaTransactionAdapter
-import com.nexus.shopping.order.adapter.outbound.jpa.OrderJpaRepositoryAdapter
-import com.nexus.shopping.order.application.command.CheckoutOrderCommand
-import com.nexus.shopping.order.application.usecase.CheckoutOrderUseCase
-import com.nexus.shopping.order.domain.CustomerSnapshot
-import com.nexus.shopping.order.domain.Order
-import com.nexus.shopping.order.domain.ShippingAddressSnapshot
+import com.nexus.shopping.integration.checkout.application.CheckoutWorkflowUseCase
+import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
+import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerData
+import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderData
+import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.jdbc.core.JdbcTemplate
@@ -35,13 +33,10 @@ import com.nexus.shopping.cart.domain.Currency as CartCurrency
 )
 class CheckoutOrderConcurrencyTest {
     @Autowired
-    private lateinit var orders: OrderJpaRepositoryAdapter
-
-    @Autowired
     private lateinit var carts: CartJpaRepositoryAdapter
 
     @Autowired
-    private lateinit var transactions: JpaTransactionAdapter
+    private lateinit var checkout: CheckoutWorkflowUseCase
 
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
@@ -50,7 +45,8 @@ class CheckoutOrderConcurrencyTest {
     fun `concurrent same-key checkouts create one order and replay it after the cart closes`() {
         prepareCart(3L)
 
-        val results = concurrently(12) { CheckoutOrderUseCase(orders, carts, transactions).execute(command(3L, "same-key")) }
+        val results =
+            concurrently(12) { checkout.execute(command(3L, "same-key")) }
 
         assertEquals(12, results.size)
         assertTrue(results.all { it.isSuccess }, "Expected all idempotent requests to succeed: $results")
@@ -63,7 +59,10 @@ class CheckoutOrderConcurrencyTest {
     fun `concurrent different-key checkouts allow only one cart checkout to win`() {
         prepareCart(4L)
 
-        val results = concurrently(12) { index -> CheckoutOrderUseCase(orders, carts, transactions).execute(command(4L, "key-$index")) }
+        val results =
+            concurrently(
+                12,
+            ) { index -> checkout.execute(command(4L, "key-$index")) }
 
         assertEquals(1, results.count { it.isSuccess })
         assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM orders WHERE customer_id = 4", Int::class.java))
@@ -74,11 +73,10 @@ class CheckoutOrderConcurrencyTest {
     fun `concurrent replays keep a new active cart open after the original cart was checked out`() {
         val customerId = 5L
         prepareCart(customerId)
-        val checkout = CheckoutOrderUseCase(orders, carts, transactions)
         val original = checkout.execute(command(customerId, "original-key"))
         val newCartId = createFreshActiveCart(customerId)
 
-        val results = concurrently(12) { checkout.executeWithResult(command(customerId, "original-key")).order }
+        val results = concurrently(12) { checkout.execute(command(customerId, "original-key")) }
 
         assertTrue(results.all { it.isSuccess }, "Expected all old-key replays to succeed: $results")
         assertEquals(setOf(original.id), results.map { it.getOrThrow().id }.toSet())
@@ -120,22 +118,23 @@ class CheckoutOrderConcurrencyTest {
     private fun command(
         customerId: Long,
         idempotencyKey: String,
-    ) = CheckoutOrderCommand(
+    ) = CheckoutCommand(
         customerId = customerId,
-        customerSnapshot = CustomerSnapshot(customerId, "Ana Silva", "12345678900", "CPF", "ana@example.com", null),
-        shippingAddressSnapshot = ShippingAddressSnapshot("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
+        customerSnapshot = CheckoutCustomerData(customerId, "Ana Silva", "12345678900", "CPF", "ana@example.com", null),
+        shippingAddressSnapshot =
+            CheckoutShippingAddressData("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
         idempotencyKey = idempotencyKey,
     )
 
     private fun concurrently(
         threads: Int,
-        action: (Int) -> Order,
-    ): List<Result<Order>> {
+        action: (Int) -> CheckoutOrderData,
+    ): List<Result<CheckoutOrderData>> {
         val executor = Executors.newFixedThreadPool(threads)
         val ready = CountDownLatch(threads)
         val start = CountDownLatch(1)
         val done = CountDownLatch(threads)
-        val results = ConcurrentLinkedQueue<Result<Order>>()
+        val results = ConcurrentLinkedQueue<Result<CheckoutOrderData>>()
         try {
             repeat(threads) { index ->
                 executor.submit {

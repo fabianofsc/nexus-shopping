@@ -5,6 +5,12 @@ import com.nexus.shopping.cart.domain.Cart
 interface CartRepositoryPort {
     fun findActiveByCustomerId(customerId: Long): Cart?
 
+    /** Finds and locks the customer's ACTIVE cart for the duration of the checkout transaction. */
+    fun reserveActiveCart(customerId: Long): Cart?
+
+    /** Marks the cart represented by a checkout reservation as CHECKED_OUT. */
+    fun confirmCheckout(reservationId: Long)
+
     /**
      * Returns the customer's ACTIVE cart, creating an empty one if none exists yet. Implementations
      * must guarantee this is atomic under concurrency: a customer may have at most one ACTIVE cart,

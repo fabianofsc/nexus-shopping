@@ -1,8 +1,11 @@
 package com.nexus.shopping.order.adapter.outbound.jpa
 
+import com.nexus.shopping.order.application.port.outbound.OrderPersistenceResult
 import com.nexus.shopping.order.application.port.outbound.OrderRepositoryPort
 import com.nexus.shopping.order.domain.Order
 import com.nexus.shopping.platform.domain.PageResult
+import jakarta.persistence.EntityManager
+import jakarta.persistence.PersistenceContext
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
@@ -11,6 +14,9 @@ import org.springframework.transaction.annotation.Transactional
 class OrderJpaRepositoryAdapter(
     private val repository: SpringDataOrderRepository,
 ) : OrderRepositoryPort {
+    @PersistenceContext
+    private lateinit var entityManager: EntityManager
+
     @Transactional(readOnly = true)
     override fun findById(id: Long): Order? = repository.findOrderById(id).orElse(null)?.toDomain()
 
@@ -35,7 +41,17 @@ class OrderJpaRepositoryAdapter(
     }
 
     @Transactional
-    override fun create(order: Order): Order = repository.saveAndFlush(order.toEntity()).toDomain()
+    override fun create(order: Order): OrderPersistenceResult {
+        lockCustomerRow(order.customerId)
+        val existing =
+            repository
+                .findByCustomerIdAndIdempotencyKey(order.customerId, order.idempotencyKey)
+                .orElse(null)
+                ?.toDomain()
+        if (existing != null) return OrderPersistenceResult(existing, created = false)
+
+        return OrderPersistenceResult(repository.saveAndFlush(order.toEntity()).toDomain(), created = true)
+    }
 
     @Transactional
     override fun update(order: Order): Order {
@@ -43,5 +59,12 @@ class OrderJpaRepositoryAdapter(
         entity.status = order.status
         entity.cancelledAt = order.cancelledAt
         return repository.saveAndFlush(entity).toDomain()
+    }
+
+    private fun lockCustomerRow(customerId: Long) {
+        entityManager
+            .createNativeQuery("SELECT id FROM customers WHERE id = ? FOR UPDATE")
+            .setParameter(1, customerId)
+            .singleResult
     }
 }

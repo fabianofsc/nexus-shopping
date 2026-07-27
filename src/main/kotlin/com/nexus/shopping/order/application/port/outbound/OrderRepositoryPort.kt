@@ -24,11 +24,16 @@ interface OrderRepositoryPort {
     ): PageResult<Order>
 
     /**
-     * Stores [order] after the caller has checked replay and acquired the checkout cart lock.
-     * A database uniqueness violation is deliberately propagated: recovering it in this same
-     * transaction is invalid on PostgreSQL because that transaction is already aborted.
+     * Atomically stores [order] or returns the order that already owns the same customer and
+     * idempotency key. Implementations must serialize that decision without exposing a database
+     * uniqueness violation to the application layer.
      */
-    fun create(order: Order): Order
+    fun create(order: Order): OrderPersistenceResult
 
     fun update(order: Order): Order
 }
+
+data class OrderPersistenceResult(
+    val order: Order,
+    val created: Boolean,
+)

@@ -3,22 +3,26 @@ package com.nexus.shopping.order
 import com.nexus.shopping.cart.adapter.outbound.jpa.CartJpaRepositoryAdapter
 import com.nexus.shopping.cart.application.command.AddCartItemCommand
 import com.nexus.shopping.cart.application.exception.CartValidationException
+import com.nexus.shopping.cart.application.port.inbound.CartCheckoutInputPort
+import com.nexus.shopping.cart.application.port.inbound.CartCheckoutReservation
 import com.nexus.shopping.cart.application.port.outbound.CartRepositoryPort
 import com.nexus.shopping.cart.application.usecase.AddCartItemUseCase
+import com.nexus.shopping.cart.application.usecase.CartCheckoutUseCase
 import com.nexus.shopping.cart.application.usecase.ClearCartUseCase
 import com.nexus.shopping.cart.application.usecase.RemoveCartItemUseCase
 import com.nexus.shopping.cart.domain.Cart
 import com.nexus.shopping.cart.domain.CartItem
 import com.nexus.shopping.cart.domain.ProductSummary
-import com.nexus.shopping.order.adapter.outbound.jpa.JpaTransactionAdapter
+import com.nexus.shopping.integration.checkout.adapter.outbound.CheckoutJpaTransactionAdapter
+import com.nexus.shopping.integration.checkout.adapter.outbound.local.LocalCheckoutCartGateway
+import com.nexus.shopping.integration.checkout.adapter.outbound.local.LocalOrderCreationGateway
+import com.nexus.shopping.integration.checkout.application.CheckoutWorkflowUseCase
+import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
+import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerData
+import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderData
+import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
 import com.nexus.shopping.order.adapter.outbound.jpa.OrderJpaRepositoryAdapter
-import com.nexus.shopping.order.application.command.CheckoutOrderCommand
-import com.nexus.shopping.order.application.port.outbound.CartCheckoutPort
-import com.nexus.shopping.order.application.port.outbound.CheckoutCartSnapshot
-import com.nexus.shopping.order.application.usecase.CheckoutOrderUseCase
-import com.nexus.shopping.order.domain.CustomerSnapshot
-import com.nexus.shopping.order.domain.Order
-import com.nexus.shopping.order.domain.ShippingAddressSnapshot
+import com.nexus.shopping.order.application.usecase.CreateOrderUseCase
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.jdbc.core.JdbcTemplate
@@ -51,7 +55,7 @@ class CheckoutOrderMutationConcurrencyTest {
     private lateinit var carts: CartJpaRepositoryAdapter
 
     @Autowired
-    private lateinit var transactions: JpaTransactionAdapter
+    private lateinit var transactions: CheckoutJpaTransactionAdapter
 
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
@@ -85,16 +89,20 @@ class CheckoutOrderMutationConcurrencyTest {
         val releaseCheckout = CountDownLatch(1)
         val mutationReadActiveCart = CountDownLatch(1)
         val checkout =
-            CheckoutOrderUseCase(
-                orders,
-                BlockingCartCheckout(carts, checkoutLocked, releaseCheckout),
-                transactions,
-            )
+            CreateOrderUseCase(orders).let { orderUseCase ->
+                CheckoutWorkflowUseCase(
+                    LocalCheckoutCartGateway(
+                        BlockingCartCheckout(CartCheckoutUseCase(carts), checkoutLocked, releaseCheckout),
+                    ),
+                    LocalOrderCreationGateway(orderUseCase, orderUseCase),
+                    transactions,
+                )
+            }
         val signalingRepository = SignalingCartRepository(carts, mutationReadActiveCart)
         val executor = Executors.newFixedThreadPool(2)
 
         try {
-            val checkoutFuture = executor.submit<Order> { checkout.execute(command(customerId, "checkout-$customerId")) }
+            val checkoutFuture = executor.submit<CheckoutOrderData> { checkout.execute(command(customerId, "checkout-$customerId")) }
             assertTrue(checkoutLocked.await(10, TimeUnit.SECONDS), "Checkout did not acquire the cart lock")
 
             val mutationFuture = executor.submit<Cart> { mutation(signalingRepository) }
@@ -139,26 +147,27 @@ class CheckoutOrderMutationConcurrencyTest {
     private fun command(
         customerId: Long,
         idempotencyKey: String,
-    ) = CheckoutOrderCommand(
+    ) = CheckoutCommand(
         customerId = customerId,
-        customerSnapshot = CustomerSnapshot(customerId, "Ana Silva", "12345678900", "CPF", "ana@example.com", null),
-        shippingAddressSnapshot = ShippingAddressSnapshot("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
+        customerSnapshot = CheckoutCustomerData(customerId, "Ana Silva", "12345678900", "CPF", "ana@example.com", null),
+        shippingAddressSnapshot =
+            CheckoutShippingAddressData("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
         idempotencyKey = idempotencyKey,
     )
 }
 
 private class BlockingCartCheckout(
-    private val delegate: CartCheckoutPort,
+    private val delegate: CartCheckoutInputPort,
     private val checkoutLocked: CountDownLatch,
     private val releaseCheckout: CountDownLatch,
-) : CartCheckoutPort {
-    override fun lockActiveCartByCustomerId(customerId: Long): CheckoutCartSnapshot? =
-        delegate.lockActiveCartByCustomerId(customerId)?.also {
+) : CartCheckoutInputPort {
+    override fun reserveActiveCart(customerId: Long): CartCheckoutReservation =
+        delegate.reserveActiveCart(customerId).also {
             checkoutLocked.countDown()
             check(releaseCheckout.await(20, TimeUnit.SECONDS)) { "Timed out waiting to release checkout" }
         }
 
-    override fun markCheckedOut(cartId: Long) = delegate.markCheckedOut(cartId)
+    override fun confirmCheckout(reservationId: Long) = delegate.confirmCheckout(reservationId)
 }
 
 private class SignalingCartRepository(

@@ -16,6 +16,10 @@ private class FakeGetActiveCartRepository : CartRepositoryPort {
 
     override fun findActiveByCustomerId(customerId: Long): Cart? = activeCart
 
+    override fun reserveActiveCart(customerId: Long): Cart? = findActiveByCustomerId(customerId)
+
+    override fun confirmCheckout(reservationId: Long) = error("Not used by active cart lookup")
+
     override fun getOrCreateActiveByCustomerId(customerId: Long): Cart =
         activeCart ?: save(
             Cart(

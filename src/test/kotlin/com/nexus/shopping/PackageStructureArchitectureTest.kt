@@ -1,11 +1,74 @@
 package com.nexus.shopping
 
+import com.tngtech.archunit.core.importer.ClassFileImporter
+import com.tngtech.archunit.core.importer.ImportOption
+import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses
 import org.springframework.stereotype.Service
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class PackageStructureArchitectureTest {
+    @Test
+    fun `Cart does not depend on Order or Integration`() {
+        assertNoDependencies(
+            sourcePackage = "..cart..",
+            forbiddenPackages = arrayOf("..order..", "..integration.."),
+        )
+    }
+
+    @Test
+    fun `Order does not depend on Cart or Integration`() {
+        assertNoDependencies(
+            sourcePackage = "..order..",
+            forbiddenPackages = arrayOf("..cart..", "..integration.."),
+        )
+    }
+
+    @Test
+    fun `checkout application does not depend on bounded contexts or its adapters`() {
+        assertNoDependencies(
+            sourcePackage = "..integration.checkout.application..",
+            forbiddenPackages =
+                arrayOf(
+                    "..cart..",
+                    "..order..",
+                    "..payment..",
+                    "..notification..",
+                    "..integration.checkout.adapter..",
+                ),
+        )
+    }
+
+    @Test
+    fun `only bounded contexts and Integration adapters depend on their input ports`() {
+        noClasses()
+            .that()
+            .resideOutsideOfPackages(
+                "..cart..",
+                "..order..",
+                "..integration..adapter..",
+            ).should()
+            .dependOnClassesThat()
+            .resideInAnyPackage(
+                "..cart.application.port.inbound..",
+                "..order.application.port.inbound..",
+            ).check(productionClasses)
+    }
+
+    private fun assertNoDependencies(
+        sourcePackage: String,
+        forbiddenPackages: Array<String>,
+    ) {
+        noClasses()
+            .that()
+            .resideInAPackage(sourcePackage)
+            .should()
+            .dependOnClassesThat()
+            .resideInAnyPackage(*forbiddenPackages)
+            .check(productionClasses)
+    }
+
     @Test
     fun `application exceptions use platform base exceptions`() {
         val validationException = Class.forName("com.nexus.shopping.platform.application.exception.ValidationException")
@@ -89,7 +152,7 @@ class PackageStructureArchitectureTest {
     fun `order use cases follow the service component pattern used by existing contexts`() {
         val orderUseCases =
             listOf(
-                "com.nexus.shopping.order.application.usecase.CheckoutOrderUseCase",
+                "com.nexus.shopping.order.application.usecase.CreateOrderUseCase",
                 "com.nexus.shopping.order.application.usecase.GetOrderByIdUseCase",
                 "com.nexus.shopping.order.application.usecase.ListOrdersByCustomerUseCase",
                 "com.nexus.shopping.order.application.usecase.CancelOrderUseCase",
@@ -137,5 +200,13 @@ class PackageStructureArchitectureTest {
             }
 
         assertFalse(sharedPackageExists)
+    }
+
+    private companion object {
+        val productionClasses by lazy {
+            ClassFileImporter()
+                .withImportOption(ImportOption.DoNotIncludeTests())
+                .importPackages("com.nexus.shopping")
+        }
     }
 }
