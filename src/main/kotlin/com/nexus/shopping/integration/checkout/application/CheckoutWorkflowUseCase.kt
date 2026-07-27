@@ -40,7 +40,9 @@ class CheckoutWorkflowUseCase(
                         idempotencyKey = command.idempotencyKey,
                     ),
                 )
-            if (order.cartId == cart.reservationId) carts.confirmCheckout(cart.reservationId)
+            if (!order.replayed && order.cartId == cart.reservationId) {
+                carts.confirmCheckout(cart.reservationId)
+            }
             order
         }
 }

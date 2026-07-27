@@ -15,6 +15,8 @@ import java.math.BigDecimal
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertSame
 
 class CheckoutWorkflowUseCaseTest {
     @Test
@@ -52,6 +54,50 @@ class CheckoutWorkflowUseCaseTest {
 
         assertEquals(replay, result)
         assertEquals(listOf("replay"), events)
+    }
+
+    @Test
+    fun `propagates replay returned by create without confirming Cart`() {
+        val events = mutableListOf<String>()
+        val replay = order(replayed = true)
+        val carts = RecordingCartGateway(events)
+        val orders = RecordingOrderGateway(events, createdOrder = replay)
+
+        val result = CheckoutWorkflowUseCase(carts, orders, ImmediateTransaction).execute(command())
+
+        assertEquals(replay, result)
+        assertEquals(listOf("replay", "reserve", "replay", "create"), events)
+    }
+
+    @Test
+    fun `rolls back transaction when order creation fails after reservation`() {
+        val events = mutableListOf<String>()
+        val failure = IllegalStateException("order creation failed")
+        val carts = RecordingCartGateway(events)
+        val orders = RecordingOrderGateway(events, creationFailure = failure)
+        val transactions =
+            object : TransactionPort {
+                override fun <T> inTransaction(block: () -> T): T {
+                    events += "transaction:start"
+                    return try {
+                        block().also { events += "transaction:end" }
+                    } catch (exception: RuntimeException) {
+                        events += "transaction:rollback"
+                        throw exception
+                    }
+                }
+            }
+
+        val thrown =
+            assertFailsWith<IllegalStateException> {
+                CheckoutWorkflowUseCase(carts, orders, transactions).execute(command())
+            }
+
+        assertSame(failure, thrown)
+        assertEquals(
+            listOf("transaction:start", "replay", "reserve", "replay", "create", "transaction:rollback"),
+            events,
+        )
     }
 
     private fun command() =
@@ -96,6 +142,8 @@ class CheckoutWorkflowUseCaseTest {
     private inner class RecordingOrderGateway(
         private val events: MutableList<String>,
         private val replay: CheckoutOrderData? = null,
+        private val createdOrder: CheckoutOrderData = order(replayed = false),
+        private val creationFailure: RuntimeException? = null,
     ) : OrderCreationGateway {
         var createdData: CreateOrderData? = null
 
@@ -107,7 +155,8 @@ class CheckoutWorkflowUseCaseTest {
         override fun create(data: CreateOrderData): CheckoutOrderData {
             events += "create"
             createdData = data
-            return order(replayed = false)
+            creationFailure?.let { throw it }
+            return createdOrder
         }
     }
 
