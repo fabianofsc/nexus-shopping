@@ -40,6 +40,39 @@ data class PaymentAttempt private constructor(
     }
 
     companion object {
+        fun restored(
+            id: Long,
+            attemptReference: String,
+            referenceId: String,
+            amount: PaymentAmount,
+            currency: PaymentCurrency,
+            status: PaymentStatus,
+            provider: PaymentProvider,
+            providerTransactionId: String?,
+            idempotencyKey: String,
+            authorizationFingerprint: String,
+            processingLeaseUntil: Instant?,
+            processingLeaseToken: String?,
+            createdAt: Instant,
+            completedAt: Instant?,
+        ): PaymentAttempt =
+            PaymentAttempt(
+                id = id,
+                attemptReference = attemptReference,
+                referenceId = referenceId,
+                amount = amount,
+                currency = currency,
+                status = status,
+                provider = provider,
+                providerTransactionId = providerTransactionId,
+                idempotencyKey = idempotencyKey,
+                authorizationFingerprint = authorizationFingerprint,
+                processingLeaseUntil = processingLeaseUntil,
+                processingLeaseToken = processingLeaseToken,
+                createdAt = createdAt,
+                completedAt = completedAt,
+            )
+
         fun requested(
             attemptReference: String,
             referenceId: String,
