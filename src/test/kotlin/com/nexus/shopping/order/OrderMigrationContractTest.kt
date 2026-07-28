@@ -106,6 +106,38 @@ class OrderMigrationContractTest {
                 ) >=
                     1,
             )
+            connection.createStatement().use { statement ->
+                statement.executeUpdate(
+                    """
+                    UPDATE orders
+                    SET payment_attempt_reference = 'pay_opaque_attempt',
+                        payment_provider_transaction_id = 'provider_tx_opaque'
+                    WHERE id = $orderId
+                    """.trimIndent(),
+                )
+            }
+            connection.createStatement().use { statement ->
+                statement
+                    .executeQuery(
+                        """
+                        SELECT payment_attempt_reference, payment_provider_transaction_id
+                        FROM orders
+                        WHERE id = $orderId
+                        """.trimIndent(),
+                    ).use { row ->
+                        row.next()
+                        assertEquals("pay_opaque_attempt", row.getString(1))
+                        assertEquals("provider_tx_opaque", row.getString(2))
+                    }
+            }
+            connection.metaData.getImportedKeys(null, null, "ORDERS").use { foreignKeys ->
+                while (foreignKeys.next()) {
+                    assertTrue(
+                        foreignKeys.getString("FKCOLUMN_NAME") !in
+                            setOf("PAYMENT_ATTEMPT_REFERENCE", "PAYMENT_PROVIDER_TRANSACTION_ID"),
+                    )
+                }
+            }
         }
     }
 

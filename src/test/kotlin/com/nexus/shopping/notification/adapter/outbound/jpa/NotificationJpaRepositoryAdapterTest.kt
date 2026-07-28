@@ -36,6 +36,7 @@ class NotificationJpaRepositoryAdapterTest {
             Notification(
                 id = null,
                 customerId = 1L,
+                notificationKey = "notification-adapter-enum",
                 recipientEmail = "cliente@example.com",
                 type = NotificationType.ORDER_PAYMENT_FAILED,
                 channel = NotificationChannel.EMAIL,
@@ -66,6 +67,7 @@ class NotificationJpaRepositoryAdapterTest {
             Notification(
                 id = null,
                 customerId = 1L,
+                notificationKey = "notification-adapter-read",
                 recipientEmail = "cliente@example.com",
                 type = NotificationType.ORDER_CANCELLED,
                 channel = NotificationChannel.EMAIL,
@@ -84,4 +86,125 @@ class NotificationJpaRepositoryAdapterTest {
         assertEquals(NotificationChannel.EMAIL, found.channel)
         assertEquals(NotificationStatus.SENT, found.status)
     }
+
+    @Test
+    fun `reserve deduplicates by notification key`() {
+        val first = repository.reserve(pendingNotification("order-confirmed:123:attempt-1"))
+        val replay = repository.reserve(pendingNotification("order-confirmed:123:attempt-1"))
+
+        assertEquals(first.id, replay.id)
+        assertEquals(
+            1,
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM notifications WHERE notification_key = ?",
+                Int::class.java,
+                "order-confirmed:123:attempt-1",
+            ),
+        )
+    }
+
+    @Test
+    fun `expired SENDING lease can be reclaimed and stale owner cannot complete`() {
+        repository.reserve(pendingNotification("order-confirmed:123:attempt-2"))
+        val firstNow = Instant.parse("2026-07-28T12:00:00Z")
+        val first =
+            requireNotNull(
+                repository.claim(
+                    notificationKey = "order-confirmed:123:attempt-2",
+                    sendingLeaseToken = "owner-1",
+                    sendingLeaseUntil = firstNow.plusSeconds(30),
+                    now = firstNow,
+                ),
+            )
+        assertEquals(NotificationStatus.SENDING, first.status)
+        assertEquals(
+            null,
+            repository.claim(
+                notificationKey = "order-confirmed:123:attempt-2",
+                sendingLeaseToken = "owner-too-early",
+                sendingLeaseUntil = firstNow.plusSeconds(40),
+                now = firstNow.plusSeconds(20),
+            ),
+        )
+
+        val reclaimed =
+            requireNotNull(
+                repository.claim(
+                    notificationKey = "order-confirmed:123:attempt-2",
+                    sendingLeaseToken = "owner-2",
+                    sendingLeaseUntil = firstNow.plusSeconds(70),
+                    now = firstNow.plusSeconds(31),
+                ),
+            )
+        assertEquals("owner-2", reclaimed.sendingLeaseToken)
+
+        assertEquals(
+            null,
+            repository.complete(
+                notificationKey = "order-confirmed:123:attempt-2",
+                sendingLeaseToken = "owner-1",
+                status = NotificationStatus.FAILED,
+                sentAt = null,
+            ),
+        )
+        val sent =
+            requireNotNull(
+                repository.complete(
+                    notificationKey = "order-confirmed:123:attempt-2",
+                    sendingLeaseToken = "owner-2",
+                    status = NotificationStatus.SENT,
+                    sentAt = firstNow.plusSeconds(32),
+                ),
+            )
+        assertEquals(NotificationStatus.SENT, sent.status)
+        assertEquals(null, sent.sendingLeaseToken)
+        assertEquals(null, sent.sendingLeaseUntil)
+    }
+
+    @Test
+    fun `FAILED notification can be claimed for another delivery attempt`() {
+        repository.reserve(pendingNotification("order-confirmed:123:attempt-3"))
+        val now = Instant.parse("2026-07-28T12:00:00Z")
+        repository.claim(
+            notificationKey = "order-confirmed:123:attempt-3",
+            sendingLeaseToken = "owner-1",
+            sendingLeaseUntil = now.plusSeconds(30),
+            now = now,
+        )
+        repository.complete(
+            notificationKey = "order-confirmed:123:attempt-3",
+            sendingLeaseToken = "owner-1",
+            status = NotificationStatus.FAILED,
+            sentAt = null,
+        )
+
+        val retry =
+            requireNotNull(
+                repository.claim(
+                    notificationKey = "order-confirmed:123:attempt-3",
+                    sendingLeaseToken = "owner-2",
+                    sendingLeaseUntil = now.plusSeconds(60),
+                    now = now.plusSeconds(1),
+                ),
+            )
+
+        assertEquals(NotificationStatus.SENDING, retry.status)
+        assertEquals("owner-2", retry.sendingLeaseToken)
+    }
+
+    private fun pendingNotification(notificationKey: String) =
+        Notification(
+            id = null,
+            customerId = 1L,
+            notificationKey = notificationKey,
+            recipientEmail = "cliente@example.com",
+            type = NotificationType.ORDER_CONFIRMED,
+            channel = NotificationChannel.EMAIL,
+            status = NotificationStatus.PENDING,
+            subject = "Pedido 123 confirmado",
+            body = "Seu pedido 123 no valor de 99.90 foi confirmado.",
+            referenceId = 123L,
+            createdAt = null,
+            sentAt = null,
+        )
 }

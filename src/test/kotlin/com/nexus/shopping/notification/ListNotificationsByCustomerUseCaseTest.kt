@@ -4,7 +4,9 @@ import com.nexus.shopping.notification.application.exception.NotificationValidat
 import com.nexus.shopping.notification.application.port.outbound.NotificationRepositoryPort
 import com.nexus.shopping.notification.application.usecase.ListNotificationsByCustomerUseCase
 import com.nexus.shopping.notification.domain.Notification
+import com.nexus.shopping.notification.domain.NotificationStatus
 import com.nexus.shopping.platform.domain.PageResult
+import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -15,6 +17,24 @@ private class FakeNotificationRepositoryForList : NotificationRepositoryPort {
     var lastSize: Int? = null
 
     override fun save(notification: Notification): Notification = throw UnsupportedOperationException()
+
+    override fun reserve(notification: Notification): Notification = throw UnsupportedOperationException()
+
+    override fun claim(
+        notificationKey: String,
+        sendingLeaseToken: String,
+        sendingLeaseUntil: Instant,
+        now: Instant,
+    ): Notification? = throw UnsupportedOperationException()
+
+    override fun complete(
+        notificationKey: String,
+        sendingLeaseToken: String,
+        status: NotificationStatus,
+        sentAt: Instant?,
+    ): Notification? = throw UnsupportedOperationException()
+
+    override fun findByNotificationKey(notificationKey: String): Notification? = throw UnsupportedOperationException()
 
     override fun findById(id: Long): Notification? = throw UnsupportedOperationException()
 

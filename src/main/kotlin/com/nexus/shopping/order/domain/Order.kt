@@ -21,6 +21,8 @@ data class Order private constructor(
     val requestFingerprint: String,
     val createdAt: Instant?,
     val cancelledAt: Instant?,
+    val paymentAttemptReference: String?,
+    val paymentProviderTransactionId: String?,
 ) {
     val items: List<OrderItemSnapshot>
         get() = itemSnapshots
@@ -31,6 +33,25 @@ data class Order private constructor(
     fun cancel(): Order {
         if (status != OrderStatus.WAITING_PAYMENT) throw OrderStateTransitionException(status)
         return copy(status = OrderStatus.CANCELLED, cancelledAt = Instant.now())
+    }
+
+    fun applyPaymentResult(
+        attemptReference: String,
+        result: OrderPaymentResultStatus,
+        providerTransactionId: String?,
+    ): Order {
+        if (paymentAttemptReference == attemptReference) return this
+        if (status != OrderStatus.WAITING_PAYMENT) throw OrderStateTransitionException(status)
+
+        return copy(
+            status =
+                when (result) {
+                    OrderPaymentResultStatus.APPROVED -> OrderStatus.CONFIRMED
+                    OrderPaymentResultStatus.REJECTED -> OrderStatus.PAYMENT_FAILED
+                },
+            paymentAttemptReference = attemptReference,
+            paymentProviderTransactionId = providerTransactionId,
+        )
     }
 
     companion object {
@@ -46,6 +67,8 @@ data class Order private constructor(
             requestFingerprint: String,
             createdAt: Instant?,
             cancelledAt: Instant?,
+            paymentAttemptReference: String? = null,
+            paymentProviderTransactionId: String? = null,
         ): Order =
             Order(
                 id = id,
@@ -59,6 +82,8 @@ data class Order private constructor(
                 requestFingerprint = requestFingerprint,
                 createdAt = createdAt,
                 cancelledAt = cancelledAt,
+                paymentAttemptReference = paymentAttemptReference,
+                paymentProviderTransactionId = paymentProviderTransactionId,
             )
     }
 }
