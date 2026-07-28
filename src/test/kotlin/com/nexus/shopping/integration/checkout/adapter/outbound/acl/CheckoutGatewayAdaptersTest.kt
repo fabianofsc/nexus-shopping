@@ -9,8 +9,8 @@ import com.nexus.shopping.cart.domain.ProductSummary
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutItemData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
-import com.nexus.shopping.integration.checkout.application.model.CreateOrderData
-import com.nexus.shopping.integration.checkout.application.model.FindOrderReplayData
+import com.nexus.shopping.integration.checkout.application.model.CreateCheckoutOrderCommand
+import com.nexus.shopping.integration.checkout.application.model.FindCheckoutOrderReplayCommand
 import com.nexus.shopping.order.application.command.CreateOrderCommand
 import com.nexus.shopping.order.application.port.inbound.CreateOrderInputPort
 import com.nexus.shopping.order.application.port.inbound.CreatedOrder
@@ -149,7 +149,7 @@ class CheckoutGatewayAdaptersTest {
             CheckoutShippingAddressData("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR")
         val checkoutItem = CheckoutItemData(1L, "Produto A", BigDecimal("19.90"), "BRL", 2)
         val findOrderReplayData =
-            FindOrderReplayData(
+            FindCheckoutOrderReplayCommand(
                 customerId = 10L,
                 customerSnapshot = checkoutCustomer,
                 shippingAddressSnapshot = checkoutShippingAddress,
@@ -157,7 +157,7 @@ class CheckoutGatewayAdaptersTest {
                 paymentAuthorizationFingerprint = "opaque-payment-authorization-fingerprint",
             )
         val createOrderData =
-            CreateOrderData(
+            CreateCheckoutOrderCommand(
                 customerId = 10L,
                 cartId = 100L,
                 customerSnapshot = checkoutCustomer,

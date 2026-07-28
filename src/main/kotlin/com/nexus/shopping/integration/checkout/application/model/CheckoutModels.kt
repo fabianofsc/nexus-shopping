@@ -62,7 +62,7 @@ data class PaymentAuthorizationData(
     override fun toString(): String = "PaymentAuthorizationData(paymentToken=<redacted>, idempotencyKey=$idempotencyKey)"
 }
 
-data class FindOrderReplayData(
+data class FindCheckoutOrderReplayCommand(
     val customerId: Long,
     val customerSnapshot: CheckoutCustomerData,
     val shippingAddressSnapshot: CheckoutShippingAddressData,
@@ -70,7 +70,7 @@ data class FindOrderReplayData(
     val paymentAuthorizationFingerprint: String,
 )
 
-data class CreateOrderData(
+data class CreateCheckoutOrderCommand(
     val customerId: Long,
     val cartId: Long,
     val customerSnapshot: CheckoutCustomerData,

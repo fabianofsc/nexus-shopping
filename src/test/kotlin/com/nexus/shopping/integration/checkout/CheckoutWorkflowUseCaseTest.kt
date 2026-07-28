@@ -8,8 +8,8 @@ import com.nexus.shopping.integration.checkout.application.model.CheckoutCustome
 import com.nexus.shopping.integration.checkout.application.model.CheckoutItemData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
-import com.nexus.shopping.integration.checkout.application.model.CreateOrderData
-import com.nexus.shopping.integration.checkout.application.model.FindOrderReplayData
+import com.nexus.shopping.integration.checkout.application.model.CreateCheckoutOrderCommand
+import com.nexus.shopping.integration.checkout.application.model.FindCheckoutOrderReplayCommand
 import com.nexus.shopping.integration.checkout.application.model.OrderConfirmationNotificationData
 import com.nexus.shopping.integration.checkout.application.model.PaymentAuthorizationData
 import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingData
@@ -213,16 +213,16 @@ class CheckoutWorkflowUseCaseTest {
         private val createdOrder: CheckoutOrderData = order(replayed = false),
         private val creationFailure: RuntimeException? = null,
     ) : OrderCreationGateway {
-        var createdData: CreateOrderData? = null
+        var createdData: CreateCheckoutOrderCommand? = null
 
-        override fun findReplay(data: FindOrderReplayData): CheckoutOrderData? {
+        override fun findReplay(command: FindCheckoutOrderReplayCommand): CheckoutOrderData? {
             events += "replay"
             return replay
         }
 
-        override fun create(data: CreateOrderData): CheckoutOrderData {
+        override fun create(command: CreateCheckoutOrderCommand): CheckoutOrderData {
             events += "create"
-            createdData = data
+            createdData = command
             creationFailure?.let { throw it }
             return createdOrder
         }

@@ -4,8 +4,8 @@ import com.nexus.shopping.integration.checkout.application.model.CheckoutCustome
 import com.nexus.shopping.integration.checkout.application.model.CheckoutItemData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
-import com.nexus.shopping.integration.checkout.application.model.CreateOrderData
-import com.nexus.shopping.integration.checkout.application.model.FindOrderReplayData
+import com.nexus.shopping.integration.checkout.application.model.CreateCheckoutOrderCommand
+import com.nexus.shopping.integration.checkout.application.model.FindCheckoutOrderReplayCommand
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderCreationGateway
 import com.nexus.shopping.order.application.command.CreateOrderCommand
 import com.nexus.shopping.order.application.port.inbound.CreateOrderInputPort
@@ -24,29 +24,29 @@ class OrderCreationGatewayAdapter(
     private val orders: CreateOrderInputPort,
     private val replayOrders: FindOrderReplayInputPort,
 ) : OrderCreationGateway {
-    override fun findReplay(data: FindOrderReplayData): CheckoutOrderData? =
+    override fun findReplay(command: FindCheckoutOrderReplayCommand): CheckoutOrderData? =
         replayOrders
             .findReplay(
                 FindOrderReplayCommand(
-                    customerId = data.customerId,
-                    customerSnapshot = data.customerSnapshot.toOrderSnapshot(),
-                    shippingAddressSnapshot = data.shippingAddressSnapshot.toOrderSnapshot(),
-                    idempotencyKey = data.idempotencyKey,
-                    paymentAuthorizationFingerprint = data.paymentAuthorizationFingerprint,
+                    customerId = command.customerId,
+                    customerSnapshot = command.customerSnapshot.toOrderSnapshot(),
+                    shippingAddressSnapshot = command.shippingAddressSnapshot.toOrderSnapshot(),
+                    idempotencyKey = command.idempotencyKey,
+                    paymentAuthorizationFingerprint = command.paymentAuthorizationFingerprint,
                 ),
             )?.toCheckoutData()
 
-    override fun create(data: CreateOrderData): CheckoutOrderData =
+    override fun create(command: CreateCheckoutOrderCommand): CheckoutOrderData =
         orders
             .create(
                 CreateOrderCommand(
-                    customerId = data.customerId,
-                    cartId = data.cartId,
-                    customerSnapshot = data.customerSnapshot.toOrderSnapshot(),
-                    shippingAddressSnapshot = data.shippingAddressSnapshot.toOrderSnapshot(),
-                    items = data.items.map { it.toOrderSnapshot() },
-                    idempotencyKey = data.idempotencyKey,
-                    paymentAuthorizationFingerprint = data.paymentAuthorizationFingerprint,
+                    customerId = command.customerId,
+                    cartId = command.cartId,
+                    customerSnapshot = command.customerSnapshot.toOrderSnapshot(),
+                    shippingAddressSnapshot = command.shippingAddressSnapshot.toOrderSnapshot(),
+                    items = command.items.map { it.toOrderSnapshot() },
+                    idempotencyKey = command.idempotencyKey,
+                    paymentAuthorizationFingerprint = command.paymentAuthorizationFingerprint,
                 ),
             ).toCheckoutData()
 }

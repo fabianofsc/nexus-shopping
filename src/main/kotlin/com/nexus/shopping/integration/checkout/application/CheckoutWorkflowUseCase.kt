@@ -5,8 +5,8 @@ import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPayme
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
 import com.nexus.shopping.integration.checkout.application.model.CheckoutItemData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderData
-import com.nexus.shopping.integration.checkout.application.model.CreateOrderData
-import com.nexus.shopping.integration.checkout.application.model.FindOrderReplayData
+import com.nexus.shopping.integration.checkout.application.model.CreateCheckoutOrderCommand
+import com.nexus.shopping.integration.checkout.application.model.FindCheckoutOrderReplayCommand
 import com.nexus.shopping.integration.checkout.application.model.OrderConfirmationNotificationData
 import com.nexus.shopping.integration.checkout.application.model.PaymentAuthorizationData
 import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingData
@@ -42,7 +42,7 @@ class CheckoutWorkflowUseCase(
                 ),
             )
         val replayData =
-            FindOrderReplayData(
+            FindCheckoutOrderReplayCommand(
                 customerId = command.customerId,
                 customerSnapshot = command.customerSnapshot,
                 shippingAddressSnapshot = command.shippingAddressSnapshot,
@@ -71,7 +71,7 @@ class CheckoutWorkflowUseCase(
 
                 val createdOrder =
                     orders.create(
-                        CreateOrderData(
+                        CreateCheckoutOrderCommand(
                             customerId = command.customerId,
                             cartId = cart.reservationId,
                             customerSnapshot = command.customerSnapshot,
