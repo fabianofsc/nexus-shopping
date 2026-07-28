@@ -7,6 +7,7 @@ import com.nexus.shopping.integration.checkout.application.model.CheckoutShippin
 data class CheckoutRequest(
     val customerSnapshot: CustomerSnapshotRequest,
     val shippingAddressSnapshot: ShippingAddressSnapshotRequest,
+    val paymentToken: String,
 )
 
 data class CustomerSnapshotRequest(
@@ -53,5 +54,6 @@ fun CheckoutRequest.toCommand(
             shippingAddressSnapshot.zipCode,
             shippingAddressSnapshot.country,
         ),
+    paymentToken = paymentToken,
     idempotencyKey = idempotencyKey,
 )

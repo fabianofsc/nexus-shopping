@@ -21,6 +21,10 @@ import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
+import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentProcessingGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentValidationGateway
 import com.nexus.shopping.order.adapter.outbound.jpa.OrderJpaRepositoryAdapter
 import com.nexus.shopping.order.application.usecase.CreateOrderUseCase
 import org.springframework.beans.factory.annotation.Autowired
@@ -58,6 +62,18 @@ class CheckoutOrderMutationConcurrencyTest {
     private lateinit var transactions: CheckoutJpaTransactionAdapter
 
     @Autowired
+    private lateinit var paymentValidation: PaymentValidationGateway
+
+    @Autowired
+    private lateinit var payments: PaymentProcessingGateway
+
+    @Autowired
+    private lateinit var orderPaymentResults: OrderPaymentResultGateway
+
+    @Autowired
+    private lateinit var notifications: NotificationGateway
+
+    @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
 
     @Test
@@ -91,11 +107,16 @@ class CheckoutOrderMutationConcurrencyTest {
         val checkout =
             CreateOrderUseCase(orders).let { orderUseCase ->
                 CheckoutWorkflowUseCase(
-                    LocalCheckoutCartGateway(
-                        BlockingCartCheckout(CartCheckoutUseCase(carts), checkoutLocked, releaseCheckout),
-                    ),
-                    LocalOrderCreationGateway(orderUseCase, orderUseCase),
-                    transactions,
+                    carts =
+                        LocalCheckoutCartGateway(
+                            BlockingCartCheckout(CartCheckoutUseCase(carts), checkoutLocked, releaseCheckout),
+                        ),
+                    orders = LocalOrderCreationGateway(orderUseCase, orderUseCase),
+                    paymentValidation = paymentValidation,
+                    payments = payments,
+                    orderPaymentResults = orderPaymentResults,
+                    notifications = notifications,
+                    transaction = transactions,
                 )
             }
         val signalingRepository = SignalingCartRepository(carts, mutationReadActiveCart)
@@ -152,6 +173,7 @@ class CheckoutOrderMutationConcurrencyTest {
         customerSnapshot = CheckoutCustomerData(customerId, "Ana Silva", "12345678900", "CPF", "ana@example.com", null),
         shippingAddressSnapshot =
             CheckoutShippingAddressData("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
+        paymentToken = "approved",
         idempotencyKey = idempotencyKey,
     )
 }

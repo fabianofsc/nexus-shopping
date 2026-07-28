@@ -153,6 +153,7 @@ class LocalCheckoutGatewaysTest {
                 customerId = 10L,
                 customerSnapshot = checkoutCustomer,
                 shippingAddressSnapshot = checkoutShippingAddress,
+                paymentToken = "approved",
                 idempotencyKey = "checkout-1",
             )
         val createOrderData =

@@ -1,12 +1,22 @@
 package com.nexus.shopping.integration.checkout
 
 import com.nexus.shopping.integration.checkout.application.CheckoutWorkflowUseCase
+import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPaymentResultData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCartData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
+import com.nexus.shopping.integration.checkout.application.model.OrderConfirmationNotificationData
+import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingData
+import com.nexus.shopping.integration.checkout.application.model.PaymentResultData
+import com.nexus.shopping.integration.checkout.application.model.PaymentResultStatus
+import com.nexus.shopping.integration.checkout.application.model.PaymentValidationData
 import com.nexus.shopping.integration.checkout.application.port.outbound.CheckoutCartGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderCreationGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentProcessingGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentValidationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.TransactionPort
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -58,7 +68,7 @@ class CheckoutWorkflowIntegrationTest {
                     throw failure
                 }
             }
-        val checkout = CheckoutWorkflowUseCase(failingCarts, orders, transaction)
+        val checkout = checkout(failingCarts)
 
         assertCheckoutRolledBack(cartId, failure) {
             checkout.execute(command(customerId))
@@ -70,7 +80,7 @@ class CheckoutWorkflowIntegrationTest {
         val customerId = 7L
         val cartId = prepareActiveCart(customerId)
         val failure = IllegalStateException("failure in outer transaction")
-        val checkout = CheckoutWorkflowUseCase(carts, orders, transaction)
+        val checkout = checkout(carts)
         val outerTransaction = TransactionTemplate(transactionManager)
 
         assertCheckoutRolledBack(cartId, failure) {
@@ -141,6 +151,31 @@ class CheckoutWorkflowIntegrationTest {
                     "49052220",
                     "BR",
                 ),
+            paymentToken = "approved",
             idempotencyKey = "rollback-checkout-$customerId",
+        )
+
+    private fun checkout(cartGateway: CheckoutCartGateway) =
+        CheckoutWorkflowUseCase(
+            carts = cartGateway,
+            orders = orders,
+            paymentValidation =
+                object : PaymentValidationGateway {
+                    override fun validate(data: PaymentValidationData) = Unit
+                },
+            payments =
+                object : PaymentProcessingGateway {
+                    override fun process(data: PaymentProcessingData) =
+                        PaymentResultData("pay-requested", PaymentResultStatus.REQUESTED, null, replayed = false)
+                },
+            orderPaymentResults =
+                object : OrderPaymentResultGateway {
+                    override fun apply(data: ApplyOrderPaymentResultData) = error("Not used")
+                },
+            notifications =
+                object : NotificationGateway {
+                    override fun ensureOrderConfirmation(data: OrderConfirmationNotificationData) = error("Not used")
+                },
+            transaction = transaction,
         )
 }

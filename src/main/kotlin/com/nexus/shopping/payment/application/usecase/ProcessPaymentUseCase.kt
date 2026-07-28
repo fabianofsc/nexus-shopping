@@ -17,6 +17,8 @@ import com.nexus.shopping.payment.domain.PaymentAttempt
 import com.nexus.shopping.payment.domain.PaymentCurrency
 import com.nexus.shopping.payment.domain.PaymentDomainValidationException
 import com.nexus.shopping.payment.domain.PaymentProvider
+import com.nexus.shopping.payment.domain.PaymentStatus
+import org.springframework.stereotype.Service
 import java.nio.charset.StandardCharsets.UTF_8
 import java.security.MessageDigest
 import java.time.Instant
@@ -24,6 +26,7 @@ import java.util.UUID
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
+@Service
 class ProcessPaymentUseCase(
     private val paymentAttemptRepository: PaymentAttemptRepositoryPort,
     private val paymentProviderGateway: PaymentProviderGateway,
@@ -73,7 +76,11 @@ class ProcessPaymentUseCase(
             )
 
         return when (val reservation = paymentAttemptRepository.reserve(attempt)) {
-            is PaymentAttemptReservation.Existing -> replay(reservation.attempt, authorizationFingerprint)
+            is PaymentAttemptReservation.Existing ->
+                replay(
+                    reservation.attempt,
+                    authorizationFingerprint,
+                )
             is PaymentAttemptReservation.Created -> processReservedAttempt(reservation.attempt, command.paymentToken)
         }
     }
@@ -91,7 +98,28 @@ class ProcessPaymentUseCase(
                 "Idempotency key ${attempt.idempotencyKey} was already used with a different payment authorization.",
             )
         }
-        return attempt.toProcessingResult(replayed = true)
+        return awaitTerminalResult(attempt).toProcessingResult(replayed = true)
+    }
+
+    private fun awaitTerminalResult(attempt: PaymentAttempt): PaymentAttempt {
+        if (attempt.status != PaymentStatus.REQUESTED) return attempt
+
+        val deadline = System.nanoTime() + REQUESTED_WAIT_TIMEOUT_MILLIS * NANOS_PER_MILLISECOND
+        var current = attempt
+        while (current.status == PaymentStatus.REQUESTED && System.nanoTime() < deadline) {
+            try {
+                Thread.sleep(REQUESTED_POLL_INTERVAL_MILLIS)
+            } catch (exception: InterruptedException) {
+                Thread.currentThread().interrupt()
+                return current
+            }
+            current =
+                paymentAttemptRepository.findByReferenceIdAndIdempotencyKey(
+                    referenceId = attempt.referenceId,
+                    idempotencyKey = attempt.idempotencyKey,
+                ) ?: current
+        }
+        return current
     }
 
     private fun processReservedAttempt(
@@ -197,6 +225,10 @@ internal object PaymentProviderDispatchKey {
                     }.toByteArray(UTF_8),
                 ).joinToString("") { byte -> "%02x".format(byte) }
 }
+
+private const val REQUESTED_WAIT_TIMEOUT_MILLIS = 500L
+private const val REQUESTED_POLL_INTERVAL_MILLIS = 10L
+private const val NANOS_PER_MILLISECOND = 1_000_000L
 
 private fun StringBuilder.appendField(value: String) {
     append(value.toByteArray(UTF_8).size).append(':').append(value)

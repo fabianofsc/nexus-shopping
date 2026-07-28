@@ -7,8 +7,13 @@ data class CheckoutCommand(
     val customerId: Long,
     val customerSnapshot: CheckoutCustomerData,
     val shippingAddressSnapshot: CheckoutShippingAddressData,
+    val paymentToken: String,
     val idempotencyKey: String,
-)
+) {
+    override fun toString(): String =
+        "CheckoutCommand(customerId=$customerId, customerSnapshot=$customerSnapshot, " +
+            "shippingAddressSnapshot=$shippingAddressSnapshot, paymentToken=<redacted>, idempotencyKey=$idempotencyKey)"
+}
 
 data class CheckoutCustomerData(
     val customerId: Long,
@@ -45,7 +50,10 @@ data class CheckoutCartData(
     val reservationId: Long,
     val customerId: Long,
     val items: List<CheckoutItemData>,
-)
+) {
+    val totalAmount: BigDecimal
+        get() = items.fold(BigDecimal.ZERO) { total, item -> total + item.totalAmount }
+}
 
 data class CreateOrderData(
     val customerId: Long,
@@ -70,4 +78,47 @@ data class CheckoutOrderData(
     val createdAt: Instant,
     val cancelledAt: Instant?,
     val replayed: Boolean,
+)
+
+data class PaymentValidationData(
+    val amount: BigDecimal,
+    val currency: String,
+)
+
+data class PaymentProcessingData(
+    val referenceId: String,
+    val amount: BigDecimal,
+    val currency: String,
+    val paymentToken: String,
+    val idempotencyKey: String,
+) {
+    override fun toString(): String =
+        "PaymentProcessingData(referenceId=$referenceId, amount=$amount, currency=$currency, " +
+            "paymentToken=<redacted>, idempotencyKey=$idempotencyKey)"
+}
+
+data class PaymentResultData(
+    val attemptReference: String,
+    val status: PaymentResultStatus,
+    val providerTransactionId: String?,
+    val replayed: Boolean,
+)
+
+enum class PaymentResultStatus {
+    REQUESTED,
+    APPROVED,
+    REJECTED,
+}
+
+data class ApplyOrderPaymentResultData(
+    val order: CheckoutOrderData,
+    val payment: PaymentResultData,
+)
+
+data class OrderConfirmationNotificationData(
+    val orderId: Long,
+    val customerId: Long,
+    val recipientEmail: String,
+    val amount: BigDecimal,
+    val attemptReference: String,
 )

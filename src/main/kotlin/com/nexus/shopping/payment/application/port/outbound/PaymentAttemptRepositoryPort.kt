@@ -7,6 +7,11 @@ import java.time.Instant
 interface PaymentAttemptRepositoryPort {
     fun reserve(attempt: PaymentAttempt): PaymentAttemptReservation
 
+    fun findByReferenceIdAndIdempotencyKey(
+        referenceId: String,
+        idempotencyKey: String,
+    ): PaymentAttempt?
+
     fun complete(
         attemptReference: String,
         processingLeaseToken: String,

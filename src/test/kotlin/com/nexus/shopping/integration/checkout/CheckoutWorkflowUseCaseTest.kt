@@ -1,6 +1,7 @@
 package com.nexus.shopping.integration.checkout
 
 import com.nexus.shopping.integration.checkout.application.CheckoutWorkflowUseCase
+import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPaymentResultData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCartData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerData
@@ -8,8 +9,17 @@ import com.nexus.shopping.integration.checkout.application.model.CheckoutItemDat
 import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
 import com.nexus.shopping.integration.checkout.application.model.CreateOrderData
+import com.nexus.shopping.integration.checkout.application.model.OrderConfirmationNotificationData
+import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingData
+import com.nexus.shopping.integration.checkout.application.model.PaymentResultData
+import com.nexus.shopping.integration.checkout.application.model.PaymentResultStatus
+import com.nexus.shopping.integration.checkout.application.model.PaymentValidationData
 import com.nexus.shopping.integration.checkout.application.port.outbound.CheckoutCartGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderCreationGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentProcessingGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentValidationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.TransactionPort
 import java.math.BigDecimal
 import java.time.Instant
@@ -32,10 +42,10 @@ class CheckoutWorkflowUseCaseTest {
                 }
             }
 
-        val result = CheckoutWorkflowUseCase(carts, orders, transactions).execute(command())
+        val result = workflow(carts, orders, transactions, events).execute(command())
 
         assertEquals(
-            listOf("transaction:start", "replay", "reserve", "replay", "create", "confirm", "transaction:end"),
+            listOf("transaction:start", "replay", "reserve", "replay", "validate", "create", "confirm", "transaction:end", "payment"),
             events,
         )
         assertEquals(false, result.replayed)
@@ -52,10 +62,10 @@ class CheckoutWorkflowUseCaseTest {
         val carts = RecordingCartGateway(events)
         val orders = RecordingOrderGateway(events, replay = replay)
 
-        val result = CheckoutWorkflowUseCase(carts, orders, ImmediateTransaction).execute(command())
+        val result = workflow(carts, orders, ImmediateTransaction, events).execute(command())
 
         assertEquals(replay, result)
-        assertEquals(listOf("replay"), events)
+        assertEquals(listOf("replay", "payment"), events)
     }
 
     @Test
@@ -65,10 +75,10 @@ class CheckoutWorkflowUseCaseTest {
         val carts = RecordingCartGateway(events)
         val orders = RecordingOrderGateway(events, createdOrder = replay)
 
-        val result = CheckoutWorkflowUseCase(carts, orders, ImmediateTransaction).execute(command())
+        val result = workflow(carts, orders, ImmediateTransaction, events).execute(command())
 
         assertEquals(replay, result)
-        assertEquals(listOf("replay", "reserve", "replay", "create"), events)
+        assertEquals(listOf("replay", "reserve", "replay", "validate", "create", "payment"), events)
     }
 
     @Test
@@ -92,12 +102,12 @@ class CheckoutWorkflowUseCaseTest {
 
         val thrown =
             assertFailsWith<IllegalStateException> {
-                CheckoutWorkflowUseCase(carts, orders, transactions).execute(command())
+                workflow(carts, orders, transactions, events).execute(command())
             }
 
         assertSame(failure, thrown)
         assertEquals(
-            listOf("transaction:start", "replay", "reserve", "replay", "create", "transaction:rollback"),
+            listOf("transaction:start", "replay", "reserve", "replay", "validate", "create", "transaction:rollback"),
             events,
         )
     }
@@ -108,8 +118,41 @@ class CheckoutWorkflowUseCaseTest {
             customerSnapshot = CheckoutCustomerData(10L, "Ana Silva", "12345678900", "CPF", "ana@example.com", null),
             shippingAddressSnapshot =
                 CheckoutShippingAddressData("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
+            paymentToken = "approved",
             idempotencyKey = "checkout-1",
         )
+
+    private fun workflow(
+        carts: CheckoutCartGateway,
+        orders: OrderCreationGateway,
+        transactions: TransactionPort,
+        events: MutableList<String>,
+    ) = CheckoutWorkflowUseCase(
+        carts = carts,
+        orders = orders,
+        paymentValidation =
+            object : PaymentValidationGateway {
+                override fun validate(data: PaymentValidationData) {
+                    events += "validate"
+                }
+            },
+        payments =
+            object : PaymentProcessingGateway {
+                override fun process(data: PaymentProcessingData): PaymentResultData {
+                    events += "payment"
+                    return PaymentResultData("pay-requested", PaymentResultStatus.REQUESTED, null, replayed = false)
+                }
+            },
+        orderPaymentResults =
+            object : OrderPaymentResultGateway {
+                override fun apply(data: ApplyOrderPaymentResultData): CheckoutOrderData = error("Not used for REQUESTED")
+            },
+        notifications =
+            object : NotificationGateway {
+                override fun ensureOrderConfirmation(data: OrderConfirmationNotificationData) = error("Not used for REQUESTED")
+            },
+        transaction = transactions,
+    )
 
     private fun item() = CheckoutItemData(1L, "Produto A", BigDecimal("19.90"), "BRL", 2)
 

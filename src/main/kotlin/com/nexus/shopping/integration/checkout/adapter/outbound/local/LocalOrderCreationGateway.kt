@@ -14,6 +14,7 @@ import com.nexus.shopping.order.application.port.inbound.FindOrderReplayCommand
 import com.nexus.shopping.order.application.port.inbound.FindOrderReplayInputPort
 import com.nexus.shopping.order.domain.Currency
 import com.nexus.shopping.order.domain.CustomerSnapshot
+import com.nexus.shopping.order.domain.Order
 import com.nexus.shopping.order.domain.OrderItemSnapshot
 import com.nexus.shopping.order.domain.ShippingAddressSnapshot
 import org.springframework.stereotype.Component
@@ -56,36 +57,38 @@ private fun CheckoutShippingAddressData.toOrderSnapshot() =
 private fun CheckoutItemData.toOrderSnapshot() =
     OrderItemSnapshot(productId, productName, unitPriceAmount, Currency.valueOf(currency), quantity)
 
-private fun CreatedOrder.toCheckoutData(): CheckoutOrderData {
-    val orderId = requireNotNull(order.id)
+private fun CreatedOrder.toCheckoutData(): CheckoutOrderData = order.toCheckoutData(replayed)
+
+internal fun Order.toCheckoutData(replayed: Boolean): CheckoutOrderData {
+    val orderId = requireNotNull(id)
     return CheckoutOrderData(
         id = orderId,
         orderReference = "checkout:$orderId",
-        customerId = order.customerId,
-        cartId = order.cartId,
-        recipientEmail = order.customerSnapshot.email,
+        customerId = customerId,
+        cartId = cartId,
+        recipientEmail = customerSnapshot.email,
         customerSnapshot =
             CheckoutCustomerData(
-                order.customerSnapshot.customerId,
-                order.customerSnapshot.name,
-                order.customerSnapshot.document,
-                order.customerSnapshot.documentType,
-                order.customerSnapshot.email,
-                order.customerSnapshot.phone,
+                customerSnapshot.customerId,
+                customerSnapshot.name,
+                customerSnapshot.document,
+                customerSnapshot.documentType,
+                customerSnapshot.email,
+                customerSnapshot.phone,
             ),
         shippingAddressSnapshot =
             CheckoutShippingAddressData(
-                order.shippingAddressSnapshot.street,
-                order.shippingAddressSnapshot.number,
-                order.shippingAddressSnapshot.complement,
-                order.shippingAddressSnapshot.neighborhood,
-                order.shippingAddressSnapshot.city,
-                order.shippingAddressSnapshot.state,
-                order.shippingAddressSnapshot.zipCode,
-                order.shippingAddressSnapshot.country,
+                shippingAddressSnapshot.street,
+                shippingAddressSnapshot.number,
+                shippingAddressSnapshot.complement,
+                shippingAddressSnapshot.neighborhood,
+                shippingAddressSnapshot.city,
+                shippingAddressSnapshot.state,
+                shippingAddressSnapshot.zipCode,
+                shippingAddressSnapshot.country,
             ),
         items =
-            order.items.map { item ->
+            items.map { item ->
                 CheckoutItemData(
                     item.productId,
                     item.productName,
@@ -94,10 +97,10 @@ private fun CreatedOrder.toCheckoutData(): CheckoutOrderData {
                     item.quantity,
                 )
             },
-        totalAmount = order.totalAmount,
-        status = order.status.name,
-        createdAt = requireNotNull(order.createdAt),
-        cancelledAt = order.cancelledAt,
+        totalAmount = totalAmount,
+        status = status.name,
+        createdAt = requireNotNull(createdAt),
+        cancelledAt = cancelledAt,
         replayed = replayed,
     )
 }

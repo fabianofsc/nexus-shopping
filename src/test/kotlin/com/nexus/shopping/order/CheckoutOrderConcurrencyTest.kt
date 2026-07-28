@@ -123,6 +123,7 @@ class CheckoutOrderConcurrencyTest {
         customerSnapshot = CheckoutCustomerData(customerId, "Ana Silva", "12345678900", "CPF", "ana@example.com", null),
         shippingAddressSnapshot =
             CheckoutShippingAddressData("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
+        paymentToken = "approved",
         idempotencyKey = idempotencyKey,
     )
 

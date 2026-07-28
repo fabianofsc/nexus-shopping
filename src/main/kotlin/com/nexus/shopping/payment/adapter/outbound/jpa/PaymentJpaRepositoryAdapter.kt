@@ -29,6 +29,14 @@ class PaymentJpaRepositoryAdapter(
             if (winner != null) PaymentAttemptReservation.Existing(winner) else throw exception
         }
 
+    override fun findByReferenceIdAndIdempotencyKey(
+        referenceId: String,
+        idempotencyKey: String,
+    ): PaymentAttempt? =
+        transactions.execute {
+            repository.findByReferenceIdAndIdempotencyKey(referenceId, idempotencyKey).orElse(null)?.toDomain()
+        }
+
     override fun complete(
         attemptReference: String,
         processingLeaseToken: String,

@@ -151,6 +151,14 @@ private class PaymentAttemptRepositoryFake : PaymentAttemptRepositoryPort {
         return PaymentAttemptReservation.Created(attempt)
     }
 
+    override fun findByReferenceIdAndIdempotencyKey(
+        referenceId: String,
+        idempotencyKey: String,
+    ): PaymentAttempt? =
+        attempts.firstOrNull {
+            it.referenceId == referenceId && it.idempotencyKey == idempotencyKey
+        }
+
     override fun complete(
         attemptReference: String,
         processingLeaseToken: String,

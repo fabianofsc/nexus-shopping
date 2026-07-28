@@ -2,6 +2,7 @@ package com.nexus.shopping.notification.application.usecase
 
 import com.nexus.shopping.notification.application.command.SendNotificationCommand
 import com.nexus.shopping.notification.application.exception.NotificationValidationException
+import com.nexus.shopping.notification.application.port.inbound.SendNotificationInputPort
 import com.nexus.shopping.notification.application.port.outbound.EmailSenderPort
 import com.nexus.shopping.notification.application.port.outbound.NotificationRepositoryPort
 import com.nexus.shopping.notification.domain.Notification
@@ -27,8 +28,8 @@ import java.util.UUID
 class SendNotificationUseCase(
     private val notificationRepository: NotificationRepositoryPort,
     private val emailSender: EmailSenderPort,
-) {
-    fun send(command: SendNotificationCommand): Notification {
+) : SendNotificationInputPort {
+    override fun send(command: SendNotificationCommand): Notification {
         logger.infoWithContext(
             "notification.send.started",
             "notification.customer_id" to command.customerId,

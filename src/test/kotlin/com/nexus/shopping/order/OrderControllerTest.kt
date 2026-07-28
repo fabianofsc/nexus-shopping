@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.core.env.Environment
+import org.springframework.jdbc.core.JdbcTemplate
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -30,6 +31,9 @@ class OrderControllerTest {
     @Autowired
     private lateinit var environment: Environment
 
+    @Autowired
+    private lateinit var jdbcTemplate: JdbcTemplate
+
     private val mapper = JsonMapper.builder().build()
     private val httpClient = HttpClient.newHttpClient()
 
@@ -43,7 +47,7 @@ class OrderControllerTest {
         assertEquals(201, response.statusCode())
         val order = mapper.readTree(response.body())
         assertEquals(1L, order["customerId"].asLong())
-        assertEquals("WAITING_PAYMENT", order["status"].asText())
+        assertEquals("CONFIRMED", order["status"].asText())
         assertEquals(1, order["items"].size())
     }
 
@@ -205,6 +209,7 @@ class OrderControllerTest {
         val port = environment.getRequiredProperty("local.server.port")
         addItem(port, 8L)
         val created = mapper.readTree(checkoutCreated(port, 8L, "checkout-cancel").body())
+        resetOrderToWaiting(created["id"].asLong())
 
         val response = post(port, "/customers/8/orders/${created["id"].asLong()}/cancel", "{}")
 
@@ -217,6 +222,7 @@ class OrderControllerTest {
         val port = environment.getRequiredProperty("local.server.port")
         addItem(port, 9L)
         val created = mapper.readTree(checkoutCreated(port, 9L, "checkout-cancel-conflict").body())
+        resetOrderToWaiting(created["id"].asLong())
         val firstCancellation = post(port, "/customers/9/orders/${created["id"].asLong()}/cancel", "{}")
         assertEquals(200, firstCancellation.statusCode())
 
@@ -242,6 +248,7 @@ class OrderControllerTest {
         val customerId = createCustomer(port, "concurrent-cancel")
         addItem(port, customerId)
         val created = mapper.readTree(checkoutCreated(port, customerId, "checkout-concurrent-cancel").body())
+        resetOrderToWaiting(created["id"].asLong())
         val path = "/customers/$customerId/orders/${created["id"].asLong()}/cancel"
         val barrier = CyclicBarrier(2)
         val executor = Executors.newFixedThreadPool(2)
@@ -331,6 +338,19 @@ class OrderControllerTest {
         val response = post(port, "/customers/$customerId/cart/checkout", checkoutBody(), idempotencyKey)
         assertEquals(201, response.statusCode())
         return response
+    }
+
+    private fun resetOrderToWaiting(orderId: Long) {
+        jdbcTemplate.update(
+            """
+            UPDATE orders
+            SET status = 'WAITING_PAYMENT',
+                payment_attempt_reference = NULL,
+                payment_provider_transaction_id = NULL
+            WHERE id = ?
+            """.trimIndent(),
+            orderId,
+        )
     }
 
     private fun get(
@@ -438,7 +458,8 @@ class OrderControllerTest {
             "state": "SP",
             "zipCode": "01001000",
             "country": "BR"
-          }
+          },
+          "paymentToken": "approved"
         }
         """.trimIndent()
 }
