@@ -1,8 +1,8 @@
 package com.nexus.shopping.integration.checkout.adapter.inbound.http.dto
 
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
-import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerData
-import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
+import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerSnapshot
+import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressSnapshot
 
 data class CheckoutRequest(
     val customerSnapshot: CustomerSnapshotRequest,
@@ -39,7 +39,7 @@ fun CheckoutRequest.toCommand(
 ) = CheckoutCommand(
     customerId = customerId,
     customerSnapshot =
-        CheckoutCustomerData(
+        CheckoutCustomerSnapshot(
             customerId,
             customerSnapshot.name,
             customerSnapshot.document,
@@ -48,7 +48,7 @@ fun CheckoutRequest.toCommand(
             customerSnapshot.phone,
         ),
     shippingAddressSnapshot =
-        CheckoutShippingAddressData(
+        CheckoutShippingAddressSnapshot(
             shippingAddressSnapshot.street,
             shippingAddressSnapshot.number,
             shippingAddressSnapshot.complement,

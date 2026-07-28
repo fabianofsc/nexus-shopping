@@ -1,7 +1,7 @@
 package com.nexus.shopping.integration.checkout.application.port.outbound
 
-import com.nexus.shopping.integration.checkout.application.model.PaymentValidationData
+import com.nexus.shopping.integration.checkout.application.model.PaymentValidationCommand
 
 interface PaymentValidationGateway {
-    fun validate(data: PaymentValidationData)
+    fun validate(command: PaymentValidationCommand)
 }

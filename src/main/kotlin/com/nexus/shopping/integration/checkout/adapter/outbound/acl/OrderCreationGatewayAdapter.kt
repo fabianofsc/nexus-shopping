@@ -1,9 +1,9 @@
 package com.nexus.shopping.integration.checkout.adapter.outbound.acl
 
-import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerData
-import com.nexus.shopping.integration.checkout.application.model.CheckoutItemData
-import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderData
-import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
+import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerSnapshot
+import com.nexus.shopping.integration.checkout.application.model.CheckoutItemSnapshot
+import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderSnapshot
+import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CreateCheckoutOrderCommand
 import com.nexus.shopping.integration.checkout.application.model.FindCheckoutOrderReplayCommand
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderCreationGateway
@@ -24,7 +24,7 @@ class OrderCreationGatewayAdapter(
     private val orders: CreateOrderInputPort,
     private val replayOrders: FindOrderReplayInputPort,
 ) : OrderCreationGateway {
-    override fun findReplay(command: FindCheckoutOrderReplayCommand): CheckoutOrderData? =
+    override fun findReplay(command: FindCheckoutOrderReplayCommand): CheckoutOrderSnapshot? =
         replayOrders
             .findReplay(
                 FindOrderReplayCommand(
@@ -34,9 +34,9 @@ class OrderCreationGatewayAdapter(
                     idempotencyKey = command.idempotencyKey,
                     paymentAuthorizationFingerprint = command.paymentAuthorizationFingerprint,
                 ),
-            )?.toCheckoutData()
+            )?.toCheckoutSnapshot()
 
-    override fun create(command: CreateCheckoutOrderCommand): CheckoutOrderData =
+    override fun create(command: CreateCheckoutOrderCommand): CheckoutOrderSnapshot =
         orders
             .create(
                 CreateOrderCommand(
@@ -48,29 +48,29 @@ class OrderCreationGatewayAdapter(
                     idempotencyKey = command.idempotencyKey,
                     paymentAuthorizationFingerprint = command.paymentAuthorizationFingerprint,
                 ),
-            ).toCheckoutData()
+            ).toCheckoutSnapshot()
 }
 
-private fun CheckoutCustomerData.toOrderSnapshot() = CustomerSnapshot(customerId, name, document, documentType, email, phone)
+private fun CheckoutCustomerSnapshot.toOrderSnapshot() = CustomerSnapshot(customerId, name, document, documentType, email, phone)
 
-private fun CheckoutShippingAddressData.toOrderSnapshot() =
+private fun CheckoutShippingAddressSnapshot.toOrderSnapshot() =
     ShippingAddressSnapshot(street, number, complement, neighborhood, city, state, zipCode, country)
 
-private fun CheckoutItemData.toOrderSnapshot() =
+private fun CheckoutItemSnapshot.toOrderSnapshot() =
     OrderItemSnapshot(productId, productName, unitPriceAmount, Currency.valueOf(currency), quantity)
 
-private fun CreatedOrder.toCheckoutData(): CheckoutOrderData = order.toCheckoutData(replayed)
+private fun CreatedOrder.toCheckoutSnapshot(): CheckoutOrderSnapshot = order.toCheckoutSnapshot(replayed)
 
-internal fun Order.toCheckoutData(replayed: Boolean): CheckoutOrderData {
+internal fun Order.toCheckoutSnapshot(replayed: Boolean): CheckoutOrderSnapshot {
     val orderId = requireNotNull(id)
-    return CheckoutOrderData(
+    return CheckoutOrderSnapshot(
         id = orderId,
         orderReference = "checkout:$orderId",
         customerId = customerId,
         cartId = cartId,
         recipientEmail = customerSnapshot.email,
         customerSnapshot =
-            CheckoutCustomerData(
+            CheckoutCustomerSnapshot(
                 customerSnapshot.customerId,
                 customerSnapshot.name,
                 customerSnapshot.document,
@@ -79,7 +79,7 @@ internal fun Order.toCheckoutData(replayed: Boolean): CheckoutOrderData {
                 customerSnapshot.phone,
             ),
         shippingAddressSnapshot =
-            CheckoutShippingAddressData(
+            CheckoutShippingAddressSnapshot(
                 shippingAddressSnapshot.street,
                 shippingAddressSnapshot.number,
                 shippingAddressSnapshot.complement,
@@ -91,7 +91,7 @@ internal fun Order.toCheckoutData(replayed: Boolean): CheckoutOrderData {
             ),
         items =
             items.map { item ->
-                CheckoutItemData(
+                CheckoutItemSnapshot(
                     item.productId,
                     item.productName,
                     item.unitPriceAmount,

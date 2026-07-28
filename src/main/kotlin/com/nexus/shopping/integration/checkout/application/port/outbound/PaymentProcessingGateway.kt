@@ -1,8 +1,8 @@
 package com.nexus.shopping.integration.checkout.application.port.outbound
 
-import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingData
-import com.nexus.shopping.integration.checkout.application.model.PaymentResultData
+import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingCommand
+import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingResult
 
 interface PaymentProcessingGateway {
-    fun process(data: PaymentProcessingData): PaymentResultData
+    fun process(command: PaymentProcessingCommand): PaymentProcessingResult
 }

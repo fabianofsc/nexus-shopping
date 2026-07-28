@@ -4,11 +4,11 @@ import com.fasterxml.jackson.databind.json.JsonMapper
 import com.nexus.shopping.integration.checkout.adapter.outbound.acl.NotificationGatewayAdapter
 import com.nexus.shopping.integration.checkout.adapter.outbound.acl.OrderPaymentResultGatewayAdapter
 import com.nexus.shopping.integration.checkout.adapter.outbound.acl.PaymentProcessingGatewayAdapter
-import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPaymentResultData
-import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderData
-import com.nexus.shopping.integration.checkout.application.model.OrderConfirmationNotificationData
-import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingData
-import com.nexus.shopping.integration.checkout.application.model.PaymentResultData
+import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPaymentResultCommand
+import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderSnapshot
+import com.nexus.shopping.integration.checkout.application.model.EnsureOrderConfirmationCommand
+import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingCommand
+import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingResult
 import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentProcessingGateway
@@ -220,11 +220,11 @@ class PaymentCheckoutReconciliationHttpTest {
             object : PaymentProcessingGateway {
                 private val first = AtomicBoolean(true)
 
-                override fun process(data: PaymentProcessingData): PaymentResultData {
-                    if (data.paymentToken == FAIL_BEFORE_PAYMENT_TOKEN && first.compareAndSet(true, false)) {
+                override fun process(command: PaymentProcessingCommand): PaymentProcessingResult {
+                    if (command.paymentToken == FAIL_BEFORE_PAYMENT_TOKEN && first.compareAndSet(true, false)) {
                         throw IllegalStateException("failure before Payment attempt")
                     }
-                    return delegate.process(data)
+                    return delegate.process(command)
                 }
             }
 
@@ -237,9 +237,9 @@ class PaymentCheckoutReconciliationHttpTest {
             object : OrderPaymentResultGateway {
                 private val first = AtomicBoolean(true)
 
-                override fun apply(data: ApplyOrderPaymentResultData): CheckoutOrderData {
+                override fun apply(command: ApplyOrderPaymentResultCommand): CheckoutOrderSnapshot {
                     if (first.compareAndSet(true, false)) throw IllegalStateException("failure before Order result")
-                    return delegate.apply(data)
+                    return delegate.apply(command)
                 }
             }
 
@@ -252,9 +252,9 @@ class PaymentCheckoutReconciliationHttpTest {
             object : NotificationGateway {
                 private val first = AtomicBoolean(true)
 
-                override fun ensureOrderConfirmation(data: OrderConfirmationNotificationData) {
+                override fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand) {
                     if (first.compareAndSet(true, false)) throw IllegalStateException("failure before Notification")
-                    delegate.ensureOrderConfirmation(data)
+                    delegate.ensureOrderConfirmation(command)
                 }
             }
     }

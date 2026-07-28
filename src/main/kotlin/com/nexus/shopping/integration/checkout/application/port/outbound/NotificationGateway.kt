@@ -1,7 +1,7 @@
 package com.nexus.shopping.integration.checkout.application.port.outbound
 
-import com.nexus.shopping.integration.checkout.application.model.OrderConfirmationNotificationData
+import com.nexus.shopping.integration.checkout.application.model.EnsureOrderConfirmationCommand
 
 interface NotificationGateway {
-    fun ensureOrderConfirmation(data: OrderConfirmationNotificationData)
+    fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand)
 }

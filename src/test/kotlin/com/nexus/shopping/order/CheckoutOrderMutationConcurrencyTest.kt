@@ -18,9 +18,9 @@ import com.nexus.shopping.integration.checkout.adapter.outbound.acl.CartCheckout
 import com.nexus.shopping.integration.checkout.adapter.outbound.acl.OrderCreationGatewayAdapter
 import com.nexus.shopping.integration.checkout.application.CheckoutWorkflowUseCase
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
-import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerData
-import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderData
-import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
+import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerSnapshot
+import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderSnapshot
+import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressSnapshot
 import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentAuthorizationFingerprintGateway
@@ -128,7 +128,7 @@ class CheckoutOrderMutationConcurrencyTest {
         val executor = Executors.newFixedThreadPool(2)
 
         try {
-            val checkoutFuture = executor.submit<CheckoutOrderData> { checkout.execute(command(customerId, "checkout-$customerId")) }
+            val checkoutFuture = executor.submit<CheckoutOrderSnapshot> { checkout.execute(command(customerId, "checkout-$customerId")) }
             assertTrue(checkoutLocked.await(10, TimeUnit.SECONDS), "Checkout did not acquire the cart lock")
 
             val mutationFuture = executor.submit<Cart> { mutation(signalingRepository) }
@@ -175,9 +175,9 @@ class CheckoutOrderMutationConcurrencyTest {
         idempotencyKey: String,
     ) = CheckoutCommand(
         customerId = customerId,
-        customerSnapshot = CheckoutCustomerData(customerId, "Ana Silva", "12345678900", "CPF", "ana@example.com", null),
+        customerSnapshot = CheckoutCustomerSnapshot(customerId, "Ana Silva", "12345678900", "CPF", "ana@example.com", null),
         shippingAddressSnapshot =
-            CheckoutShippingAddressData("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
+            CheckoutShippingAddressSnapshot("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
         paymentToken = "approved",
         idempotencyKey = idempotencyKey,
     )

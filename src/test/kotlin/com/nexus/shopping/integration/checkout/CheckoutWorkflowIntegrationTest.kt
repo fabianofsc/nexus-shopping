@@ -1,17 +1,17 @@
 package com.nexus.shopping.integration.checkout
 
 import com.nexus.shopping.integration.checkout.application.CheckoutWorkflowUseCase
-import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPaymentResultData
-import com.nexus.shopping.integration.checkout.application.model.CheckoutCartData
+import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPaymentResultCommand
+import com.nexus.shopping.integration.checkout.application.model.CheckoutCartSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
-import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerData
-import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
-import com.nexus.shopping.integration.checkout.application.model.OrderConfirmationNotificationData
-import com.nexus.shopping.integration.checkout.application.model.PaymentAuthorizationData
-import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingData
-import com.nexus.shopping.integration.checkout.application.model.PaymentResultData
+import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerSnapshot
+import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressSnapshot
+import com.nexus.shopping.integration.checkout.application.model.EnsureOrderConfirmationCommand
+import com.nexus.shopping.integration.checkout.application.model.PaymentAuthorizationCommand
+import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingCommand
+import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingResult
 import com.nexus.shopping.integration.checkout.application.model.PaymentResultStatus
-import com.nexus.shopping.integration.checkout.application.model.PaymentValidationData
+import com.nexus.shopping.integration.checkout.application.model.PaymentValidationCommand
 import com.nexus.shopping.integration.checkout.application.port.outbound.CheckoutCartGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderCreationGateway
@@ -63,7 +63,7 @@ class CheckoutWorkflowIntegrationTest {
         val failure = IllegalStateException("failure after Cart confirmation")
         val failingCarts =
             object : CheckoutCartGateway {
-                override fun reserveActiveCart(customerId: Long): CheckoutCartData = carts.reserveActiveCart(customerId)
+                override fun reserveActiveCart(customerId: Long): CheckoutCartSnapshot = carts.reserveActiveCart(customerId)
 
                 override fun confirmCheckout(reservationId: Long) {
                     carts.confirmCheckout(reservationId)
@@ -134,7 +134,7 @@ class CheckoutWorkflowIntegrationTest {
         CheckoutCommand(
             customerId = customerId,
             customerSnapshot =
-                CheckoutCustomerData(
+                CheckoutCustomerSnapshot(
                     customerId,
                     "Claudia Elaine Eloa Galvao",
                     "378149714",
@@ -143,7 +143,7 @@ class CheckoutWorkflowIntegrationTest {
                     "+5579995737583",
                 ),
             shippingAddressSnapshot =
-                CheckoutShippingAddressData(
+                CheckoutShippingAddressSnapshot(
                     "Rua Rafael de Aguiar",
                     "557",
                     null,
@@ -163,24 +163,24 @@ class CheckoutWorkflowIntegrationTest {
             orders = orders,
             paymentAuthorizationFingerprints =
                 object : PaymentAuthorizationFingerprintGateway {
-                    override fun fingerprint(data: PaymentAuthorizationData) = "opaque-payment-authorization-fingerprint"
+                    override fun fingerprint(command: PaymentAuthorizationCommand) = "opaque-payment-authorization-fingerprint"
                 },
             paymentValidation =
                 object : PaymentValidationGateway {
-                    override fun validate(data: PaymentValidationData) = Unit
+                    override fun validate(command: PaymentValidationCommand) = Unit
                 },
             payments =
                 object : PaymentProcessingGateway {
-                    override fun process(data: PaymentProcessingData) =
-                        PaymentResultData("pay-requested", PaymentResultStatus.REQUESTED, null, replayed = false)
+                    override fun process(command: PaymentProcessingCommand) =
+                        PaymentProcessingResult("pay-requested", PaymentResultStatus.REQUESTED, null, replayed = false)
                 },
             orderPaymentResults =
                 object : OrderPaymentResultGateway {
-                    override fun apply(data: ApplyOrderPaymentResultData) = error("Not used")
+                    override fun apply(command: ApplyOrderPaymentResultCommand) = error("Not used")
                 },
             notifications =
                 object : NotificationGateway {
-                    override fun ensureOrderConfirmation(data: OrderConfirmationNotificationData) = error("Not used")
+                    override fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand) = error("Not used")
                 },
             transaction = transaction,
         )

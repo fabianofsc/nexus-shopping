@@ -6,9 +6,9 @@ import com.nexus.shopping.cart.domain.Cart
 import com.nexus.shopping.cart.domain.CartItem
 import com.nexus.shopping.cart.domain.CartStatus
 import com.nexus.shopping.cart.domain.ProductSummary
-import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerData
-import com.nexus.shopping.integration.checkout.application.model.CheckoutItemData
-import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
+import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerSnapshot
+import com.nexus.shopping.integration.checkout.application.model.CheckoutItemSnapshot
+import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CreateCheckoutOrderCommand
 import com.nexus.shopping.integration.checkout.application.model.FindCheckoutOrderReplayCommand
 import com.nexus.shopping.order.application.command.CreateOrderCommand
@@ -30,7 +30,7 @@ import com.nexus.shopping.order.domain.Currency as OrderCurrency
 
 class CheckoutGatewayAdaptersTest {
     @Test
-    fun `Cart gateway translates reservation data and delegates confirmation`() {
+    fun `Cart gateway translates reservation snapshot and delegates confirmation`() {
         val reservation =
             CartCheckoutReservation(
                 Cart(
@@ -72,7 +72,7 @@ class CheckoutGatewayAdaptersTest {
     }
 
     @Test
-    fun `Order gateway translates create data and propagates replay metadata`() {
+    fun `Order gateway translates create command and propagates replay metadata`() {
         var capturedCommand: CreateOrderCommand? = null
         val createdOrder = CreatedOrder(order(), replayed = true)
         val orders =
@@ -84,7 +84,7 @@ class CheckoutGatewayAdaptersTest {
             }
         val gateway = OrderCreationGatewayAdapter(orders, NoReplayOrders)
 
-        val result = gateway.create(createOrderData)
+        val result = gateway.create(createOrderCommand)
 
         assertEquals(expectedCreateOrderCommand, capturedCommand)
         assertEquals(1L, result.id)
@@ -117,7 +117,7 @@ class CheckoutGatewayAdaptersTest {
                 replayOrders = replayOrders,
             )
 
-        val result = gateway.findReplay(findOrderReplayData)
+        val result = gateway.findReplay(findOrderReplayCommand)
 
         assertEquals(expectedReplayCommand, capturedCommand)
         assertEquals(true, result?.replayed)
@@ -144,11 +144,11 @@ class CheckoutGatewayAdaptersTest {
 
     private companion object {
         val createdAt: Instant = Instant.parse("2026-07-26T12:00:00Z")
-        val checkoutCustomer = CheckoutCustomerData(10L, "Ana Silva", "12345678900", "CPF", "ana@example.com", null)
+        val checkoutCustomer = CheckoutCustomerSnapshot(10L, "Ana Silva", "12345678900", "CPF", "ana@example.com", null)
         val checkoutShippingAddress =
-            CheckoutShippingAddressData("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR")
-        val checkoutItem = CheckoutItemData(1L, "Produto A", BigDecimal("19.90"), "BRL", 2)
-        val findOrderReplayData =
+            CheckoutShippingAddressSnapshot("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR")
+        val checkoutItem = CheckoutItemSnapshot(1L, "Produto A", BigDecimal("19.90"), "BRL", 2)
+        val findOrderReplayCommand =
             FindCheckoutOrderReplayCommand(
                 customerId = 10L,
                 customerSnapshot = checkoutCustomer,
@@ -156,7 +156,7 @@ class CheckoutGatewayAdaptersTest {
                 idempotencyKey = "checkout-1",
                 paymentAuthorizationFingerprint = "opaque-payment-authorization-fingerprint",
             )
-        val createOrderData =
+        val createOrderCommand =
             CreateCheckoutOrderCommand(
                 customerId = 10L,
                 cartId = 100L,

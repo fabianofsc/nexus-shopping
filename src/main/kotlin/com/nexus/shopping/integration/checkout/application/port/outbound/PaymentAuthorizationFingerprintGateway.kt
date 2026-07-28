@@ -1,7 +1,7 @@
 package com.nexus.shopping.integration.checkout.application.port.outbound
 
-import com.nexus.shopping.integration.checkout.application.model.PaymentAuthorizationData
+import com.nexus.shopping.integration.checkout.application.model.PaymentAuthorizationCommand
 
 interface PaymentAuthorizationFingerprintGateway {
-    fun fingerprint(data: PaymentAuthorizationData): String
+    fun fingerprint(command: PaymentAuthorizationCommand): String
 }
