@@ -7,6 +7,7 @@ import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
 import com.nexus.shopping.integration.checkout.application.model.OrderConfirmationNotificationData
+import com.nexus.shopping.integration.checkout.application.model.PaymentAuthorizationData
 import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingData
 import com.nexus.shopping.integration.checkout.application.model.PaymentResultData
 import com.nexus.shopping.integration.checkout.application.model.PaymentResultStatus
@@ -15,6 +16,7 @@ import com.nexus.shopping.integration.checkout.application.port.outbound.Checkou
 import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderCreationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentAuthorizationFingerprintGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentProcessingGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentValidationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.TransactionPort
@@ -159,6 +161,10 @@ class CheckoutWorkflowIntegrationTest {
         CheckoutWorkflowUseCase(
             carts = cartGateway,
             orders = orders,
+            paymentAuthorizationFingerprints =
+                object : PaymentAuthorizationFingerprintGateway {
+                    override fun fingerprint(data: PaymentAuthorizationData) = "opaque-payment-authorization-fingerprint"
+                },
             paymentValidation =
                 object : PaymentValidationGateway {
                     override fun validate(data: PaymentValidationData) = Unit

@@ -55,6 +55,21 @@ data class CheckoutCartData(
         get() = items.fold(BigDecimal.ZERO) { total, item -> total + item.totalAmount }
 }
 
+data class PaymentAuthorizationData(
+    val paymentToken: String,
+    val idempotencyKey: String,
+) {
+    override fun toString(): String = "PaymentAuthorizationData(paymentToken=<redacted>, idempotencyKey=$idempotencyKey)"
+}
+
+data class FindOrderReplayData(
+    val customerId: Long,
+    val customerSnapshot: CheckoutCustomerData,
+    val shippingAddressSnapshot: CheckoutShippingAddressData,
+    val idempotencyKey: String,
+    val paymentAuthorizationFingerprint: String,
+)
+
 data class CreateOrderData(
     val customerId: Long,
     val cartId: Long,
@@ -62,6 +77,7 @@ data class CreateOrderData(
     val shippingAddressSnapshot: CheckoutShippingAddressData,
     val items: List<CheckoutItemData>,
     val idempotencyKey: String,
+    val paymentAuthorizationFingerprint: String,
 )
 
 data class CheckoutOrderData(

@@ -12,4 +12,5 @@ data class FindOrderReplayCommand(
     val customerSnapshot: CustomerSnapshot,
     val shippingAddressSnapshot: ShippingAddressSnapshot,
     val idempotencyKey: String,
+    val paymentAuthorizationFingerprint: String,
 )

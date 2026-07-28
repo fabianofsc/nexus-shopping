@@ -23,6 +23,7 @@ import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderDa
 import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
 import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentAuthorizationFingerprintGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentProcessingGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentValidationGateway
 import com.nexus.shopping.order.adapter.outbound.jpa.OrderJpaRepositoryAdapter
@@ -63,6 +64,9 @@ class CheckoutOrderMutationConcurrencyTest {
 
     @Autowired
     private lateinit var paymentValidation: PaymentValidationGateway
+
+    @Autowired
+    private lateinit var paymentAuthorizationFingerprints: PaymentAuthorizationFingerprintGateway
 
     @Autowired
     private lateinit var payments: PaymentProcessingGateway
@@ -112,6 +116,7 @@ class CheckoutOrderMutationConcurrencyTest {
                             BlockingCartCheckout(CartCheckoutUseCase(carts), checkoutLocked, releaseCheckout),
                         ),
                     orders = LocalOrderCreationGateway(orderUseCase, orderUseCase),
+                    paymentAuthorizationFingerprints = paymentAuthorizationFingerprints,
                     paymentValidation = paymentValidation,
                     payments = payments,
                     orderPaymentResults = orderPaymentResults,

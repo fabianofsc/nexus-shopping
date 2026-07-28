@@ -9,7 +9,9 @@ import com.nexus.shopping.integration.checkout.application.model.CheckoutItemDat
 import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
 import com.nexus.shopping.integration.checkout.application.model.CreateOrderData
+import com.nexus.shopping.integration.checkout.application.model.FindOrderReplayData
 import com.nexus.shopping.integration.checkout.application.model.OrderConfirmationNotificationData
+import com.nexus.shopping.integration.checkout.application.model.PaymentAuthorizationData
 import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingData
 import com.nexus.shopping.integration.checkout.application.model.PaymentResultData
 import com.nexus.shopping.integration.checkout.application.model.PaymentResultStatus
@@ -18,6 +20,7 @@ import com.nexus.shopping.integration.checkout.application.port.outbound.Checkou
 import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderCreationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentAuthorizationFingerprintGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentProcessingGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentValidationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.TransactionPort
@@ -45,7 +48,18 @@ class CheckoutWorkflowUseCaseTest {
         val result = workflow(carts, orders, transactions, events).execute(command())
 
         assertEquals(
-            listOf("transaction:start", "replay", "reserve", "replay", "validate", "create", "confirm", "transaction:end", "payment"),
+            listOf(
+                "fingerprint",
+                "transaction:start",
+                "replay",
+                "reserve",
+                "replay",
+                "validate",
+                "create",
+                "confirm",
+                "transaction:end",
+                "payment",
+            ),
             events,
         )
         assertEquals(false, result.replayed)
@@ -65,7 +79,7 @@ class CheckoutWorkflowUseCaseTest {
         val result = workflow(carts, orders, ImmediateTransaction, events).execute(command())
 
         assertEquals(replay, result)
-        assertEquals(listOf("replay", "payment"), events)
+        assertEquals(listOf("fingerprint", "replay", "payment"), events)
     }
 
     @Test
@@ -78,7 +92,7 @@ class CheckoutWorkflowUseCaseTest {
         val result = workflow(carts, orders, ImmediateTransaction, events).execute(command())
 
         assertEquals(replay, result)
-        assertEquals(listOf("replay", "reserve", "replay", "validate", "create", "payment"), events)
+        assertEquals(listOf("fingerprint", "replay", "reserve", "replay", "validate", "create", "payment"), events)
     }
 
     @Test
@@ -107,7 +121,7 @@ class CheckoutWorkflowUseCaseTest {
 
         assertSame(failure, thrown)
         assertEquals(
-            listOf("transaction:start", "replay", "reserve", "replay", "validate", "create", "transaction:rollback"),
+            listOf("fingerprint", "transaction:start", "replay", "reserve", "replay", "validate", "create", "transaction:rollback"),
             events,
         )
     }
@@ -130,6 +144,13 @@ class CheckoutWorkflowUseCaseTest {
     ) = CheckoutWorkflowUseCase(
         carts = carts,
         orders = orders,
+        paymentAuthorizationFingerprints =
+            object : PaymentAuthorizationFingerprintGateway {
+                override fun fingerprint(data: PaymentAuthorizationData): String {
+                    events += "fingerprint"
+                    return "opaque-payment-authorization-fingerprint"
+                }
+            },
         paymentValidation =
             object : PaymentValidationGateway {
                 override fun validate(data: PaymentValidationData) {
@@ -194,7 +215,7 @@ class CheckoutWorkflowUseCaseTest {
     ) : OrderCreationGateway {
         var createdData: CreateOrderData? = null
 
-        override fun findReplay(command: CheckoutCommand): CheckoutOrderData? {
+        override fun findReplay(data: FindOrderReplayData): CheckoutOrderData? {
             events += "replay"
             return replay
         }

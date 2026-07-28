@@ -1,9 +1,11 @@
 package com.nexus.shopping.payment.application.usecase
 
+import com.nexus.shopping.payment.application.command.FingerprintPaymentAuthorizationCommand
 import com.nexus.shopping.payment.application.command.ProcessPaymentCommand
 import com.nexus.shopping.payment.application.command.ValidatePaymentInputCommand
 import com.nexus.shopping.payment.application.exception.PaymentIdempotencyConflictException
 import com.nexus.shopping.payment.application.exception.PaymentValidationException
+import com.nexus.shopping.payment.application.port.inbound.FingerprintPaymentAuthorizationInputPort
 import com.nexus.shopping.payment.application.port.inbound.PaymentProcessingResult
 import com.nexus.shopping.payment.application.port.inbound.ProcessPaymentInputPort
 import com.nexus.shopping.payment.application.port.inbound.ValidatePaymentInputPort
@@ -32,7 +34,19 @@ class ProcessPaymentUseCase(
     private val paymentProviderGateway: PaymentProviderGateway,
     private val fingerprintSecret: PaymentAuthorizationFingerprintSecretPort,
 ) : ProcessPaymentInputPort,
+    FingerprintPaymentAuthorizationInputPort,
     ValidatePaymentInputPort {
+    override fun fingerprint(command: FingerprintPaymentAuthorizationCommand): String {
+        requireText(command.paymentToken, "paymentToken")
+        requireText(command.idempotencyKey, "idempotencyKey")
+        maximumLength(command.idempotencyKey, "idempotencyKey", 255)
+        return PaymentAuthorizationFingerprint.checkoutIdentity(
+            paymentToken = command.paymentToken,
+            idempotencyKey = command.idempotencyKey,
+            secret = fingerprintSecret.secret(),
+        )
+    }
+
     override fun validate(command: ValidatePaymentInputCommand) {
         try {
             PaymentAmount.of(command.amount)
@@ -178,6 +192,20 @@ private fun PaymentAttempt.toProcessingResult(replayed: Boolean) =
     )
 
 internal object PaymentAuthorizationFingerprint {
+    fun checkoutIdentity(
+        paymentToken: String,
+        idempotencyKey: String,
+        secret: ByteArray,
+    ): String =
+        hmac(
+            buildString {
+                appendField("checkout-payment-authorization-v1")
+                appendField(paymentToken)
+                appendField(idempotencyKey)
+            },
+            secret,
+        )
+
     fun current(
         referenceId: String,
         amount: PaymentAmount,

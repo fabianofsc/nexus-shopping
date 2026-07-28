@@ -78,6 +78,7 @@ class CreateOrderUseCaseTest {
                 ShippingAddressSnapshot("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
             items = items,
             idempotencyKey = "checkout-1",
+            paymentAuthorizationFingerprint = "opaque-payment-authorization-fingerprint",
         )
 
     private fun item() = OrderItemSnapshot(1L, "Produto A", BigDecimal("19.90"), Currency.BRL, 2)

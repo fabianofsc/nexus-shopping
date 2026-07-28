@@ -6,7 +6,9 @@ import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
 import com.nexus.shopping.integration.checkout.application.model.CheckoutItemData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderData
 import com.nexus.shopping.integration.checkout.application.model.CreateOrderData
+import com.nexus.shopping.integration.checkout.application.model.FindOrderReplayData
 import com.nexus.shopping.integration.checkout.application.model.OrderConfirmationNotificationData
+import com.nexus.shopping.integration.checkout.application.model.PaymentAuthorizationData
 import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingData
 import com.nexus.shopping.integration.checkout.application.model.PaymentResultStatus
 import com.nexus.shopping.integration.checkout.application.model.PaymentValidationData
@@ -14,6 +16,7 @@ import com.nexus.shopping.integration.checkout.application.port.outbound.Checkou
 import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderCreationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentAuthorizationFingerprintGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentProcessingGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentValidationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.TransactionPort
@@ -23,6 +26,7 @@ import org.springframework.stereotype.Service
 class CheckoutWorkflowUseCase(
     private val carts: CheckoutCartGateway,
     private val orders: OrderCreationGateway,
+    private val paymentAuthorizationFingerprints: PaymentAuthorizationFingerprintGateway,
     private val paymentValidation: PaymentValidationGateway,
     private val payments: PaymentProcessingGateway,
     private val orderPaymentResults: OrderPaymentResultGateway,
@@ -30,18 +34,33 @@ class CheckoutWorkflowUseCase(
     private val transaction: TransactionPort,
 ) {
     fun execute(command: CheckoutCommand): CheckoutOrderData {
+        val paymentAuthorizationFingerprint =
+            paymentAuthorizationFingerprints.fingerprint(
+                PaymentAuthorizationData(
+                    paymentToken = command.paymentToken,
+                    idempotencyKey = command.idempotencyKey,
+                ),
+            )
+        val replayData =
+            FindOrderReplayData(
+                customerId = command.customerId,
+                customerSnapshot = command.customerSnapshot,
+                shippingAddressSnapshot = command.shippingAddressSnapshot,
+                idempotencyKey = command.idempotencyKey,
+                paymentAuthorizationFingerprint = paymentAuthorizationFingerprint,
+            )
         val order =
             transaction.inTransaction {
-                orders.findReplay(command)?.let { return@inTransaction it }
+                orders.findReplay(replayData)?.let { return@inTransaction it }
 
                 val cart =
                     try {
                         carts.reserveActiveCart(command.customerId)
                     } catch (exception: CheckoutValidationException) {
-                        orders.findReplay(command)?.let { return@inTransaction it }
+                        orders.findReplay(replayData)?.let { return@inTransaction it }
                         throw exception
                     }
-                orders.findReplay(command)?.let { return@inTransaction it }
+                orders.findReplay(replayData)?.let { return@inTransaction it }
                 if (cart.items.isEmpty()) throw CheckoutValidationException("cart items must not be empty.")
                 paymentValidation.validate(
                     PaymentValidationData(
@@ -59,6 +78,7 @@ class CheckoutWorkflowUseCase(
                             shippingAddressSnapshot = command.shippingAddressSnapshot,
                             items = cart.items,
                             idempotencyKey = command.idempotencyKey,
+                            paymentAuthorizationFingerprint = paymentAuthorizationFingerprint,
                         ),
                     )
                 if (!createdOrder.replayed && createdOrder.cartId == cart.reservationId) {

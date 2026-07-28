@@ -6,11 +6,11 @@ import com.nexus.shopping.cart.domain.Cart
 import com.nexus.shopping.cart.domain.CartItem
 import com.nexus.shopping.cart.domain.CartStatus
 import com.nexus.shopping.cart.domain.ProductSummary
-import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutItemData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
 import com.nexus.shopping.integration.checkout.application.model.CreateOrderData
+import com.nexus.shopping.integration.checkout.application.model.FindOrderReplayData
 import com.nexus.shopping.order.application.command.CreateOrderCommand
 import com.nexus.shopping.order.application.port.inbound.CreateOrderInputPort
 import com.nexus.shopping.order.application.port.inbound.CreatedOrder
@@ -117,7 +117,7 @@ class LocalCheckoutGatewaysTest {
                 replayOrders = replayOrders,
             )
 
-        val result = gateway.findReplay(checkoutCommand)
+        val result = gateway.findReplay(findOrderReplayData)
 
         assertEquals(expectedReplayCommand, capturedCommand)
         assertEquals(true, result?.replayed)
@@ -148,13 +148,13 @@ class LocalCheckoutGatewaysTest {
         val checkoutShippingAddress =
             CheckoutShippingAddressData("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR")
         val checkoutItem = CheckoutItemData(1L, "Produto A", BigDecimal("19.90"), "BRL", 2)
-        val checkoutCommand =
-            CheckoutCommand(
+        val findOrderReplayData =
+            FindOrderReplayData(
                 customerId = 10L,
                 customerSnapshot = checkoutCustomer,
                 shippingAddressSnapshot = checkoutShippingAddress,
-                paymentToken = "approved",
                 idempotencyKey = "checkout-1",
+                paymentAuthorizationFingerprint = "opaque-payment-authorization-fingerprint",
             )
         val createOrderData =
             CreateOrderData(
@@ -164,6 +164,7 @@ class LocalCheckoutGatewaysTest {
                 shippingAddressSnapshot = checkoutShippingAddress,
                 items = listOf(checkoutItem),
                 idempotencyKey = "checkout-1",
+                paymentAuthorizationFingerprint = "opaque-payment-authorization-fingerprint",
             )
         val orderCustomer = CustomerSnapshot(10L, "Ana Silva", "12345678900", "CPF", "ana@example.com", null)
         val orderShippingAddress =
@@ -177,6 +178,7 @@ class LocalCheckoutGatewaysTest {
                 shippingAddressSnapshot = orderShippingAddress,
                 items = listOf(orderItem),
                 idempotencyKey = "checkout-1",
+                paymentAuthorizationFingerprint = "opaque-payment-authorization-fingerprint",
             )
         val expectedReplayCommand =
             FindOrderReplayCommand(
@@ -184,6 +186,7 @@ class LocalCheckoutGatewaysTest {
                 customerSnapshot = orderCustomer,
                 shippingAddressSnapshot = orderShippingAddress,
                 idempotencyKey = "checkout-1",
+                paymentAuthorizationFingerprint = "opaque-payment-authorization-fingerprint",
             )
 
         object NoReplayOrders : FindOrderReplayInputPort {

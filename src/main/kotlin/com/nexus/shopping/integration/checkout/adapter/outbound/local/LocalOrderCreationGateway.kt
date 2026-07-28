@@ -1,11 +1,11 @@
 package com.nexus.shopping.integration.checkout.adapter.outbound.local
 
-import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutItemData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
 import com.nexus.shopping.integration.checkout.application.model.CreateOrderData
+import com.nexus.shopping.integration.checkout.application.model.FindOrderReplayData
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderCreationGateway
 import com.nexus.shopping.order.application.command.CreateOrderCommand
 import com.nexus.shopping.order.application.port.inbound.CreateOrderInputPort
@@ -24,14 +24,15 @@ class LocalOrderCreationGateway(
     private val orders: CreateOrderInputPort,
     private val replayOrders: FindOrderReplayInputPort,
 ) : OrderCreationGateway {
-    override fun findReplay(command: CheckoutCommand): CheckoutOrderData? =
+    override fun findReplay(data: FindOrderReplayData): CheckoutOrderData? =
         replayOrders
             .findReplay(
                 FindOrderReplayCommand(
-                    customerId = command.customerId,
-                    customerSnapshot = command.customerSnapshot.toOrderSnapshot(),
-                    shippingAddressSnapshot = command.shippingAddressSnapshot.toOrderSnapshot(),
-                    idempotencyKey = command.idempotencyKey,
+                    customerId = data.customerId,
+                    customerSnapshot = data.customerSnapshot.toOrderSnapshot(),
+                    shippingAddressSnapshot = data.shippingAddressSnapshot.toOrderSnapshot(),
+                    idempotencyKey = data.idempotencyKey,
+                    paymentAuthorizationFingerprint = data.paymentAuthorizationFingerprint,
                 ),
             )?.toCheckoutData()
 
@@ -45,6 +46,7 @@ class LocalOrderCreationGateway(
                     shippingAddressSnapshot = data.shippingAddressSnapshot.toOrderSnapshot(),
                     items = data.items.map { it.toOrderSnapshot() },
                     idempotencyKey = data.idempotencyKey,
+                    paymentAuthorizationFingerprint = data.paymentAuthorizationFingerprint,
                 ),
             ).toCheckoutData()
 }

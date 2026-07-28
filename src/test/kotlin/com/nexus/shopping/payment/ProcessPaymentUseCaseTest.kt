@@ -1,5 +1,6 @@
 package com.nexus.shopping.payment
 
+import com.nexus.shopping.payment.application.command.FingerprintPaymentAuthorizationCommand
 import com.nexus.shopping.payment.application.command.ProcessPaymentCommand
 import com.nexus.shopping.payment.application.exception.PaymentIdempotencyConflictException
 import com.nexus.shopping.payment.application.port.outbound.PaymentAttemptRepositoryPort
@@ -85,6 +86,26 @@ class ProcessPaymentUseCaseTest {
 
         assertFalse(command.toString().contains(token))
         assertFalse(providerRequest.toString().contains(token))
+    }
+
+    @Test
+    fun `creates a stable opaque checkout authorization fingerprint without exposing the token`() {
+        val useCase = ProcessPaymentUseCase(PaymentAttemptRepositoryFake(), ApprovedProvider(), FixedFingerprintSecret())
+        val command =
+            FingerprintPaymentAuthorizationCommand(
+                paymentToken = "opaque-checkout-token",
+                idempotencyKey = "checkout-key-1",
+            )
+
+        val first = useCase.fingerprint(command)
+        val replay = useCase.fingerprint(command)
+        val differentToken = useCase.fingerprint(command.copy(paymentToken = "different-token"))
+
+        assertEquals(64, first.length)
+        assertEquals(first, replay)
+        assertFalse(first.contains(command.paymentToken))
+        assertFalse(command.toString().contains(command.paymentToken))
+        assertTrue(first != differentToken)
     }
 
     @Test

@@ -8,7 +8,11 @@ data class CheckoutRequest(
     val customerSnapshot: CustomerSnapshotRequest,
     val shippingAddressSnapshot: ShippingAddressSnapshotRequest,
     val paymentToken: String,
-)
+) {
+    override fun toString(): String =
+        "CheckoutRequest(customerSnapshot=$customerSnapshot, shippingAddressSnapshot=$shippingAddressSnapshot, " +
+            "paymentToken=<redacted>)"
+}
 
 data class CustomerSnapshotRequest(
     val name: String,

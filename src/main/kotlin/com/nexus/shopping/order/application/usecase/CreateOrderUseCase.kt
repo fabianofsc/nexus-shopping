@@ -27,6 +27,7 @@ class CreateOrderUseCase(
             customerSnapshot = command.customerSnapshot,
             shippingAddressSnapshot = command.shippingAddressSnapshot,
             idempotencyKey = command.idempotencyKey,
+            paymentAuthorizationFingerprint = command.paymentAuthorizationFingerprint,
         )
         val existing =
             orderRepository.findByCustomerIdAndIdempotencyKey(command.customerId, command.idempotencyKey)
@@ -38,6 +39,7 @@ class CreateOrderUseCase(
                 customerSnapshot = command.customerSnapshot,
                 shippingAddressSnapshot = command.shippingAddressSnapshot,
                 items = existing.items,
+                paymentAuthorizationFingerprint = command.paymentAuthorizationFingerprint,
             )
         val legacyReplayFingerprint =
             OrderCreationRequestFingerprint.legacy(
@@ -57,6 +59,7 @@ class CreateOrderUseCase(
             customerSnapshot = command.customerSnapshot,
             shippingAddressSnapshot = command.shippingAddressSnapshot,
             idempotencyKey = command.idempotencyKey,
+            paymentAuthorizationFingerprint = command.paymentAuthorizationFingerprint,
         )
         OrderCreationPayloadValidator.validateCart(command.cartId, command.items)
         val fingerprint =
@@ -66,6 +69,7 @@ class CreateOrderUseCase(
                 customerSnapshot = command.customerSnapshot,
                 shippingAddressSnapshot = command.shippingAddressSnapshot,
                 items = command.items,
+                paymentAuthorizationFingerprint = command.paymentAuthorizationFingerprint,
             )
         val existing = orderRepository.findByCustomerIdAndIdempotencyKey(command.customerId, command.idempotencyKey)
         if (existing != null) {
@@ -117,13 +121,14 @@ class CreateOrderUseCase(
 }
 
 internal object OrderCreationRequestFingerprint {
-    /** Current V2 format: base snapshots plus cart id and every ordered item field. */
+    /** Current V3 format: V2 payload plus the opaque payment authorization fingerprint. */
     fun current(
         customerId: Long,
         cartId: Long,
         customerSnapshot: CustomerSnapshot,
         shippingAddressSnapshot: ShippingAddressSnapshot,
         items: List<OrderItemSnapshot>,
+        paymentAuthorizationFingerprint: String,
     ): String {
         val canonicalPayload =
             buildString {
@@ -132,13 +137,14 @@ internal object OrderCreationRequestFingerprint {
                 appendCustomer(customerSnapshot)
                 appendShippingAddress(shippingAddressSnapshot)
                 appendItems(items)
+                appendField(paymentAuthorizationFingerprint)
             }
         return digest(canonicalPayload)
     }
 
     /**
      * Legacy V1 format persisted before checkout integration boundaries. The fallback is read-only:
-     * new orders always store V2, while legacy replays additionally compare persisted cart/items.
+     * new orders always store V3, while legacy replays additionally compare persisted cart/items.
      */
     fun legacy(
         customerId: Long,
@@ -202,10 +208,13 @@ internal object OrderCreationPayloadValidator {
         customerSnapshot: CustomerSnapshot,
         shippingAddressSnapshot: ShippingAddressSnapshot,
         idempotencyKey: String,
+        paymentAuthorizationFingerprint: String,
     ) {
         positive(customerId, "customerId")
         required(idempotencyKey, "idempotencyKey")
         length(idempotencyKey, "idempotencyKey", 255)
+        required(paymentAuthorizationFingerprint, "paymentAuthorizationFingerprint")
+        length(paymentAuthorizationFingerprint, "paymentAuthorizationFingerprint", 255)
         if (customerSnapshot.customerId != customerId) {
             invalid("customerSnapshot.customerId must match customerId.")
         }

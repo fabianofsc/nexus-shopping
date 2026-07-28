@@ -3,11 +3,15 @@ package com.nexus.shopping.integration.checkout
 import com.fasterxml.jackson.databind.json.JsonMapper
 import com.nexus.shopping.integration.checkout.adapter.outbound.local.LocalNotificationGateway
 import com.nexus.shopping.integration.checkout.adapter.outbound.local.LocalOrderPaymentResultGateway
+import com.nexus.shopping.integration.checkout.adapter.outbound.local.LocalPaymentProcessingGateway
 import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPaymentResultData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderData
 import com.nexus.shopping.integration.checkout.application.model.OrderConfirmationNotificationData
+import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingData
+import com.nexus.shopping.integration.checkout.application.model.PaymentResultData
 import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentProcessingGateway
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.context.SpringBootTest
@@ -72,6 +76,26 @@ class PaymentCheckoutReconciliationHttpTest {
         assertEquals("SENT", scalar("SELECT status FROM notifications WHERE reference_id = ?", order["id"].asLong()))
     }
 
+    @Test
+    fun `replay with different token conflicts after Order commit and before Payment attempt`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val customerId = createCustomer(port)
+        addItem(port, customerId)
+        val idempotencyKey = "before-payment-${UUID.randomUUID()}"
+
+        val orderCommitted = checkout(port, customerId, idempotencyKey, FAIL_BEFORE_PAYMENT_TOKEN)
+        val incompatibleReplay = checkout(port, customerId, idempotencyKey, "different-token")
+
+        assertEquals(500, orderCommitted.statusCode())
+        assertEquals(1, count("SELECT COUNT(*) FROM orders WHERE customer_id = ?", customerId))
+        assertEquals(0, count("SELECT COUNT(*) FROM payment_attempts WHERE idempotency_key = ?", idempotencyKey))
+        val orderId =
+            requireNotNull(jdbcTemplate.queryForObject("SELECT id FROM orders WHERE customer_id = ?", Long::class.java, customerId))
+        assertEquals(409, incompatibleReplay.statusCode())
+        assertEquals(0, count("SELECT COUNT(*) FROM payment_attempts WHERE idempotency_key = ?", idempotencyKey))
+        assertEquals(0, count("SELECT COUNT(*) FROM payment_provider_dispatches WHERE reference_id = ?", "checkout:$orderId"))
+    }
+
     private fun createCustomer(port: String): Long {
         val suffix = UUID.randomUUID().toString().replace("-", "")
         val response =
@@ -124,15 +148,16 @@ class PaymentCheckoutReconciliationHttpTest {
         port: String,
         customerId: Long,
         idempotencyKey: String,
+        paymentToken: String = "approved",
     ): HttpResponse<String> =
         post(
             port,
             "/customers/$customerId/cart/checkout",
-            checkoutBody(),
+            checkoutBody(paymentToken),
             idempotencyKey,
         )
 
-    private fun checkoutBody() =
+    private fun checkoutBody(paymentToken: String) =
         """
         {
           "customerSnapshot": {
@@ -152,7 +177,7 @@ class PaymentCheckoutReconciliationHttpTest {
             "zipCode": "01001000",
             "country": "BR"
           },
-          "paymentToken": "approved"
+          "paymentToken": "$paymentToken"
         }
         """.trimIndent()
 
@@ -188,6 +213,23 @@ class PaymentCheckoutReconciliationHttpTest {
     class FailureWindowConfiguration {
         @Bean
         @Primary
+        fun failBeforePaymentAttempt(
+            @Qualifier("localPaymentProcessingGateway")
+            delegate: LocalPaymentProcessingGateway,
+        ): PaymentProcessingGateway =
+            object : PaymentProcessingGateway {
+                private val first = AtomicBoolean(true)
+
+                override fun process(data: PaymentProcessingData): PaymentResultData {
+                    if (data.paymentToken == FAIL_BEFORE_PAYMENT_TOKEN && first.compareAndSet(true, false)) {
+                        throw IllegalStateException("failure before Payment attempt")
+                    }
+                    return delegate.process(data)
+                }
+            }
+
+        @Bean
+        @Primary
         fun failFirstOrderResult(
             @Qualifier("localOrderPaymentResultGateway")
             delegate: LocalOrderPaymentResultGateway,
@@ -215,5 +257,9 @@ class PaymentCheckoutReconciliationHttpTest {
                     delegate.ensureOrderConfirmation(data)
                 }
             }
+    }
+
+    private companion object {
+        private const val FAIL_BEFORE_PAYMENT_TOKEN = "fail-before-payment"
     }
 }
