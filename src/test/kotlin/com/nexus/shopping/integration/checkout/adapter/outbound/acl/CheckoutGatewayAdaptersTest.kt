@@ -1,4 +1,4 @@
-package com.nexus.shopping.integration.checkout.adapter.outbound.local
+package com.nexus.shopping.integration.checkout.adapter.outbound.acl
 
 import com.nexus.shopping.cart.application.port.inbound.CartCheckoutInputPort
 import com.nexus.shopping.cart.application.port.inbound.CartCheckoutReservation
@@ -28,7 +28,7 @@ import kotlin.test.assertEquals
 import com.nexus.shopping.cart.domain.Currency as CartCurrency
 import com.nexus.shopping.order.domain.Currency as OrderCurrency
 
-class LocalCheckoutGatewaysTest {
+class CheckoutGatewayAdaptersTest {
     @Test
     fun `Cart gateway translates reservation data and delegates confirmation`() {
         val reservation =
@@ -60,7 +60,7 @@ class LocalCheckoutGatewaysTest {
                     confirmedReservationId = reservationId
                 }
             }
-        val gateway = LocalCheckoutCartGateway(carts)
+        val gateway = CartCheckoutGatewayAdapter(carts)
 
         val result = gateway.reserveActiveCart(10L)
         gateway.confirmCheckout(result.reservationId)
@@ -82,7 +82,7 @@ class LocalCheckoutGatewaysTest {
                     return createdOrder
                 }
             }
-        val gateway = LocalOrderCreationGateway(orders, NoReplayOrders)
+        val gateway = OrderCreationGatewayAdapter(orders, NoReplayOrders)
 
         val result = gateway.create(createOrderData)
 
@@ -109,7 +109,7 @@ class LocalCheckoutGatewaysTest {
                 }
             }
         val gateway =
-            LocalOrderCreationGateway(
+            OrderCreationGatewayAdapter(
                 orders =
                     object : CreateOrderInputPort {
                         override fun create(command: CreateOrderCommand): CreatedOrder = error("Not used")

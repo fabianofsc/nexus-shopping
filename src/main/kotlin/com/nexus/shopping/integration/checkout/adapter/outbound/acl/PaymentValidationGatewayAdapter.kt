@@ -1,4 +1,4 @@
-package com.nexus.shopping.integration.checkout.adapter.outbound.local
+package com.nexus.shopping.integration.checkout.adapter.outbound.acl
 
 import com.nexus.shopping.integration.checkout.application.model.PaymentValidationData
 import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentValidationGateway
@@ -7,7 +7,7 @@ import com.nexus.shopping.payment.application.port.inbound.ValidatePaymentInputP
 import org.springframework.stereotype.Component
 
 @Component
-class LocalPaymentValidationGateway(
+class PaymentValidationGatewayAdapter(
     private val payments: ValidatePaymentInputPort,
 ) : PaymentValidationGateway {
     override fun validate(data: PaymentValidationData) {

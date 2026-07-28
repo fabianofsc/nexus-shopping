@@ -1,9 +1,9 @@
 package com.nexus.shopping.integration.checkout
 
 import com.fasterxml.jackson.databind.json.JsonMapper
-import com.nexus.shopping.integration.checkout.adapter.outbound.local.LocalNotificationGateway
-import com.nexus.shopping.integration.checkout.adapter.outbound.local.LocalOrderPaymentResultGateway
-import com.nexus.shopping.integration.checkout.adapter.outbound.local.LocalPaymentProcessingGateway
+import com.nexus.shopping.integration.checkout.adapter.outbound.acl.NotificationGatewayAdapter
+import com.nexus.shopping.integration.checkout.adapter.outbound.acl.OrderPaymentResultGatewayAdapter
+import com.nexus.shopping.integration.checkout.adapter.outbound.acl.PaymentProcessingGatewayAdapter
 import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPaymentResultData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderData
 import com.nexus.shopping.integration.checkout.application.model.OrderConfirmationNotificationData
@@ -214,8 +214,8 @@ class PaymentCheckoutReconciliationHttpTest {
         @Bean
         @Primary
         fun failBeforePaymentAttempt(
-            @Qualifier("localPaymentProcessingGateway")
-            delegate: LocalPaymentProcessingGateway,
+            @Qualifier("paymentProcessingGatewayAdapter")
+            delegate: PaymentProcessingGatewayAdapter,
         ): PaymentProcessingGateway =
             object : PaymentProcessingGateway {
                 private val first = AtomicBoolean(true)
@@ -231,8 +231,8 @@ class PaymentCheckoutReconciliationHttpTest {
         @Bean
         @Primary
         fun failFirstOrderResult(
-            @Qualifier("localOrderPaymentResultGateway")
-            delegate: LocalOrderPaymentResultGateway,
+            @Qualifier("orderPaymentResultGatewayAdapter")
+            delegate: OrderPaymentResultGatewayAdapter,
         ): OrderPaymentResultGateway =
             object : OrderPaymentResultGateway {
                 private val first = AtomicBoolean(true)
@@ -246,8 +246,8 @@ class PaymentCheckoutReconciliationHttpTest {
         @Bean
         @Primary
         fun failFirstNotification(
-            @Qualifier("localNotificationGateway")
-            delegate: LocalNotificationGateway,
+            @Qualifier("notificationGatewayAdapter")
+            delegate: NotificationGatewayAdapter,
         ): NotificationGateway =
             object : NotificationGateway {
                 private val first = AtomicBoolean(true)

@@ -1,4 +1,4 @@
-package com.nexus.shopping.integration.checkout.adapter.outbound.local
+package com.nexus.shopping.integration.checkout.adapter.outbound.acl
 
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutItemData
@@ -20,7 +20,7 @@ import com.nexus.shopping.order.domain.ShippingAddressSnapshot
 import org.springframework.stereotype.Component
 
 @Component
-class LocalOrderCreationGateway(
+class OrderCreationGatewayAdapter(
     private val orders: CreateOrderInputPort,
     private val replayOrders: FindOrderReplayInputPort,
 ) : OrderCreationGateway {

@@ -1,4 +1,4 @@
-package com.nexus.shopping.integration.checkout.adapter.outbound.local
+package com.nexus.shopping.integration.checkout.adapter.outbound.acl
 
 import com.nexus.shopping.integration.checkout.application.model.PaymentAuthorizationData
 import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentAuthorizationFingerprintGateway
@@ -7,7 +7,7 @@ import com.nexus.shopping.payment.application.port.inbound.FingerprintPaymentAut
 import org.springframework.stereotype.Component
 
 @Component
-class LocalPaymentAuthorizationFingerprintGateway(
+class PaymentAuthorizationFingerprintGatewayAdapter(
     private val payments: FingerprintPaymentAuthorizationInputPort,
 ) : PaymentAuthorizationFingerprintGateway {
     override fun fingerprint(data: PaymentAuthorizationData): String =

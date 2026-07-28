@@ -1,4 +1,4 @@
-package com.nexus.shopping.integration.checkout.adapter.outbound.local
+package com.nexus.shopping.integration.checkout.adapter.outbound.acl
 
 import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPaymentResultData
 import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderData
@@ -8,7 +8,7 @@ import com.nexus.shopping.order.application.port.inbound.ApplyOrderPaymentResult
 import org.springframework.stereotype.Component
 
 @Component
-class LocalOrderPaymentResultGateway(
+class OrderPaymentResultGatewayAdapter(
     private val orders: ApplyOrderPaymentResultInputPort,
 ) : OrderPaymentResultGateway {
     override fun apply(data: ApplyOrderPaymentResultData): CheckoutOrderData {

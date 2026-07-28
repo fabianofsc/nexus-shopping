@@ -1,4 +1,4 @@
-package com.nexus.shopping.integration.checkout.adapter.outbound.local
+package com.nexus.shopping.integration.checkout.adapter.outbound.acl
 
 import com.nexus.shopping.integration.checkout.application.model.OrderConfirmationNotificationData
 import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
@@ -7,7 +7,7 @@ import com.nexus.shopping.notification.application.port.inbound.SendNotification
 import org.springframework.stereotype.Component
 
 @Component
-class LocalNotificationGateway(
+class NotificationGatewayAdapter(
     private val notifications: SendNotificationInputPort,
 ) : NotificationGateway {
     override fun ensureOrderConfirmation(data: OrderConfirmationNotificationData) {

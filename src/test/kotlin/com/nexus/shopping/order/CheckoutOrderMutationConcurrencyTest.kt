@@ -14,8 +14,8 @@ import com.nexus.shopping.cart.domain.Cart
 import com.nexus.shopping.cart.domain.CartItem
 import com.nexus.shopping.cart.domain.ProductSummary
 import com.nexus.shopping.integration.checkout.adapter.outbound.CheckoutJpaTransactionAdapter
-import com.nexus.shopping.integration.checkout.adapter.outbound.local.LocalCheckoutCartGateway
-import com.nexus.shopping.integration.checkout.adapter.outbound.local.LocalOrderCreationGateway
+import com.nexus.shopping.integration.checkout.adapter.outbound.acl.CartCheckoutGatewayAdapter
+import com.nexus.shopping.integration.checkout.adapter.outbound.acl.OrderCreationGatewayAdapter
 import com.nexus.shopping.integration.checkout.application.CheckoutWorkflowUseCase
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerData
@@ -112,10 +112,10 @@ class CheckoutOrderMutationConcurrencyTest {
             CreateOrderUseCase(orders).let { orderUseCase ->
                 CheckoutWorkflowUseCase(
                     carts =
-                        LocalCheckoutCartGateway(
+                        CartCheckoutGatewayAdapter(
                             BlockingCartCheckout(CartCheckoutUseCase(carts), checkoutLocked, releaseCheckout),
                         ),
-                    orders = LocalOrderCreationGateway(orderUseCase, orderUseCase),
+                    orders = OrderCreationGatewayAdapter(orderUseCase, orderUseCase),
                     paymentAuthorizationFingerprints = paymentAuthorizationFingerprints,
                     paymentValidation = paymentValidation,
                     payments = payments,

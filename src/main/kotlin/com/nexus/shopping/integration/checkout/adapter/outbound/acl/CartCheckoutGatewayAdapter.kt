@@ -1,4 +1,4 @@
-package com.nexus.shopping.integration.checkout.adapter.outbound.local
+package com.nexus.shopping.integration.checkout.adapter.outbound.acl
 
 import com.nexus.shopping.cart.application.exception.CartValidationException
 import com.nexus.shopping.cart.application.port.inbound.CartCheckoutInputPort
@@ -9,7 +9,7 @@ import com.nexus.shopping.integration.checkout.application.port.outbound.Checkou
 import org.springframework.stereotype.Component
 
 @Component
-class LocalCheckoutCartGateway(
+class CartCheckoutGatewayAdapter(
     private val carts: CartCheckoutInputPort,
 ) : CheckoutCartGateway {
     override fun reserveActiveCart(customerId: Long): CheckoutCartData =

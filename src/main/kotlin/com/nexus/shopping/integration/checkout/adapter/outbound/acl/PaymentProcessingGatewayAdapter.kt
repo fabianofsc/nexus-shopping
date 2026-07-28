@@ -1,4 +1,4 @@
-package com.nexus.shopping.integration.checkout.adapter.outbound.local
+package com.nexus.shopping.integration.checkout.adapter.outbound.acl
 
 import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingData
 import com.nexus.shopping.integration.checkout.application.model.PaymentResultData
@@ -9,7 +9,7 @@ import com.nexus.shopping.payment.application.port.inbound.ProcessPaymentInputPo
 import org.springframework.stereotype.Component
 
 @Component
-class LocalPaymentProcessingGateway(
+class PaymentProcessingGatewayAdapter(
     private val payments: ProcessPaymentInputPort,
 ) : PaymentProcessingGateway {
     override fun process(data: PaymentProcessingData): PaymentResultData {
