@@ -11,6 +11,7 @@ import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
+import java.util.UUID
 
 @Component
 class LoggingPaymentProviderGateway(
@@ -50,7 +51,7 @@ class LoggingPaymentProviderGateway(
                     RecordedDispatch(existing.toResult(), created = false)
                 } else {
                     val status = if (request.paymentToken == APPROVED_TOKEN) PaymentStatus.APPROVED else PaymentStatus.REJECTED
-                    val result = ProviderProcessingResult(status, request.providerDispatchKey)
+                    val result = ProviderProcessingResult(status, "log_${UUID.randomUUID()}")
                     val saved =
                         repository.saveAndFlush(
                             PaymentProviderDispatchEntity(

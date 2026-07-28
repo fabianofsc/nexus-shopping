@@ -14,13 +14,24 @@ import org.junit.jupiter.api.BeforeEach
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.transaction.PlatformTransactionManager
+import java.lang.reflect.InvocationTargetException
+import java.lang.reflect.Proxy
 import java.sql.Connection
 import java.sql.DriverManager
-import kotlin.test.assertContains
+import java.util.concurrent.Callable
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 
 @SpringBootTest(
     properties = [
@@ -38,6 +49,12 @@ class LoggingPaymentProviderGatewayTest {
 
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
+
+    @Autowired
+    private lateinit var repository: SpringDataPaymentProviderDispatchRepository
+
+    @Autowired
+    private lateinit var transactionManager: PlatformTransactionManager
 
     @BeforeEach
     fun clearJournal() {
@@ -64,6 +81,13 @@ class LoggingPaymentProviderGatewayTest {
         val result = gateway.process(request(paymentToken = "approved"))
 
         assertEquals(PaymentStatus.APPROVED, result.status)
+        assertNotNull(result.providerTransactionId)
+        assertNotEquals("dispatch-42", result.providerTransactionId)
+        assertEquals(result.providerTransactionId, journalProviderTransactionId())
+
+        val replay = gateway.process(request(paymentToken = "declined"))
+
+        assertEquals(result, replay)
     }
 
     @Test
@@ -98,6 +122,43 @@ class LoggingPaymentProviderGatewayTest {
         }
 
         assertEquals(1, events.list.size)
+    }
+
+    @Test
+    fun `concurrent dispatches with the same key persist one result and emit one log`() {
+        val persistenceBarrier = CyclicBarrier(2)
+        val integrityViolations = AtomicInteger()
+        val concurrentGateway =
+            LoggingPaymentProviderGateway(
+                repositoryWithPersistenceBarrier(persistenceBarrier, integrityViolations),
+                transactionManager,
+            )
+        val logger = LoggerFactory.getLogger(LoggingPaymentProviderGateway::class.java) as Logger
+        val events = ListAppender<ILoggingEvent>().apply { start() }
+        val executor = Executors.newFixedThreadPool(2)
+        logger.addAppender(events)
+
+        try {
+            val results =
+                listOf("approved", "declined")
+                    .map { token ->
+                        executor.submit(
+                            Callable {
+                                concurrentGateway.process(request(paymentToken = token))
+                            },
+                        )
+                    }.map { future -> future.get(10, TimeUnit.SECONDS) }
+
+            assertEquals(results.first(), results.last())
+            assertNotNull(results.first().providerTransactionId)
+            assertEquals(1, journalCount())
+            assertEquals(1, events.list.size)
+            assertEquals(1, integrityViolations.get())
+        } finally {
+            logger.detachAppender(events)
+            events.stop()
+            executor.shutdownNow()
+        }
     }
 
     @Test
@@ -155,20 +216,46 @@ class LoggingPaymentProviderGatewayTest {
         paymentToken: String = "declined",
         referenceId: String = "checkout-42",
         providerDispatchKey: String = "dispatch-42",
-    ) =
-        ProviderProcessingRequest(
-            referenceId = referenceId,
-            amount = PaymentAmount.of("19.90".toBigDecimal()),
-            currency = PaymentCurrency.of("BRL"),
-            paymentToken = paymentToken,
-            providerDispatchKey = providerDispatchKey,
-        )
+    ) = ProviderProcessingRequest(
+        referenceId = referenceId,
+        amount = PaymentAmount.of("19.90".toBigDecimal()),
+        currency = PaymentCurrency.of("BRL"),
+        paymentToken = paymentToken,
+        providerDispatchKey = providerDispatchKey,
+    )
 
     private fun journalCount(): Int =
         jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM payment_provider_dispatches",
             Int::class.java,
         )!!
+
+    private fun journalProviderTransactionId(): String =
+        requireNotNull(
+            jdbcTemplate.queryForObject(
+                "SELECT provider_transaction_id FROM payment_provider_dispatches WHERE provider_dispatch_key = ?",
+                String::class.java,
+                "dispatch-42",
+            ),
+        )
+
+    @Suppress("UNCHECKED_CAST")
+    private fun repositoryWithPersistenceBarrier(
+        barrier: CyclicBarrier,
+        integrityViolations: AtomicInteger,
+    ): SpringDataPaymentProviderDispatchRepository =
+        Proxy.newProxyInstance(
+            SpringDataPaymentProviderDispatchRepository::class.java.classLoader,
+            arrayOf(SpringDataPaymentProviderDispatchRepository::class.java),
+        ) { _, method, arguments ->
+            if (method.name == "saveAndFlush") barrier.await(5, TimeUnit.SECONDS)
+            try {
+                method.invoke(repository, *(arguments ?: emptyArray()))
+            } catch (exception: InvocationTargetException) {
+                if (exception.targetException is DataIntegrityViolationException) integrityViolations.incrementAndGet()
+                throw exception.targetException
+            }
+        } as SpringDataPaymentProviderDispatchRepository
 
     private fun dispatchKey(
         referenceId: String,
