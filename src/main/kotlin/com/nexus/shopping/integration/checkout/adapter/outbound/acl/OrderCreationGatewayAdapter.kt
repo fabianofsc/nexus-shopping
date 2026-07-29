@@ -16,6 +16,7 @@ import com.nexus.shopping.order.domain.Currency
 import com.nexus.shopping.order.domain.CustomerSnapshot
 import com.nexus.shopping.order.domain.Order
 import com.nexus.shopping.order.domain.OrderItemSnapshot
+import com.nexus.shopping.order.domain.OrderStatus
 import com.nexus.shopping.order.domain.ShippingAddressSnapshot
 import org.springframework.stereotype.Component
 
@@ -101,6 +102,7 @@ internal fun Order.toCheckoutSnapshot(replayed: Boolean): CheckoutOrderSnapshot 
             },
         totalAmount = totalAmount,
         status = status.name,
+        awaitingPayment = status == OrderStatus.WAITING_PAYMENT,
         createdAt = requireNotNull(createdAt),
         cancelledAt = cancelledAt,
         replayed = replayed,

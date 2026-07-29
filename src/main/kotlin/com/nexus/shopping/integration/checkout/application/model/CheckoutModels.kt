@@ -91,6 +91,7 @@ data class CheckoutOrderSnapshot(
     val items: List<CheckoutItemSnapshot>,
     val totalAmount: BigDecimal,
     val status: String,
+    val awaitingPayment: Boolean,
     val createdAt: Instant,
     val cancelledAt: Instant?,
     val replayed: Boolean,

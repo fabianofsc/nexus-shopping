@@ -28,7 +28,7 @@ class CheckoutController(
         val result = checkout.execute(request.toCommand(customerId, idempotencyKey))
         val status =
             when {
-                result.status == "WAITING_PAYMENT" -> HttpStatus.ACCEPTED
+                result.awaitingPayment -> HttpStatus.ACCEPTED
                 result.replayed -> HttpStatus.OK
                 else -> HttpStatus.CREATED
             }

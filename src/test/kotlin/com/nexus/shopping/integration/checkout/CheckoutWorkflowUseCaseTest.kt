@@ -189,6 +189,7 @@ class CheckoutWorkflowUseCaseTest {
             items = listOf(item()),
             totalAmount = BigDecimal("39.80"),
             status = "WAITING_PAYMENT",
+            awaitingPayment = true,
             createdAt = Instant.parse("2026-07-26T12:00:00Z"),
             cancelledAt = null,
             replayed = replayed,

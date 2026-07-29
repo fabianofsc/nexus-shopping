@@ -9,7 +9,9 @@ import org.springframework.stereotype.Repository
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.support.TransactionTemplate
+import java.security.MessageDigest
 import java.time.Instant
+import kotlin.text.Charsets.UTF_8
 
 @Repository
 class PaymentJpaRepositoryAdapter(
@@ -70,7 +72,10 @@ class PaymentJpaRepositoryAdapter(
                 val existing = repository.findByReferenceIdAndIdempotencyKey(attempt.referenceId, attempt.idempotencyKey).orElse(null)
                 if (existing != null) {
                     val reclaimed =
-                        existing.authorizationFingerprint == attempt.authorizationFingerprint &&
+                        MessageDigest.isEqual(
+                            existing.authorizationFingerprint.toByteArray(UTF_8),
+                            attempt.authorizationFingerprint.toByteArray(UTF_8),
+                        ) &&
                             repository.reclaimExpiredLease(
                                 referenceId = attempt.referenceId,
                                 idempotencyKey = attempt.idempotencyKey,

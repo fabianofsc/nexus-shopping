@@ -122,6 +122,7 @@ class ProcessPaymentUseCase(
         var current = attempt
         while (current.status == PaymentStatus.REQUESTED && System.nanoTime() < deadline) {
             try {
+                // Deliberately bounded local polling: it preserves the REQUESTED/202 contract without holding a DB transaction.
                 Thread.sleep(REQUESTED_POLL_INTERVAL_MILLIS)
             } catch (exception: InterruptedException) {
                 Thread.currentThread().interrupt()
