@@ -5,6 +5,7 @@ import java.time.Instant
 data class Notification(
     val id: Long?,
     val customerId: Long,
+    val notificationKey: String,
     val recipientEmail: String,
     val type: NotificationType,
     val channel: NotificationChannel,
@@ -14,4 +15,6 @@ data class Notification(
     val referenceId: Long?,
     val createdAt: Instant?,
     val sentAt: Instant?,
+    val sendingLeaseUntil: Instant? = null,
+    val sendingLeaseToken: String? = null,
 )

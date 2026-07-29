@@ -1,15 +1,28 @@
 package com.nexus.shopping.integration.checkout
 
 import com.nexus.shopping.integration.checkout.application.CheckoutWorkflowUseCase
-import com.nexus.shopping.integration.checkout.application.model.CheckoutCartData
+import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPaymentResultCommand
+import com.nexus.shopping.integration.checkout.application.model.CheckoutCartSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
-import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerData
-import com.nexus.shopping.integration.checkout.application.model.CheckoutItemData
-import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderData
-import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
-import com.nexus.shopping.integration.checkout.application.model.CreateOrderData
+import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerSnapshot
+import com.nexus.shopping.integration.checkout.application.model.CheckoutItemSnapshot
+import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderSnapshot
+import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressSnapshot
+import com.nexus.shopping.integration.checkout.application.model.CreateCheckoutOrderCommand
+import com.nexus.shopping.integration.checkout.application.model.EnsureOrderConfirmationCommand
+import com.nexus.shopping.integration.checkout.application.model.FindCheckoutOrderReplayCommand
+import com.nexus.shopping.integration.checkout.application.model.PaymentAuthorizationCommand
+import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingCommand
+import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingResult
+import com.nexus.shopping.integration.checkout.application.model.PaymentResultStatus
+import com.nexus.shopping.integration.checkout.application.model.PaymentValidationCommand
 import com.nexus.shopping.integration.checkout.application.port.outbound.CheckoutCartGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderCreationGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentAuthorizationFingerprintGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentProcessingGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentValidationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.TransactionPort
 import java.math.BigDecimal
 import java.time.Instant
@@ -32,17 +45,28 @@ class CheckoutWorkflowUseCaseTest {
                 }
             }
 
-        val result = CheckoutWorkflowUseCase(carts, orders, transactions).execute(command())
+        val result = workflow(carts, orders, transactions, events).execute(command())
 
         assertEquals(
-            listOf("transaction:start", "replay", "reserve", "replay", "create", "confirm", "transaction:end"),
+            listOf(
+                "fingerprint",
+                "transaction:start",
+                "replay",
+                "reserve",
+                "replay",
+                "validate",
+                "create",
+                "confirm",
+                "transaction:end",
+                "payment",
+            ),
             events,
         )
         assertEquals(false, result.replayed)
         assertEquals("checkout:1", result.orderReference)
         assertEquals("ana@example.com", result.recipientEmail)
-        assertEquals(100L, orders.createdData?.cartId)
-        assertEquals(listOf(item()), orders.createdData?.items)
+        assertEquals(100L, orders.createdCommand?.cartId)
+        assertEquals(listOf(item()), orders.createdCommand?.items)
     }
 
     @Test
@@ -52,10 +76,10 @@ class CheckoutWorkflowUseCaseTest {
         val carts = RecordingCartGateway(events)
         val orders = RecordingOrderGateway(events, replay = replay)
 
-        val result = CheckoutWorkflowUseCase(carts, orders, ImmediateTransaction).execute(command())
+        val result = workflow(carts, orders, ImmediateTransaction, events).execute(command())
 
         assertEquals(replay, result)
-        assertEquals(listOf("replay"), events)
+        assertEquals(listOf("fingerprint", "replay", "payment"), events)
     }
 
     @Test
@@ -65,10 +89,10 @@ class CheckoutWorkflowUseCaseTest {
         val carts = RecordingCartGateway(events)
         val orders = RecordingOrderGateway(events, createdOrder = replay)
 
-        val result = CheckoutWorkflowUseCase(carts, orders, ImmediateTransaction).execute(command())
+        val result = workflow(carts, orders, ImmediateTransaction, events).execute(command())
 
         assertEquals(replay, result)
-        assertEquals(listOf("replay", "reserve", "replay", "create"), events)
+        assertEquals(listOf("fingerprint", "replay", "reserve", "replay", "validate", "create", "payment"), events)
     }
 
     @Test
@@ -92,12 +116,12 @@ class CheckoutWorkflowUseCaseTest {
 
         val thrown =
             assertFailsWith<IllegalStateException> {
-                CheckoutWorkflowUseCase(carts, orders, transactions).execute(command())
+                workflow(carts, orders, transactions, events).execute(command())
             }
 
         assertSame(failure, thrown)
         assertEquals(
-            listOf("transaction:start", "replay", "reserve", "replay", "create", "transaction:rollback"),
+            listOf("fingerprint", "transaction:start", "replay", "reserve", "replay", "validate", "create", "transaction:rollback"),
             events,
         )
     }
@@ -105,16 +129,56 @@ class CheckoutWorkflowUseCaseTest {
     private fun command() =
         CheckoutCommand(
             customerId = 10L,
-            customerSnapshot = CheckoutCustomerData(10L, "Ana Silva", "12345678900", "CPF", "ana@example.com", null),
+            customerSnapshot = CheckoutCustomerSnapshot(10L, "Ana Silva", "12345678900", "CPF", "ana@example.com", null),
             shippingAddressSnapshot =
-                CheckoutShippingAddressData("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
+                CheckoutShippingAddressSnapshot("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
+            paymentToken = "approved",
             idempotencyKey = "checkout-1",
         )
 
-    private fun item() = CheckoutItemData(1L, "Produto A", BigDecimal("19.90"), "BRL", 2)
+    private fun workflow(
+        carts: CheckoutCartGateway,
+        orders: OrderCreationGateway,
+        transactions: TransactionPort,
+        events: MutableList<String>,
+    ) = CheckoutWorkflowUseCase(
+        carts = carts,
+        orders = orders,
+        paymentAuthorizationFingerprints =
+            object : PaymentAuthorizationFingerprintGateway {
+                override fun fingerprint(command: PaymentAuthorizationCommand): String {
+                    events += "fingerprint"
+                    return "opaque-payment-authorization-fingerprint"
+                }
+            },
+        paymentValidation =
+            object : PaymentValidationGateway {
+                override fun validate(command: PaymentValidationCommand) {
+                    events += "validate"
+                }
+            },
+        payments =
+            object : PaymentProcessingGateway {
+                override fun process(command: PaymentProcessingCommand): PaymentProcessingResult {
+                    events += "payment"
+                    return PaymentProcessingResult("pay-requested", PaymentResultStatus.REQUESTED, null, replayed = false)
+                }
+            },
+        orderPaymentResults =
+            object : OrderPaymentResultGateway {
+                override fun apply(command: ApplyOrderPaymentResultCommand): CheckoutOrderSnapshot = error("Not used for REQUESTED")
+            },
+        notifications =
+            object : NotificationGateway {
+                override fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand) = error("Not used for REQUESTED")
+            },
+        transaction = transactions,
+    )
+
+    private fun item() = CheckoutItemSnapshot(1L, "Produto A", BigDecimal("19.90"), "BRL", 2)
 
     private fun order(replayed: Boolean) =
-        CheckoutOrderData(
+        CheckoutOrderSnapshot(
             id = 1L,
             orderReference = "checkout:1",
             customerId = 10L,
@@ -125,6 +189,7 @@ class CheckoutWorkflowUseCaseTest {
             items = listOf(item()),
             totalAmount = BigDecimal("39.80"),
             status = "WAITING_PAYMENT",
+            awaitingPayment = true,
             createdAt = Instant.parse("2026-07-26T12:00:00Z"),
             cancelledAt = null,
             replayed = replayed,
@@ -133,9 +198,9 @@ class CheckoutWorkflowUseCaseTest {
     private inner class RecordingCartGateway(
         private val events: MutableList<String>,
     ) : CheckoutCartGateway {
-        override fun reserveActiveCart(customerId: Long): CheckoutCartData {
+        override fun reserveActiveCart(customerId: Long): CheckoutCartSnapshot {
             events += "reserve"
-            return CheckoutCartData(100L, customerId, listOf(item()))
+            return CheckoutCartSnapshot(100L, customerId, listOf(item()))
         }
 
         override fun confirmCheckout(reservationId: Long) {
@@ -145,20 +210,20 @@ class CheckoutWorkflowUseCaseTest {
 
     private inner class RecordingOrderGateway(
         private val events: MutableList<String>,
-        private val replay: CheckoutOrderData? = null,
-        private val createdOrder: CheckoutOrderData = order(replayed = false),
+        private val replay: CheckoutOrderSnapshot? = null,
+        private val createdOrder: CheckoutOrderSnapshot = order(replayed = false),
         private val creationFailure: RuntimeException? = null,
     ) : OrderCreationGateway {
-        var createdData: CreateOrderData? = null
+        var createdCommand: CreateCheckoutOrderCommand? = null
 
-        override fun findReplay(command: CheckoutCommand): CheckoutOrderData? {
+        override fun findReplay(command: FindCheckoutOrderReplayCommand): CheckoutOrderSnapshot? {
             events += "replay"
             return replay
         }
 
-        override fun create(data: CreateOrderData): CheckoutOrderData {
+        override fun create(command: CreateCheckoutOrderCommand): CheckoutOrderSnapshot {
             events += "create"
-            createdData = data
+            createdCommand = command
             creationFailure?.let { throw it }
             return createdOrder
         }

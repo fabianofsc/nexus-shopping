@@ -1,6 +1,6 @@
 package com.nexus.shopping.integration.checkout.adapter.inbound.http.dto
 
-import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderData
+import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderSnapshot
 import java.math.BigDecimal
 import java.time.Instant
 
@@ -46,7 +46,7 @@ data class CheckoutItemResponse(
     val totalAmount: BigDecimal,
 )
 
-fun CheckoutOrderData.toResponse() =
+fun CheckoutOrderSnapshot.toResponse() =
     CheckoutResponse(
         id,
         customerId,

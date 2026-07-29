@@ -74,4 +74,69 @@ class OrderTest {
             }
         }
     }
+
+    @Test
+    fun `applies an approved payment result to an order waiting for payment`() {
+        val confirmed =
+            order().applyPaymentResult(
+                attemptReference = "pay_attempt_1",
+                result = OrderPaymentResultStatus.APPROVED,
+                providerTransactionId = "provider_tx_1",
+            )
+
+        assertEquals(OrderStatus.CONFIRMED, confirmed.status)
+        assertEquals("pay_attempt_1", confirmed.paymentAttemptReference)
+        assertEquals("provider_tx_1", confirmed.paymentProviderTransactionId)
+    }
+
+    @Test
+    fun `applies a rejected payment result to an order waiting for payment`() {
+        val failed =
+            order().applyPaymentResult(
+                attemptReference = "pay_attempt_2",
+                result = OrderPaymentResultStatus.REJECTED,
+                providerTransactionId = null,
+            )
+
+        assertEquals(OrderStatus.PAYMENT_FAILED, failed.status)
+        assertEquals("pay_attempt_2", failed.paymentAttemptReference)
+        assertEquals(null, failed.paymentProviderTransactionId)
+    }
+
+    @Test
+    fun `reapplying the same attempt reference is an idempotent no-op`() {
+        val confirmed =
+            order().applyPaymentResult(
+                attemptReference = "pay_attempt_1",
+                result = OrderPaymentResultStatus.APPROVED,
+                providerTransactionId = "provider_tx_1",
+            )
+
+        val replay =
+            confirmed.applyPaymentResult(
+                attemptReference = "pay_attempt_1",
+                result = OrderPaymentResultStatus.APPROVED,
+                providerTransactionId = "provider_tx_1",
+            )
+
+        assertEquals(confirmed, replay)
+    }
+
+    @Test
+    fun `rejects a different payment attempt after a result was applied`() {
+        val confirmed =
+            order().applyPaymentResult(
+                attemptReference = "pay_attempt_1",
+                result = OrderPaymentResultStatus.APPROVED,
+                providerTransactionId = "provider_tx_1",
+            )
+
+        assertFailsWith<OrderStateTransitionException> {
+            confirmed.applyPaymentResult(
+                attemptReference = "pay_attempt_2",
+                result = OrderPaymentResultStatus.REJECTED,
+                providerTransactionId = null,
+            )
+        }
+    }
 }

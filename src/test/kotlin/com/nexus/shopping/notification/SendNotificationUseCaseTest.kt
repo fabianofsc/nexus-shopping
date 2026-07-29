@@ -16,16 +16,81 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 
 private class FakeNotificationRepository : NotificationRepositoryPort {
-    val saved = mutableListOf<Notification>()
+    val lifecycle = mutableListOf<NotificationStatus>()
+    var current: Notification? = null
+    var failNextCompletion = false
     private var nextId = 1L
 
     override fun save(notification: Notification): Notification {
         val persisted = notification.copy(id = nextId++, createdAt = Instant.parse("2026-07-17T12:00:00Z"))
-        saved += persisted
+        current = persisted
         return persisted
     }
 
-    override fun findById(id: Long): Notification? = saved.find { it.id == id }
+    override fun reserve(notification: Notification): Notification {
+        current?.takeIf { it.notificationKey == notification.notificationKey }?.let { return it }
+        val persisted = save(notification)
+        lifecycle += persisted.status
+        return persisted
+    }
+
+    override fun claim(
+        notificationKey: String,
+        sendingLeaseToken: String,
+        sendingLeaseUntil: Instant,
+        now: Instant,
+    ): Notification? {
+        val notification = current ?: return null
+        if (notification.notificationKey != notificationKey) return null
+        val claimable =
+            notification.status == NotificationStatus.PENDING ||
+                notification.status == NotificationStatus.FAILED ||
+                notification.status == NotificationStatus.SENDING &&
+                requireNotNull(notification.sendingLeaseUntil).isBefore(now)
+        if (!claimable) return null
+        return notification
+            .copy(
+                status = NotificationStatus.SENDING,
+                sendingLeaseToken = sendingLeaseToken,
+                sendingLeaseUntil = sendingLeaseUntil,
+            ).also {
+                current = it
+                lifecycle += it.status
+            }
+    }
+
+    override fun complete(
+        notificationKey: String,
+        sendingLeaseToken: String,
+        status: NotificationStatus,
+        sentAt: Instant?,
+    ): Notification? {
+        if (failNextCompletion) {
+            failNextCompletion = false
+            error("database unavailable after external send")
+        }
+        val notification = current ?: return null
+        if (notification.notificationKey != notificationKey ||
+            notification.status != NotificationStatus.SENDING ||
+            notification.sendingLeaseToken != sendingLeaseToken
+        ) {
+            return null
+        }
+        return notification
+            .copy(
+                status = status,
+                sendingLeaseToken = null,
+                sendingLeaseUntil = null,
+                sentAt = sentAt,
+            ).also {
+                current = it
+                lifecycle += it.status
+            }
+    }
+
+    override fun findByNotificationKey(notificationKey: String): Notification? = current?.takeIf { it.notificationKey == notificationKey }
+
+    override fun findById(id: Long): Notification? = current?.takeIf { it.id == id }
 
     override fun findByCustomerId(
         customerId: Long,
@@ -35,17 +100,21 @@ private class FakeNotificationRepository : NotificationRepositoryPort {
 }
 
 private class FakeEmailSender(
-    private val result: EmailSendResult = EmailSendResult(success = true),
+    var result: EmailSendResult = EmailSendResult(success = true),
 ) : EmailSenderPort {
+    var failure: RuntimeException? = null
     var lastTo: String? = null
     var lastSubject: String? = null
     var lastBody: String? = null
+    var sends = 0
 
     override fun send(
         to: String,
         subject: String,
         body: String,
     ): EmailSendResult {
+        sends += 1
+        failure?.let { throw it }
         lastTo = to
         lastSubject = subject
         lastBody = body
@@ -57,6 +126,7 @@ class SendNotificationUseCaseTest {
     private fun validCommand() =
         SendNotificationCommand(
             customerId = 1L,
+            notificationKey = "order-confirmed:123:pay_attempt_1",
             recipientEmail = "cliente@example.com",
             type = "ORDER_CONFIRMED",
             referenceId = 123L,
@@ -73,6 +143,10 @@ class SendNotificationUseCaseTest {
 
         assertNotNull(notification.id)
         assertEquals(NotificationStatus.SENT, notification.status)
+        assertEquals(
+            listOf(NotificationStatus.PENDING, NotificationStatus.SENDING, NotificationStatus.SENT),
+            repository.lifecycle,
+        )
         assertEquals("Pedido 123 confirmado", notification.subject)
         assertEquals("Seu pedido 123 no valor de 99.90 foi confirmado.", notification.body)
         assertEquals("cliente@example.com", emailSender.lastTo)
@@ -89,6 +163,98 @@ class SendNotificationUseCaseTest {
 
         assertEquals(NotificationStatus.FAILED, notification.status)
         assertEquals(null, notification.sentAt)
+        assertEquals(
+            listOf(NotificationStatus.PENDING, NotificationStatus.SENDING, NotificationStatus.FAILED),
+            repository.lifecycle,
+        )
+    }
+
+    @Test
+    fun `does not send again when notification key is already SENT`() {
+        val repository = FakeNotificationRepository()
+        val emailSender = FakeEmailSender()
+        val useCase = SendNotificationUseCase(repository, emailSender)
+
+        val first = useCase.send(validCommand())
+        val replay = useCase.send(validCommand())
+
+        assertEquals(first, replay)
+        assertEquals(1, emailSender.sends)
+    }
+
+    @Test
+    fun `reclaims a FAILED notification and retries delivery`() {
+        val repository = FakeNotificationRepository()
+        val emailSender = FakeEmailSender(EmailSendResult(success = false, failureReason = "smtp down"))
+        val useCase = SendNotificationUseCase(repository, emailSender)
+        assertEquals(NotificationStatus.FAILED, useCase.send(validCommand()).status)
+        emailSender.result = EmailSendResult(success = true)
+
+        val retried = useCase.send(validCommand())
+
+        assertEquals(NotificationStatus.SENT, retried.status)
+        assertEquals(2, emailSender.sends)
+    }
+
+    @Test
+    fun `marks notification FAILED when sender throws before confirming delivery`() {
+        val repository = FakeNotificationRepository()
+        val emailSender = FakeEmailSender().apply { failure = IllegalStateException("smtp unavailable") }
+        val useCase = SendNotificationUseCase(repository, emailSender)
+
+        assertFailsWith<IllegalStateException> { useCase.send(validCommand()) }
+
+        assertEquals(NotificationStatus.FAILED, repository.current?.status)
+        assertEquals(null, repository.current?.sendingLeaseToken)
+        assertEquals(null, repository.current?.sendingLeaseUntil)
+    }
+
+    @Test
+    fun `does not send while another owner holds a valid SENDING lease`() {
+        val repository = FakeNotificationRepository()
+        val emailSender = FakeEmailSender()
+        repository.current =
+            Notification(
+                id = 1L,
+                customerId = 1L,
+                notificationKey = validCommand().notificationKey,
+                recipientEmail = "cliente@example.com",
+                type = com.nexus.shopping.notification.domain.NotificationType.ORDER_CONFIRMED,
+                channel = com.nexus.shopping.notification.domain.NotificationChannel.EMAIL,
+                status = NotificationStatus.SENDING,
+                subject = "Pedido 123 confirmado",
+                body = "Seu pedido 123 no valor de 99.90 foi confirmado.",
+                referenceId = 123L,
+                createdAt = Instant.parse("2026-07-17T12:00:00Z"),
+                sentAt = null,
+                sendingLeaseUntil = Instant.now().plusSeconds(30),
+                sendingLeaseToken = "current-owner",
+            )
+
+        val result = SendNotificationUseCase(repository, emailSender).send(validCommand())
+
+        assertEquals(NotificationStatus.SENDING, result.status)
+        assertEquals(0, emailSender.sends)
+    }
+
+    @Test
+    fun `reclaim after failure to persist SENT may repeat external delivery`() {
+        val repository = FakeNotificationRepository()
+        val emailSender = FakeEmailSender()
+        val useCase = SendNotificationUseCase(repository, emailSender)
+        repository.failNextCompletion = true
+
+        assertFailsWith<IllegalStateException> { useCase.send(validCommand()) }
+        assertEquals(1, emailSender.sends)
+        repository.current =
+            requireNotNull(repository.current).copy(
+                sendingLeaseUntil = Instant.now().minusSeconds(1),
+            )
+
+        val reclaimed = useCase.send(validCommand())
+
+        assertEquals(NotificationStatus.SENT, reclaimed.status)
+        assertEquals(2, emailSender.sends)
     }
 
     @Test

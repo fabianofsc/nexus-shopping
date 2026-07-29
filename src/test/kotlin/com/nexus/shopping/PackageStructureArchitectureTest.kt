@@ -41,18 +41,37 @@ class PackageStructureArchitectureTest {
     }
 
     @Test
+    fun `Payment does not depend on other bounded contexts or Integration`() {
+        assertNoDependencies(
+            sourcePackage = "..payment..",
+            forbiddenPackages =
+                arrayOf(
+                    "..cart..",
+                    "..customer..",
+                    "..order..",
+                    "..notification..",
+                    "..integration..",
+                ),
+        )
+    }
+
+    @Test
     fun `only bounded contexts and Integration adapters depend on their input ports`() {
         noClasses()
             .that()
             .resideOutsideOfPackages(
                 "..cart..",
                 "..order..",
+                "..payment..",
+                "..notification..",
                 "..integration..adapter..",
             ).should()
             .dependOnClassesThat()
             .resideInAnyPackage(
                 "..cart.application.port.inbound..",
                 "..order.application.port.inbound..",
+                "..payment.application.port.inbound..",
+                "..notification.application.port.inbound..",
             ).check(productionClasses)
     }
 

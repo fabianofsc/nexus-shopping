@@ -4,6 +4,7 @@ import com.nexus.shopping.notification.application.command.SendNotificationComma
 
 data class SendNotificationRequest(
     val customerId: Long,
+    val notificationKey: String,
     val recipientEmail: String,
     val type: String,
     val referenceId: Long? = null,
@@ -13,6 +14,7 @@ data class SendNotificationRequest(
 fun SendNotificationRequest.toCommand(): SendNotificationCommand =
     SendNotificationCommand(
         customerId = customerId,
+        notificationKey = notificationKey,
         recipientEmail = recipientEmail,
         type = type,
         referenceId = referenceId,

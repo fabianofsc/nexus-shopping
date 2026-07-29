@@ -5,9 +5,9 @@ import com.nexus.shopping.cart.domain.CartItem
 import com.nexus.shopping.cart.domain.ProductSummary
 import com.nexus.shopping.integration.checkout.application.CheckoutWorkflowUseCase
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
-import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerData
-import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderData
-import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
+import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerSnapshot
+import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderSnapshot
+import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressSnapshot
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.jdbc.core.JdbcTemplate
@@ -120,21 +120,22 @@ class CheckoutOrderConcurrencyTest {
         idempotencyKey: String,
     ) = CheckoutCommand(
         customerId = customerId,
-        customerSnapshot = CheckoutCustomerData(customerId, "Ana Silva", "12345678900", "CPF", "ana@example.com", null),
+        customerSnapshot = CheckoutCustomerSnapshot(customerId, "Ana Silva", "12345678900", "CPF", "ana@example.com", null),
         shippingAddressSnapshot =
-            CheckoutShippingAddressData("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
+            CheckoutShippingAddressSnapshot("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
+        paymentToken = "approved",
         idempotencyKey = idempotencyKey,
     )
 
     private fun concurrently(
         threads: Int,
-        action: (Int) -> CheckoutOrderData,
-    ): List<Result<CheckoutOrderData>> {
+        action: (Int) -> CheckoutOrderSnapshot,
+    ): List<Result<CheckoutOrderSnapshot>> {
         val executor = Executors.newFixedThreadPool(threads)
         val ready = CountDownLatch(threads)
         val start = CountDownLatch(1)
         val done = CountDownLatch(threads)
-        val results = ConcurrentLinkedQueue<Result<CheckoutOrderData>>()
+        val results = ConcurrentLinkedQueue<Result<CheckoutOrderSnapshot>>()
         try {
             repeat(threads) { index ->
                 executor.submit {

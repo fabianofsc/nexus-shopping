@@ -58,6 +58,8 @@ class OrderJpaRepositoryAdapter(
         val entity = repository.findOrderById(requireNotNull(order.id) { "Order.id is required for update." }).orElseThrow()
         entity.status = order.status
         entity.cancelledAt = order.cancelledAt
+        entity.paymentAttemptReference = order.paymentAttemptReference
+        entity.paymentProviderTransactionId = order.paymentProviderTransactionId
         return repository.saveAndFlush(entity).toDomain()
     }
 

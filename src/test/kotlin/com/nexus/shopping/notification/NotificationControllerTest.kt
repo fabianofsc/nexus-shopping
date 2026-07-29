@@ -88,6 +88,7 @@ class NotificationControllerTest {
             """
             {
               "customerId": 1,
+              "notificationKey": "controller-order-confirmed-123",
               "recipientEmail": "cliente@example.com",
               "type": "ORDER_CONFIRMED",
               "referenceId": 123,
@@ -118,6 +119,7 @@ class NotificationControllerTest {
             """
             {
               "customerId": 1,
+              "notificationKey": "controller-missing-param",
               "recipientEmail": "cliente@example.com",
               "type": "ORDER_CONFIRMED",
               "templateParams": { "orderId": "123" }
@@ -141,6 +143,7 @@ class NotificationControllerTest {
             """
             {
               "customerId": 999999,
+              "notificationKey": "controller-ghost",
               "recipientEmail": "ghost@example.com",
               "type": "ORDER_CONFIRMED",
               "templateParams": { "orderId": "1", "amount": "1.00" }
@@ -164,6 +167,7 @@ class NotificationControllerTest {
             """
             {
               "customerId": 2,
+              "notificationKey": "controller-order-cancelled-456",
               "recipientEmail": "outro@example.com",
               "type": "ORDER_CANCELLED",
               "templateParams": { "orderId": "456" }
@@ -214,6 +218,7 @@ class NotificationControllerTest {
             """
             {
               "customerId": 3,
+              "notificationKey": "controller-payment-failed-789",
               "recipientEmail": "terceiro@example.com",
               "type": "ORDER_PAYMENT_FAILED",
               "templateParams": { "orderId": "789", "amount": "10.00" }
@@ -240,6 +245,7 @@ class NotificationControllerTest {
                 """
                 {
                   "customerId": 4,
+                  "notificationKey": "controller-page-$index",
                   "recipientEmail": "quarto-$index@example.com",
                   "type": "ORDER_CONFIRMED",
                   "templateParams": { "orderId": "$index", "amount": "1.00" }

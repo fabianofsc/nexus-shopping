@@ -37,24 +37,26 @@ class NotificationMigrationContractTest {
                 statement.executeUpdate(
                     """
                     INSERT INTO notifications
-                        (customer_id, recipient_email, type, channel, status, subject, body, reference_id)
+                        (customer_id, notification_key, recipient_email, type, channel, status, subject, body, reference_id)
                     VALUES
-                        (1, 'benjamin-duarte86@lexos.com.br', 'ORDER_CONFIRMED', 'EMAIL', 'SENT',
+                        (1, 'order-confirmed:123:attempt-1', 'benjamin-duarte86@lexos.com.br',
+                         'ORDER_CONFIRMED', 'EMAIL', 'PENDING',
                          'Pedido 123 confirmado', 'Seu pedido 123 no valor de 99.90 foi confirmado.', 123)
                     """.trimIndent(),
                 )
             }
             assertEquals(1, countRows(connection, "notifications"))
-            assertEquals(1, countRows(connection, "notifications WHERE customer_id = 1 AND status = 'SENT'"))
+            assertEquals(1, countRows(connection, "notifications WHERE customer_id = 1 AND status = 'PENDING'"))
 
             assertFailsWith<SQLException> {
                 connection.createStatement().use { statement ->
                     statement.executeUpdate(
                         """
                         INSERT INTO notifications
-                            (customer_id, recipient_email, type, channel, status, subject, body)
+                            (customer_id, notification_key, recipient_email, type, channel, status, subject, body)
                         VALUES
-                            (999999, 'ghost@example.com', 'ORDER_CONFIRMED', 'EMAIL', 'SENT', 'x', 'y')
+                            (1, 'order-confirmed:123:attempt-1', 'duplicate@example.com',
+                             'ORDER_CONFIRMED', 'EMAIL', 'PENDING', 'x', 'y')
                         """.trimIndent(),
                     )
                 }
@@ -65,9 +67,22 @@ class NotificationMigrationContractTest {
                     statement.executeUpdate(
                         """
                         INSERT INTO notifications
-                            (customer_id, recipient_email, type, channel, status, subject, body)
+                            (customer_id, notification_key, recipient_email, type, channel, status, subject, body)
                         VALUES
-                            (1, 'invalid@example.com', 'NOT_A_REAL_TYPE', 'EMAIL', 'SENT', 'x', 'y')
+                            (999999, 'ghost-key', 'ghost@example.com', 'ORDER_CONFIRMED', 'EMAIL', 'SENT', 'x', 'y')
+                        """.trimIndent(),
+                    )
+                }
+            }
+
+            assertFailsWith<SQLException> {
+                connection.createStatement().use { statement ->
+                    statement.executeUpdate(
+                        """
+                        INSERT INTO notifications
+                            (customer_id, notification_key, recipient_email, type, channel, status, subject, body)
+                        VALUES
+                            (1, 'invalid-key', 'invalid@example.com', 'NOT_A_REAL_TYPE', 'EMAIL', 'SENT', 'x', 'y')
                         """.trimIndent(),
                     )
                 }
@@ -77,6 +92,14 @@ class NotificationMigrationContractTest {
                 countRows(
                     connection,
                     "INFORMATION_SCHEMA.INDEXES WHERE TABLE_NAME = 'NOTIFICATIONS' AND INDEX_NAME = 'IDX_NOTIFICATIONS_CUSTOMER_ID'",
+                ) >= 1,
+            )
+            assertTrue(
+                countRows(
+                    connection,
+                    "INFORMATION_SCHEMA.TABLE_CONSTRAINTS " +
+                        "WHERE TABLE_NAME = 'NOTIFICATIONS' AND CONSTRAINT_NAME = 'UQ_NOTIFICATIONS_NOTIFICATION_KEY' " +
+                        "AND CONSTRAINT_TYPE = 'UNIQUE'",
                 ) >= 1,
             )
             assertTrue(

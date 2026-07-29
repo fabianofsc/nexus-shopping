@@ -77,6 +77,10 @@ class OrderEntity(
     var createdAt: Instant? = null,
     @Column(name = "cancelled_at")
     var cancelledAt: Instant? = null,
+    @Column(name = "payment_attempt_reference", length = 255)
+    var paymentAttemptReference: String? = null,
+    @Column(name = "payment_provider_transaction_id", length = 255)
+    var paymentProviderTransactionId: String? = null,
 ) {
     fun toDomain(): Order =
         Order(
@@ -109,6 +113,8 @@ class OrderEntity(
             requestFingerprint = requestFingerprint,
             createdAt = requireNotNull(createdAt) { "OrderEntity.createdAt must be available before mapping to domain." },
             cancelledAt = cancelledAt,
+            paymentAttemptReference = paymentAttemptReference,
+            paymentProviderTransactionId = paymentProviderTransactionId,
         )
 }
 
@@ -159,6 +165,8 @@ fun Order.toEntity(): OrderEntity =
         idempotencyKey = idempotencyKey,
         requestFingerprint = requestFingerprint,
         cancelledAt = cancelledAt,
+        paymentAttemptReference = paymentAttemptReference,
+        paymentProviderTransactionId = paymentProviderTransactionId,
     ).also { entity ->
         entity.items =
             items

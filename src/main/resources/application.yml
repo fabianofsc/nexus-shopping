@@ -47,6 +47,8 @@ logging:
     console: UTF-8
 
 nexus:
+  payment:
+    authorization-fingerprint-secret: ${PAYMENT_AUTHORIZATION_FINGERPRINT_SECRET:development-only-change-me}
   cache:
     product:
       ttl: 10m

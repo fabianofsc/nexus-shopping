@@ -5,6 +5,7 @@ import com.nexus.shopping.order.domain.Currency
 import com.nexus.shopping.order.domain.CustomerSnapshot
 import com.nexus.shopping.order.domain.Order
 import com.nexus.shopping.order.domain.OrderItemSnapshot
+import com.nexus.shopping.order.domain.OrderPaymentResultStatus
 import com.nexus.shopping.order.domain.OrderStatus
 import com.nexus.shopping.order.domain.ShippingAddressSnapshot
 import jakarta.persistence.EntityManager
@@ -84,6 +85,27 @@ class OrderJpaRepositoryAdapterTest {
         assertNotNull(cancelled.cancelledAt)
         assertEquals(OrderStatus.CANCELLED, replay?.status)
         assertEquals(listOf(item()), replay?.items)
+    }
+
+    @Test
+    fun `persists opaque payment references without a Payment entity relationship`() {
+        val cart = carts.getOrCreateActiveByCustomerId(1L)
+        val created = orders.create(order(requireNotNull(cart.id), "payment-result")).order
+
+        val updated =
+            orders.update(
+                created.applyPaymentResult(
+                    attemptReference = "pay_opaque_attempt",
+                    result = OrderPaymentResultStatus.APPROVED,
+                    providerTransactionId = "provider_tx_opaque",
+                ),
+            )
+        entityManager.clear()
+        val found = orders.findById(requireNotNull(updated.id))
+
+        assertEquals(OrderStatus.CONFIRMED, found?.status)
+        assertEquals("pay_opaque_attempt", found?.paymentAttemptReference)
+        assertEquals("provider_tx_opaque", found?.paymentProviderTransactionId)
     }
 
     @Test

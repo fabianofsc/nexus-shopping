@@ -47,6 +47,12 @@ class NotificationEntity(
     var createdAt: Instant? = null,
     @Column(name = "sent_at")
     var sentAt: Instant? = null,
+    @Column(name = "notification_key", nullable = false, unique = true, length = 255)
+    var notificationKey: String = "",
+    @Column(name = "sending_lease_until")
+    var sendingLeaseUntil: Instant? = null,
+    @Column(name = "sending_lease_token", length = 64)
+    var sendingLeaseToken: String? = null,
 ) {
     fun toDomain(): Notification =
         Notification(
@@ -61,6 +67,9 @@ class NotificationEntity(
             referenceId = referenceId,
             createdAt = requireNotNull(createdAt) { "NotificationEntity.createdAt must be available before mapping to domain." },
             sentAt = sentAt,
+            notificationKey = notificationKey,
+            sendingLeaseUntil = sendingLeaseUntil,
+            sendingLeaseToken = sendingLeaseToken,
         )
 }
 
@@ -75,4 +84,7 @@ fun Notification.toEntity(): NotificationEntity =
         body = body,
         referenceId = referenceId,
         sentAt = sentAt,
+        notificationKey = notificationKey,
+        sendingLeaseUntil = sendingLeaseUntil,
+        sendingLeaseToken = sendingLeaseToken,
     )

@@ -26,7 +26,12 @@ class CheckoutController(
         @RequestBody request: CheckoutRequest,
     ): ResponseEntity<CheckoutResponse> {
         val result = checkout.execute(request.toCommand(customerId, idempotencyKey))
-        val status = if (result.replayed) HttpStatus.OK else HttpStatus.CREATED
+        val status =
+            when {
+                result.awaitingPayment -> HttpStatus.ACCEPTED
+                result.replayed -> HttpStatus.OK
+                else -> HttpStatus.CREATED
+            }
         return ResponseEntity.status(status).body(result.toResponse())
     }
 }

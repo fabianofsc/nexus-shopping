@@ -14,13 +14,18 @@ import com.nexus.shopping.cart.domain.Cart
 import com.nexus.shopping.cart.domain.CartItem
 import com.nexus.shopping.cart.domain.ProductSummary
 import com.nexus.shopping.integration.checkout.adapter.outbound.CheckoutJpaTransactionAdapter
-import com.nexus.shopping.integration.checkout.adapter.outbound.local.LocalCheckoutCartGateway
-import com.nexus.shopping.integration.checkout.adapter.outbound.local.LocalOrderCreationGateway
+import com.nexus.shopping.integration.checkout.adapter.outbound.acl.CartCheckoutGatewayAdapter
+import com.nexus.shopping.integration.checkout.adapter.outbound.acl.OrderCreationGatewayAdapter
 import com.nexus.shopping.integration.checkout.application.CheckoutWorkflowUseCase
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
-import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerData
-import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderData
-import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
+import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerSnapshot
+import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderSnapshot
+import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressSnapshot
+import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentAuthorizationFingerprintGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentProcessingGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentValidationGateway
 import com.nexus.shopping.order.adapter.outbound.jpa.OrderJpaRepositoryAdapter
 import com.nexus.shopping.order.application.usecase.CreateOrderUseCase
 import org.springframework.beans.factory.annotation.Autowired
@@ -58,6 +63,21 @@ class CheckoutOrderMutationConcurrencyTest {
     private lateinit var transactions: CheckoutJpaTransactionAdapter
 
     @Autowired
+    private lateinit var paymentValidation: PaymentValidationGateway
+
+    @Autowired
+    private lateinit var paymentAuthorizationFingerprints: PaymentAuthorizationFingerprintGateway
+
+    @Autowired
+    private lateinit var payments: PaymentProcessingGateway
+
+    @Autowired
+    private lateinit var orderPaymentResults: OrderPaymentResultGateway
+
+    @Autowired
+    private lateinit var notifications: NotificationGateway
+
+    @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
 
     @Test
@@ -91,18 +111,24 @@ class CheckoutOrderMutationConcurrencyTest {
         val checkout =
             CreateOrderUseCase(orders).let { orderUseCase ->
                 CheckoutWorkflowUseCase(
-                    LocalCheckoutCartGateway(
-                        BlockingCartCheckout(CartCheckoutUseCase(carts), checkoutLocked, releaseCheckout),
-                    ),
-                    LocalOrderCreationGateway(orderUseCase, orderUseCase),
-                    transactions,
+                    carts =
+                        CartCheckoutGatewayAdapter(
+                            BlockingCartCheckout(CartCheckoutUseCase(carts), checkoutLocked, releaseCheckout),
+                        ),
+                    orders = OrderCreationGatewayAdapter(orderUseCase, orderUseCase),
+                    paymentAuthorizationFingerprints = paymentAuthorizationFingerprints,
+                    paymentValidation = paymentValidation,
+                    payments = payments,
+                    orderPaymentResults = orderPaymentResults,
+                    notifications = notifications,
+                    transaction = transactions,
                 )
             }
         val signalingRepository = SignalingCartRepository(carts, mutationReadActiveCart)
         val executor = Executors.newFixedThreadPool(2)
 
         try {
-            val checkoutFuture = executor.submit<CheckoutOrderData> { checkout.execute(command(customerId, "checkout-$customerId")) }
+            val checkoutFuture = executor.submit<CheckoutOrderSnapshot> { checkout.execute(command(customerId, "checkout-$customerId")) }
             assertTrue(checkoutLocked.await(10, TimeUnit.SECONDS), "Checkout did not acquire the cart lock")
 
             val mutationFuture = executor.submit<Cart> { mutation(signalingRepository) }
@@ -149,9 +175,10 @@ class CheckoutOrderMutationConcurrencyTest {
         idempotencyKey: String,
     ) = CheckoutCommand(
         customerId = customerId,
-        customerSnapshot = CheckoutCustomerData(customerId, "Ana Silva", "12345678900", "CPF", "ana@example.com", null),
+        customerSnapshot = CheckoutCustomerSnapshot(customerId, "Ana Silva", "12345678900", "CPF", "ana@example.com", null),
         shippingAddressSnapshot =
-            CheckoutShippingAddressData("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
+            CheckoutShippingAddressSnapshot("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
+        paymentToken = "approved",
         idempotencyKey = idempotencyKey,
     )
 }

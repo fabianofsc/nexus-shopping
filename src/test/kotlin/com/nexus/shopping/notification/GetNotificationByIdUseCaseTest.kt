@@ -18,6 +18,7 @@ class GetNotificationByIdUseCaseTest {
         Notification(
             id = id,
             customerId = 1L,
+            notificationKey = "notification-$id",
             recipientEmail = "cliente@example.com",
             type = NotificationType.ORDER_CONFIRMED,
             channel = NotificationChannel.EMAIL,
@@ -35,6 +36,24 @@ class GetNotificationByIdUseCaseTest {
         val fakeRepo =
             object : NotificationRepositoryPort {
                 override fun save(notification: Notification): Notification = throw UnsupportedOperationException()
+
+                override fun reserve(notification: Notification): Notification = throw UnsupportedOperationException()
+
+                override fun claim(
+                    notificationKey: String,
+                    sendingLeaseToken: String,
+                    sendingLeaseUntil: Instant,
+                    now: Instant,
+                ): Notification? = throw UnsupportedOperationException()
+
+                override fun complete(
+                    notificationKey: String,
+                    sendingLeaseToken: String,
+                    status: NotificationStatus,
+                    sentAt: Instant?,
+                ): Notification? = throw UnsupportedOperationException()
+
+                override fun findByNotificationKey(notificationKey: String): Notification? = throw UnsupportedOperationException()
 
                 override fun findById(id: Long): Notification? = notifications[id]
 
@@ -57,6 +76,24 @@ class GetNotificationByIdUseCaseTest {
         val fakeRepo =
             object : NotificationRepositoryPort {
                 override fun save(notification: Notification): Notification = throw UnsupportedOperationException()
+
+                override fun reserve(notification: Notification): Notification = throw UnsupportedOperationException()
+
+                override fun claim(
+                    notificationKey: String,
+                    sendingLeaseToken: String,
+                    sendingLeaseUntil: Instant,
+                    now: Instant,
+                ): Notification? = throw UnsupportedOperationException()
+
+                override fun complete(
+                    notificationKey: String,
+                    sendingLeaseToken: String,
+                    status: NotificationStatus,
+                    sentAt: Instant?,
+                ): Notification? = throw UnsupportedOperationException()
+
+                override fun findByNotificationKey(notificationKey: String): Notification? = throw UnsupportedOperationException()
 
                 override fun findById(id: Long): Notification? = null
 

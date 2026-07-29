@@ -1,12 +1,24 @@
 package com.nexus.shopping.integration.checkout
 
 import com.nexus.shopping.integration.checkout.application.CheckoutWorkflowUseCase
-import com.nexus.shopping.integration.checkout.application.model.CheckoutCartData
+import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPaymentResultCommand
+import com.nexus.shopping.integration.checkout.application.model.CheckoutCartSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
-import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerData
-import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
+import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerSnapshot
+import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressSnapshot
+import com.nexus.shopping.integration.checkout.application.model.EnsureOrderConfirmationCommand
+import com.nexus.shopping.integration.checkout.application.model.PaymentAuthorizationCommand
+import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingCommand
+import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingResult
+import com.nexus.shopping.integration.checkout.application.model.PaymentResultStatus
+import com.nexus.shopping.integration.checkout.application.model.PaymentValidationCommand
 import com.nexus.shopping.integration.checkout.application.port.outbound.CheckoutCartGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderCreationGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentAuthorizationFingerprintGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentProcessingGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentValidationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.TransactionPort
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -51,14 +63,14 @@ class CheckoutWorkflowIntegrationTest {
         val failure = IllegalStateException("failure after Cart confirmation")
         val failingCarts =
             object : CheckoutCartGateway {
-                override fun reserveActiveCart(customerId: Long): CheckoutCartData = carts.reserveActiveCart(customerId)
+                override fun reserveActiveCart(customerId: Long): CheckoutCartSnapshot = carts.reserveActiveCart(customerId)
 
                 override fun confirmCheckout(reservationId: Long) {
                     carts.confirmCheckout(reservationId)
                     throw failure
                 }
             }
-        val checkout = CheckoutWorkflowUseCase(failingCarts, orders, transaction)
+        val checkout = checkout(failingCarts)
 
         assertCheckoutRolledBack(cartId, failure) {
             checkout.execute(command(customerId))
@@ -70,7 +82,7 @@ class CheckoutWorkflowIntegrationTest {
         val customerId = 7L
         val cartId = prepareActiveCart(customerId)
         val failure = IllegalStateException("failure in outer transaction")
-        val checkout = CheckoutWorkflowUseCase(carts, orders, transaction)
+        val checkout = checkout(carts)
         val outerTransaction = TransactionTemplate(transactionManager)
 
         assertCheckoutRolledBack(cartId, failure) {
@@ -122,7 +134,7 @@ class CheckoutWorkflowIntegrationTest {
         CheckoutCommand(
             customerId = customerId,
             customerSnapshot =
-                CheckoutCustomerData(
+                CheckoutCustomerSnapshot(
                     customerId,
                     "Claudia Elaine Eloa Galvao",
                     "378149714",
@@ -131,7 +143,7 @@ class CheckoutWorkflowIntegrationTest {
                     "+5579995737583",
                 ),
             shippingAddressSnapshot =
-                CheckoutShippingAddressData(
+                CheckoutShippingAddressSnapshot(
                     "Rua Rafael de Aguiar",
                     "557",
                     null,
@@ -141,6 +153,35 @@ class CheckoutWorkflowIntegrationTest {
                     "49052220",
                     "BR",
                 ),
+            paymentToken = "approved",
             idempotencyKey = "rollback-checkout-$customerId",
+        )
+
+    private fun checkout(cartGateway: CheckoutCartGateway) =
+        CheckoutWorkflowUseCase(
+            carts = cartGateway,
+            orders = orders,
+            paymentAuthorizationFingerprints =
+                object : PaymentAuthorizationFingerprintGateway {
+                    override fun fingerprint(command: PaymentAuthorizationCommand) = "opaque-payment-authorization-fingerprint"
+                },
+            paymentValidation =
+                object : PaymentValidationGateway {
+                    override fun validate(command: PaymentValidationCommand) = Unit
+                },
+            payments =
+                object : PaymentProcessingGateway {
+                    override fun process(command: PaymentProcessingCommand) =
+                        PaymentProcessingResult("pay-requested", PaymentResultStatus.REQUESTED, null, replayed = false)
+                },
+            orderPaymentResults =
+                object : OrderPaymentResultGateway {
+                    override fun apply(command: ApplyOrderPaymentResultCommand) = error("Not used")
+                },
+            notifications =
+                object : NotificationGateway {
+                    override fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand) = error("Not used")
+                },
+            transaction = transaction,
         )
 }

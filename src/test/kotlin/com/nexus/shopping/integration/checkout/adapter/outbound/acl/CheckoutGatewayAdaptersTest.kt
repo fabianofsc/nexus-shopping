@@ -1,4 +1,4 @@
-package com.nexus.shopping.integration.checkout.adapter.outbound.local
+package com.nexus.shopping.integration.checkout.adapter.outbound.acl
 
 import com.nexus.shopping.cart.application.port.inbound.CartCheckoutInputPort
 import com.nexus.shopping.cart.application.port.inbound.CartCheckoutReservation
@@ -6,11 +6,11 @@ import com.nexus.shopping.cart.domain.Cart
 import com.nexus.shopping.cart.domain.CartItem
 import com.nexus.shopping.cart.domain.CartStatus
 import com.nexus.shopping.cart.domain.ProductSummary
-import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
-import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerData
-import com.nexus.shopping.integration.checkout.application.model.CheckoutItemData
-import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressData
-import com.nexus.shopping.integration.checkout.application.model.CreateOrderData
+import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerSnapshot
+import com.nexus.shopping.integration.checkout.application.model.CheckoutItemSnapshot
+import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressSnapshot
+import com.nexus.shopping.integration.checkout.application.model.CreateCheckoutOrderCommand
+import com.nexus.shopping.integration.checkout.application.model.FindCheckoutOrderReplayCommand
 import com.nexus.shopping.order.application.command.CreateOrderCommand
 import com.nexus.shopping.order.application.port.inbound.CreateOrderInputPort
 import com.nexus.shopping.order.application.port.inbound.CreatedOrder
@@ -28,9 +28,9 @@ import kotlin.test.assertEquals
 import com.nexus.shopping.cart.domain.Currency as CartCurrency
 import com.nexus.shopping.order.domain.Currency as OrderCurrency
 
-class LocalCheckoutGatewaysTest {
+class CheckoutGatewayAdaptersTest {
     @Test
-    fun `Cart gateway translates reservation data and delegates confirmation`() {
+    fun `Cart gateway translates reservation snapshot and delegates confirmation`() {
         val reservation =
             CartCheckoutReservation(
                 Cart(
@@ -60,7 +60,7 @@ class LocalCheckoutGatewaysTest {
                     confirmedReservationId = reservationId
                 }
             }
-        val gateway = LocalCheckoutCartGateway(carts)
+        val gateway = CartCheckoutGatewayAdapter(carts)
 
         val result = gateway.reserveActiveCart(10L)
         gateway.confirmCheckout(result.reservationId)
@@ -72,7 +72,7 @@ class LocalCheckoutGatewaysTest {
     }
 
     @Test
-    fun `Order gateway translates create data and propagates replay metadata`() {
+    fun `Order gateway translates create command and propagates replay metadata`() {
         var capturedCommand: CreateOrderCommand? = null
         val createdOrder = CreatedOrder(order(), replayed = true)
         val orders =
@@ -82,9 +82,9 @@ class LocalCheckoutGatewaysTest {
                     return createdOrder
                 }
             }
-        val gateway = LocalOrderCreationGateway(orders, NoReplayOrders)
+        val gateway = OrderCreationGatewayAdapter(orders, NoReplayOrders)
 
-        val result = gateway.create(createOrderData)
+        val result = gateway.create(createOrderCommand)
 
         assertEquals(expectedCreateOrderCommand, capturedCommand)
         assertEquals(1L, result.id)
@@ -109,7 +109,7 @@ class LocalCheckoutGatewaysTest {
                 }
             }
         val gateway =
-            LocalOrderCreationGateway(
+            OrderCreationGatewayAdapter(
                 orders =
                     object : CreateOrderInputPort {
                         override fun create(command: CreateOrderCommand): CreatedOrder = error("Not used")
@@ -117,7 +117,7 @@ class LocalCheckoutGatewaysTest {
                 replayOrders = replayOrders,
             )
 
-        val result = gateway.findReplay(checkoutCommand)
+        val result = gateway.findReplay(findOrderReplayCommand)
 
         assertEquals(expectedReplayCommand, capturedCommand)
         assertEquals(true, result?.replayed)
@@ -144,25 +144,27 @@ class LocalCheckoutGatewaysTest {
 
     private companion object {
         val createdAt: Instant = Instant.parse("2026-07-26T12:00:00Z")
-        val checkoutCustomer = CheckoutCustomerData(10L, "Ana Silva", "12345678900", "CPF", "ana@example.com", null)
+        val checkoutCustomer = CheckoutCustomerSnapshot(10L, "Ana Silva", "12345678900", "CPF", "ana@example.com", null)
         val checkoutShippingAddress =
-            CheckoutShippingAddressData("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR")
-        val checkoutItem = CheckoutItemData(1L, "Produto A", BigDecimal("19.90"), "BRL", 2)
-        val checkoutCommand =
-            CheckoutCommand(
+            CheckoutShippingAddressSnapshot("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR")
+        val checkoutItem = CheckoutItemSnapshot(1L, "Produto A", BigDecimal("19.90"), "BRL", 2)
+        val findOrderReplayCommand =
+            FindCheckoutOrderReplayCommand(
                 customerId = 10L,
                 customerSnapshot = checkoutCustomer,
                 shippingAddressSnapshot = checkoutShippingAddress,
                 idempotencyKey = "checkout-1",
+                paymentAuthorizationFingerprint = "opaque-payment-authorization-fingerprint",
             )
-        val createOrderData =
-            CreateOrderData(
+        val createOrderCommand =
+            CreateCheckoutOrderCommand(
                 customerId = 10L,
                 cartId = 100L,
                 customerSnapshot = checkoutCustomer,
                 shippingAddressSnapshot = checkoutShippingAddress,
                 items = listOf(checkoutItem),
                 idempotencyKey = "checkout-1",
+                paymentAuthorizationFingerprint = "opaque-payment-authorization-fingerprint",
             )
         val orderCustomer = CustomerSnapshot(10L, "Ana Silva", "12345678900", "CPF", "ana@example.com", null)
         val orderShippingAddress =
@@ -176,6 +178,7 @@ class LocalCheckoutGatewaysTest {
                 shippingAddressSnapshot = orderShippingAddress,
                 items = listOf(orderItem),
                 idempotencyKey = "checkout-1",
+                paymentAuthorizationFingerprint = "opaque-payment-authorization-fingerprint",
             )
         val expectedReplayCommand =
             FindOrderReplayCommand(
@@ -183,6 +186,7 @@ class LocalCheckoutGatewaysTest {
                 customerSnapshot = orderCustomer,
                 shippingAddressSnapshot = orderShippingAddress,
                 idempotencyKey = "checkout-1",
+                paymentAuthorizationFingerprint = "opaque-payment-authorization-fingerprint",
             )
 
         object NoReplayOrders : FindOrderReplayInputPort {

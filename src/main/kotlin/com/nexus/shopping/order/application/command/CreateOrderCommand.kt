@@ -11,4 +11,5 @@ data class CreateOrderCommand(
     val shippingAddressSnapshot: ShippingAddressSnapshot,
     val items: List<OrderItemSnapshot>,
     val idempotencyKey: String,
+    val paymentAuthorizationFingerprint: String,
 )
