@@ -273,6 +273,8 @@ class ObservingPaymentAttemptRepository(
 class ConcurrentBlockingPaymentProvider(
     private val delegate: PaymentProviderGateway,
 ) : PaymentProviderGateway {
+    override val provider = delegate.provider
+
     val entered = CountDownLatch(1)
     val release = CountDownLatch(1)
 

@@ -7,6 +7,7 @@ import com.nexus.shopping.payment.application.port.outbound.PaymentProviderGatew
 import com.nexus.shopping.payment.application.port.outbound.ProviderProcessingRequest
 import com.nexus.shopping.payment.application.port.outbound.ProviderProcessingResult
 import com.nexus.shopping.payment.application.port.outbound.ProviderStatusResult
+import com.nexus.shopping.payment.domain.PaymentProvider
 import com.nexus.shopping.payment.domain.PaymentStatus
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -23,6 +24,8 @@ class NexusPaymentServiceProviderGateway(
     @Value("\${nexus.payment-service.base-url}")
     baseUrl: String,
 ) : PaymentProviderGateway {
+    override val provider = PaymentProvider.NEXUS_PAYMENT_SERVICE
+
     private val restClient = restClientBuilder.baseUrl(baseUrl).build()
     private val errorMapper = ObjectMapper()
 

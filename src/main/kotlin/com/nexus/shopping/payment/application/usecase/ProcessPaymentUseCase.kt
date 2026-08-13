@@ -81,7 +81,7 @@ class ProcessPaymentUseCase(
                 referenceId = command.referenceId,
                 amount = amount,
                 currency = currency,
-                provider = PaymentProvider.LOGGING_PROVIDER,
+                provider = paymentProviderGateway.provider,
                 idempotencyKey = command.idempotencyKey,
                 authorizationFingerprint = authorizationFingerprint,
                 processingLeaseToken = UUID.randomUUID().toString(),

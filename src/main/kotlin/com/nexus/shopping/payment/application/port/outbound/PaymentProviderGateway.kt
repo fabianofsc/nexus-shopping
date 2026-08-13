@@ -2,9 +2,12 @@ package com.nexus.shopping.payment.application.port.outbound
 
 import com.nexus.shopping.payment.domain.PaymentAmount
 import com.nexus.shopping.payment.domain.PaymentCurrency
+import com.nexus.shopping.payment.domain.PaymentProvider
 import com.nexus.shopping.payment.domain.PaymentStatus
 
 interface PaymentProviderGateway {
+    val provider: PaymentProvider
+
     fun process(request: ProviderProcessingRequest): ProviderProcessingResult
 
     fun checkStatus(providerAttemptReference: String): ProviderStatusResult

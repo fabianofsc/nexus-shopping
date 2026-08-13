@@ -135,7 +135,17 @@ class ProcessPaymentUseCaseTest {
         assertEquals(PaymentStatus.REQUESTED, result.status)
         assertEquals(PaymentStatus.REQUESTED, repository.attempts.single().status)
         assertEquals("nexus-attempt-1", repository.attempts.single().providerAttemptReference)
+        assertEquals(PaymentProvider.NEXUS_PAYMENT_SERVICE, repository.attempts.single().provider)
         assertEquals(0, repository.completeCalls)
+    }
+
+    @Test
+    fun `tags the created attempt with the active gateway's provider identity`() {
+        val repository = PaymentAttemptRepositoryFake()
+
+        ProcessPaymentUseCase(repository, ApprovedProvider(), FixedFingerprintSecret()).process(command())
+
+        assertEquals(PaymentProvider.LOGGING_PROVIDER, repository.attempts.single().provider)
     }
 
     @Test
@@ -166,6 +176,7 @@ private class FixedFingerprintSecret : PaymentAuthorizationFingerprintSecretPort
 }
 
 private class ApprovedProvider : PaymentProviderGateway {
+    override val provider = PaymentProvider.LOGGING_PROVIDER
     val requests = mutableListOf<ProviderProcessingRequest>()
 
     override fun process(request: ProviderProcessingRequest): ProviderProcessingResult {
@@ -178,6 +189,7 @@ private class ApprovedProvider : PaymentProviderGateway {
 }
 
 private class RequestedProvider : PaymentProviderGateway {
+    override val provider = PaymentProvider.NEXUS_PAYMENT_SERVICE
     val requests = mutableListOf<ProviderProcessingRequest>()
 
     override fun process(request: ProviderProcessingRequest): ProviderProcessingResult {

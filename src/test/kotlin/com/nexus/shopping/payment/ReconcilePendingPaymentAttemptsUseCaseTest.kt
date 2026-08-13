@@ -63,6 +63,8 @@ class ReconcilePendingPaymentAttemptsUseCaseTest {
     private class FakeProviderGateway(
         private val statuses: Map<String, ProviderStatusResult>,
     ) : PaymentProviderGateway {
+        override val provider = PaymentProvider.NEXUS_PAYMENT_SERVICE
+
         override fun process(request: ProviderProcessingRequest): ProviderProcessingResult =
             throw UnsupportedOperationException("Not used by this fake.")
 

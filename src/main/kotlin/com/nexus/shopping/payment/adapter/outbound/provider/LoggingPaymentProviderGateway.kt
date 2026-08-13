@@ -4,6 +4,7 @@ import com.nexus.shopping.payment.application.port.outbound.PaymentProviderGatew
 import com.nexus.shopping.payment.application.port.outbound.ProviderProcessingRequest
 import com.nexus.shopping.payment.application.port.outbound.ProviderProcessingResult
 import com.nexus.shopping.payment.application.port.outbound.ProviderStatusResult
+import com.nexus.shopping.payment.domain.PaymentProvider
 import com.nexus.shopping.payment.domain.PaymentStatus
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -21,6 +22,8 @@ class LoggingPaymentProviderGateway(
     private val repository: SpringDataPaymentProviderDispatchRepository,
     transactionManager: PlatformTransactionManager,
 ) : PaymentProviderGateway {
+    override val provider = PaymentProvider.LOGGING_PROVIDER
+
     private val transactions =
         TransactionTemplate(transactionManager).apply {
             propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
