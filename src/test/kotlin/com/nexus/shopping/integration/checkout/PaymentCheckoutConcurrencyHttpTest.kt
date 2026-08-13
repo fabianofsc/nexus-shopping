@@ -9,6 +9,7 @@ import com.nexus.shopping.payment.application.port.outbound.PaymentProviderGatew
 import com.nexus.shopping.payment.application.port.outbound.ProviderProcessingRequest
 import com.nexus.shopping.payment.application.port.outbound.ProviderProcessingResult
 import com.nexus.shopping.payment.domain.PaymentAttempt
+import com.nexus.shopping.payment.domain.PaymentProvider
 import com.nexus.shopping.payment.domain.PaymentStatus
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
@@ -255,6 +256,17 @@ class ObservingPaymentAttemptRepository(
             providerTransactionId,
             completedAt,
         )
+
+    override fun recordProviderDispatch(
+        attemptReference: String,
+        processingLeaseToken: String,
+        providerAttemptReference: String,
+    ): PaymentAttempt? = delegate.recordProviderDispatch(attemptReference, processingLeaseToken, providerAttemptReference)
+
+    override fun findPendingByProvider(
+        provider: PaymentProvider,
+        limit: Int,
+    ): List<PaymentAttempt> = delegate.findPendingByProvider(provider, limit)
 }
 
 class ConcurrentBlockingPaymentProvider(

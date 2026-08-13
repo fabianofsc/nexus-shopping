@@ -13,6 +13,7 @@ import com.nexus.shopping.payment.application.usecase.ProcessPaymentUseCase
 import com.nexus.shopping.payment.domain.PaymentAmount
 import com.nexus.shopping.payment.domain.PaymentAttempt
 import com.nexus.shopping.payment.domain.PaymentCurrency
+import com.nexus.shopping.payment.domain.PaymentProvider
 import com.nexus.shopping.payment.domain.PaymentStatus
 import java.math.BigDecimal
 import java.time.Instant
@@ -193,4 +194,22 @@ private class PaymentAttemptRepositoryFake : PaymentAttemptRepositoryPort {
         attempts[attempts.indexOf(current)] = completed
         return completed
     }
+
+    override fun recordProviderDispatch(
+        attemptReference: String,
+        processingLeaseToken: String,
+        providerAttemptReference: String,
+    ): PaymentAttempt? {
+        val current = attempts.firstOrNull { it.attemptReference == attemptReference } ?: return null
+        if (current.processingLeaseToken != processingLeaseToken) return null
+        val dispatched = current.recordProviderDispatch(providerAttemptReference)
+        attempts[attempts.indexOf(current)] = dispatched
+        return dispatched
+    }
+
+    override fun findPendingByProvider(
+        provider: PaymentProvider,
+        limit: Int,
+    ): List<PaymentAttempt> =
+        attempts.filter { it.status == PaymentStatus.REQUESTED && it.provider == provider }.take(limit)
 }

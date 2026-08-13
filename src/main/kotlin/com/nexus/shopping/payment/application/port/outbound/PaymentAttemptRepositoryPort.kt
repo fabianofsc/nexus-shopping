@@ -1,6 +1,7 @@
 package com.nexus.shopping.payment.application.port.outbound
 
 import com.nexus.shopping.payment.domain.PaymentAttempt
+import com.nexus.shopping.payment.domain.PaymentProvider
 import com.nexus.shopping.payment.domain.PaymentStatus
 import java.time.Instant
 
@@ -19,6 +20,17 @@ interface PaymentAttemptRepositoryPort {
         providerTransactionId: String?,
         completedAt: Instant,
     ): PaymentAttempt?
+
+    fun recordProviderDispatch(
+        attemptReference: String,
+        processingLeaseToken: String,
+        providerAttemptReference: String,
+    ): PaymentAttempt?
+
+    fun findPendingByProvider(
+        provider: PaymentProvider,
+        limit: Int = 100,
+    ): List<PaymentAttempt>
 }
 
 sealed interface PaymentAttemptReservation {

@@ -1,6 +1,8 @@
 package com.nexus.shopping.payment.adapter.outbound.jpa
 
+import com.nexus.shopping.payment.domain.PaymentProvider
 import com.nexus.shopping.payment.domain.PaymentStatus
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
@@ -66,4 +68,33 @@ interface SpringDataPaymentAttemptRepository : JpaRepository<PaymentAttemptEntit
         @Param("providerTransactionId") providerTransactionId: String?,
         @Param("completedAt") completedAt: Instant,
     ): Int
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(
+        """
+        UPDATE PaymentAttemptEntity p
+        SET p.providerAttemptReference = :providerAttemptReference
+        WHERE p.attemptReference = :attemptReference
+          AND p.processingLeaseToken = :processingLeaseToken
+          AND p.status = com.nexus.shopping.payment.domain.PaymentStatus.REQUESTED
+        """,
+    )
+    fun recordProviderDispatchIfCurrentLeaseToken(
+        @Param("attemptReference") attemptReference: String,
+        @Param("processingLeaseToken") processingLeaseToken: String,
+        @Param("providerAttemptReference") providerAttemptReference: String,
+    ): Int
+
+    @Query(
+        """
+        SELECT p FROM PaymentAttemptEntity p
+        WHERE p.status = com.nexus.shopping.payment.domain.PaymentStatus.REQUESTED
+          AND p.provider = :provider
+        ORDER BY p.createdAt ASC
+        """,
+    )
+    fun findPendingByProvider(
+        @Param("provider") provider: PaymentProvider,
+        pageable: Pageable,
+    ): List<PaymentAttemptEntity>
 }
