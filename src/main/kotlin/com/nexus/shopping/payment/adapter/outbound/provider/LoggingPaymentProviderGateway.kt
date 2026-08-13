@@ -3,8 +3,10 @@ package com.nexus.shopping.payment.adapter.outbound.provider
 import com.nexus.shopping.payment.application.port.outbound.PaymentProviderGateway
 import com.nexus.shopping.payment.application.port.outbound.ProviderProcessingRequest
 import com.nexus.shopping.payment.application.port.outbound.ProviderProcessingResult
+import com.nexus.shopping.payment.application.port.outbound.ProviderStatusResult
 import com.nexus.shopping.payment.domain.PaymentStatus
 import org.slf4j.LoggerFactory
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.PlatformTransactionManager
@@ -14,6 +16,7 @@ import java.time.Instant
 import java.util.UUID
 
 @Component
+@ConditionalOnProperty(prefix = "nexus.payment-service", name = ["enabled"], havingValue = "false", matchIfMissing = true)
 class LoggingPaymentProviderGateway(
     private val repository: SpringDataPaymentProviderDispatchRepository,
     transactionManager: PlatformTransactionManager,
@@ -22,6 +25,11 @@ class LoggingPaymentProviderGateway(
         TransactionTemplate(transactionManager).apply {
             propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
         }
+
+    override fun checkStatus(providerAttemptReference: String): ProviderStatusResult =
+        throw UnsupportedOperationException(
+            "LoggingPaymentProviderGateway never dispatches attempts that require status polling.",
+        )
 
     override fun process(request: ProviderProcessingRequest): ProviderProcessingResult {
         val dispatch =

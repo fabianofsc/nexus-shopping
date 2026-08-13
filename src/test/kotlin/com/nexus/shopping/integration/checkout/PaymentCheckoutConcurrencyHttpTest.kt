@@ -8,6 +8,7 @@ import com.nexus.shopping.payment.application.port.outbound.PaymentAttemptReserv
 import com.nexus.shopping.payment.application.port.outbound.PaymentProviderGateway
 import com.nexus.shopping.payment.application.port.outbound.ProviderProcessingRequest
 import com.nexus.shopping.payment.application.port.outbound.ProviderProcessingResult
+import com.nexus.shopping.payment.application.port.outbound.ProviderStatusResult
 import com.nexus.shopping.payment.domain.PaymentAttempt
 import com.nexus.shopping.payment.domain.PaymentProvider
 import com.nexus.shopping.payment.domain.PaymentStatus
@@ -280,4 +281,6 @@ class ConcurrentBlockingPaymentProvider(
         check(release.await(10, TimeUnit.SECONDS)) { "Timed out waiting to release provider" }
         return delegate.process(request)
     }
+
+    override fun checkStatus(providerAttemptReference: String): ProviderStatusResult = delegate.checkStatus(providerAttemptReference)
 }

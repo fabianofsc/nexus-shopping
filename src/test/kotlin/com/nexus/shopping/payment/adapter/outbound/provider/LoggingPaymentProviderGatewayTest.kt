@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
@@ -88,6 +89,13 @@ class LoggingPaymentProviderGatewayTest {
         val replay = gateway.process(request(paymentToken = "declined"))
 
         assertEquals(result, replay)
+    }
+
+    @Test
+    fun `checkStatus is never expected to be called for the logging provider`() {
+        assertFailsWith<UnsupportedOperationException> {
+            gateway.checkStatus("irrelevant")
+        }
     }
 
     @Test

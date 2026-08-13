@@ -6,6 +6,8 @@ import com.nexus.shopping.payment.domain.PaymentStatus
 
 interface PaymentProviderGateway {
     fun process(request: ProviderProcessingRequest): ProviderProcessingResult
+
+    fun checkStatus(providerAttemptReference: String): ProviderStatusResult
 }
 
 data class ProviderProcessingRequest(
@@ -22,8 +24,18 @@ data class ProviderProcessingRequest(
 data class ProviderProcessingResult(
     val status: PaymentStatus,
     val providerTransactionId: String?,
+    val providerAttemptReference: String? = null,
 ) {
     init {
-        require(status != PaymentStatus.REQUESTED) { "Provider processing results must be terminal." }
+        if (status == PaymentStatus.REQUESTED) {
+            require(providerAttemptReference != null) {
+                "A requested (non-terminal) provider processing result must carry a providerAttemptReference."
+            }
+        }
     }
 }
+
+data class ProviderStatusResult(
+    val status: PaymentStatus,
+    val providerTransactionId: String?,
+)

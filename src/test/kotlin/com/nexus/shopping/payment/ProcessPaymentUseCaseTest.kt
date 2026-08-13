@@ -9,6 +9,7 @@ import com.nexus.shopping.payment.application.port.outbound.PaymentAuthorization
 import com.nexus.shopping.payment.application.port.outbound.PaymentProviderGateway
 import com.nexus.shopping.payment.application.port.outbound.ProviderProcessingRequest
 import com.nexus.shopping.payment.application.port.outbound.ProviderProcessingResult
+import com.nexus.shopping.payment.application.port.outbound.ProviderStatusResult
 import com.nexus.shopping.payment.application.usecase.ProcessPaymentUseCase
 import com.nexus.shopping.payment.domain.PaymentAmount
 import com.nexus.shopping.payment.domain.PaymentAttempt
@@ -158,6 +159,9 @@ private class ApprovedProvider : PaymentProviderGateway {
         requests += request
         return ProviderProcessingResult(PaymentStatus.APPROVED, "provider-tx-1")
     }
+
+    override fun checkStatus(providerAttemptReference: String): ProviderStatusResult =
+        throw UnsupportedOperationException("Not used by this fake.")
 }
 
 private class PaymentAttemptRepositoryFake : PaymentAttemptRepositoryPort {
