@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.json.JsonMapper
 import com.nexus.shopping.integration.checkout.adapter.outbound.acl.NotificationGatewayAdapter
 import com.nexus.shopping.integration.checkout.adapter.outbound.acl.OrderPaymentResultGatewayAdapter
 import com.nexus.shopping.integration.checkout.adapter.outbound.acl.PaymentProcessingGatewayAdapter
+import com.nexus.shopping.integration.checkout.application.model.AppliedOrderPaymentResult
+import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPaymentResultByReferenceCommand
 import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPaymentResultCommand
 import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderSnapshot
 import com.nexus.shopping.integration.checkout.application.model.EnsureOrderConfirmationCommand
@@ -241,6 +243,9 @@ class PaymentCheckoutReconciliationHttpTest {
                     if (first.compareAndSet(true, false)) throw IllegalStateException("failure before Order result")
                     return delegate.apply(command)
                 }
+
+                override fun applyByOrderReference(command: ApplyOrderPaymentResultByReferenceCommand): AppliedOrderPaymentResult =
+                    delegate.applyByOrderReference(command)
             }
 
         @Bean

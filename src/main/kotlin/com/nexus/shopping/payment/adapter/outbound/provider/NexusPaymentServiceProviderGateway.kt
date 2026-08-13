@@ -37,7 +37,10 @@ class NexusPaymentServiceProviderGateway(
                     .body(
                         DispatchRequestBody(
                             referenceId = request.referenceId,
-                            amount = request.amount.value.movePointRight(2).longValueExact(),
+                            amount =
+                                request.amount.value
+                                    .movePointRight(2)
+                                    .longValueExact(),
                             paymentToken = request.paymentToken,
                         ),
                     ).retrieve()

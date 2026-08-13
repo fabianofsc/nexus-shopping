@@ -132,6 +132,29 @@ data class ApplyOrderPaymentResultCommand(
     val payment: PaymentProcessingResult,
 )
 
+data class ApplyOrderPaymentResultByReferenceCommand(
+    val orderReference: String,
+    val attemptReference: String,
+    val status: String,
+    val providerTransactionId: String?,
+)
+
+data class AppliedOrderPaymentResult(
+    val orderId: Long,
+    val customerId: Long,
+    val recipientEmail: String,
+    val totalAmount: BigDecimal,
+    val status: String,
+    val transitioned: Boolean,
+)
+
+data class PaymentReconciliationOutcome(
+    val attemptReference: String,
+    val referenceId: String,
+    val status: PaymentResultStatus,
+    val providerTransactionId: String?,
+)
+
 data class EnsureOrderConfirmationCommand(
     val orderId: Long,
     val customerId: Long,

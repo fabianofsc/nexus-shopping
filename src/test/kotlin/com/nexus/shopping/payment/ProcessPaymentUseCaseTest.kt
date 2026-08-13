@@ -241,6 +241,5 @@ private class PaymentAttemptRepositoryFake : PaymentAttemptRepositoryPort {
     override fun findPendingByProvider(
         provider: PaymentProvider,
         limit: Int,
-    ): List<PaymentAttempt> =
-        attempts.filter { it.status == PaymentStatus.REQUESTED && it.provider == provider }.take(limit)
+    ): List<PaymentAttempt> = attempts.filter { it.status == PaymentStatus.REQUESTED && it.provider == provider }.take(limit)
 }

@@ -93,7 +93,8 @@ class ReconcilePendingPaymentAttemptsUseCaseTest {
             return attempt
         }
 
-        override fun reserve(attempt: PaymentAttempt): PaymentAttemptReservation = throw UnsupportedOperationException("Not used by this fake.")
+        override fun reserve(attempt: PaymentAttempt): PaymentAttemptReservation =
+            throw UnsupportedOperationException("Not used by this fake.")
 
         override fun findByReferenceIdAndIdempotencyKey(
             referenceId: String,
