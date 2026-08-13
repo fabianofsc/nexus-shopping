@@ -126,6 +126,19 @@ class ProcessPaymentUseCaseTest {
     }
 
     @Test
+    fun `keeps the attempt requested and records the provider attempt reference when dispatch is still processing`() {
+        val repository = PaymentAttemptRepositoryFake()
+        val provider = RequestedProvider()
+
+        val result = ProcessPaymentUseCase(repository, provider, FixedFingerprintSecret()).process(command())
+
+        assertEquals(PaymentStatus.REQUESTED, result.status)
+        assertEquals(PaymentStatus.REQUESTED, repository.attempts.single().status)
+        assertEquals("nexus-attempt-1", repository.attempts.single().providerAttemptReference)
+        assertEquals(0, repository.completeCalls)
+    }
+
+    @Test
     fun `rejects reuse of a reference and idempotency key with a different token`() {
         val useCase = ProcessPaymentUseCase(PaymentAttemptRepositoryFake(), ApprovedProvider(), FixedFingerprintSecret())
         useCase.process(command())
@@ -164,8 +177,21 @@ private class ApprovedProvider : PaymentProviderGateway {
         throw UnsupportedOperationException("Not used by this fake.")
 }
 
+private class RequestedProvider : PaymentProviderGateway {
+    val requests = mutableListOf<ProviderProcessingRequest>()
+
+    override fun process(request: ProviderProcessingRequest): ProviderProcessingResult {
+        requests += request
+        return ProviderProcessingResult(PaymentStatus.REQUESTED, null, "nexus-attempt-1")
+    }
+
+    override fun checkStatus(providerAttemptReference: String): ProviderStatusResult =
+        throw UnsupportedOperationException("Not used by this fake.")
+}
+
 private class PaymentAttemptRepositoryFake : PaymentAttemptRepositoryPort {
     val attempts = mutableListOf<PaymentAttempt>()
+    var completeCalls = 0
 
     override fun reserve(attempt: PaymentAttempt): PaymentAttemptReservation {
         val existing =
@@ -192,6 +218,7 @@ private class PaymentAttemptRepositoryFake : PaymentAttemptRepositoryPort {
         providerTransactionId: String?,
         completedAt: Instant,
     ): PaymentAttempt? {
+        completeCalls++
         val current = attempts.firstOrNull { it.attemptReference == attemptReference } ?: return null
         if (current.processingLeaseToken != processingLeaseToken) return null
         val completed = current.complete(status, providerTransactionId, completedAt)

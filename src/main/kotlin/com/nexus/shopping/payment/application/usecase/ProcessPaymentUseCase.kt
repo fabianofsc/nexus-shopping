@@ -156,15 +156,23 @@ class ProcessPaymentUseCase(
                         ),
                 ),
             )
-        val completed =
-            paymentAttemptRepository.complete(
-                attemptReference = attempt.attemptReference,
-                processingLeaseToken = requireNotNull(attempt.processingLeaseToken),
-                status = providerResult.status,
-                providerTransactionId = providerResult.providerTransactionId,
-                completedAt = Instant.now(),
-            ) ?: attempt
-        return completed.toProcessingResult(replayed = false)
+        val processed =
+            if (providerResult.status == PaymentStatus.REQUESTED) {
+                paymentAttemptRepository.recordProviderDispatch(
+                    attemptReference = attempt.attemptReference,
+                    processingLeaseToken = requireNotNull(attempt.processingLeaseToken),
+                    providerAttemptReference = requireNotNull(providerResult.providerAttemptReference),
+                ) ?: attempt
+            } else {
+                paymentAttemptRepository.complete(
+                    attemptReference = attempt.attemptReference,
+                    processingLeaseToken = requireNotNull(attempt.processingLeaseToken),
+                    status = providerResult.status,
+                    providerTransactionId = providerResult.providerTransactionId,
+                    completedAt = Instant.now(),
+                ) ?: attempt
+            }
+        return processed.toProcessingResult(replayed = false)
     }
 
     private fun requireText(
