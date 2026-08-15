@@ -7,6 +7,7 @@ CREATE TABLE payment_attempts (
     status VARCHAR(32) NOT NULL,
     provider VARCHAR(64) NOT NULL,
     provider_transaction_id VARCHAR(255),
+    provider_attempt_reference VARCHAR(255),
     idempotency_key VARCHAR(255) NOT NULL,
     authorization_fingerprint VARCHAR(64) NOT NULL,
     processing_lease_until TIMESTAMP,
