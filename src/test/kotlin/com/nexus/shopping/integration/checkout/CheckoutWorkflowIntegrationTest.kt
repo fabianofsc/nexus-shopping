@@ -1,6 +1,8 @@
 package com.nexus.shopping.integration.checkout
 
 import com.nexus.shopping.integration.checkout.application.CheckoutWorkflowUseCase
+import com.nexus.shopping.integration.checkout.application.model.AppliedOrderPaymentResult
+import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPaymentResultByReferenceCommand
 import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPaymentResultCommand
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCartSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
@@ -177,6 +179,9 @@ class CheckoutWorkflowIntegrationTest {
             orderPaymentResults =
                 object : OrderPaymentResultGateway {
                     override fun apply(command: ApplyOrderPaymentResultCommand) = error("Not used")
+
+                    override fun applyByOrderReference(command: ApplyOrderPaymentResultByReferenceCommand): AppliedOrderPaymentResult =
+                        error("Not used")
                 },
             notifications =
                 object : NotificationGateway {

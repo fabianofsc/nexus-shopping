@@ -1,10 +1,20 @@
 package com.nexus.shopping.integration.checkout
 
 import com.fasterxml.jackson.databind.json.JsonMapper
+import com.github.tomakehurst.wiremock.WireMockServer
+import com.github.tomakehurst.wiremock.client.WireMock.aResponse
+import com.github.tomakehurst.wiremock.client.WireMock.get
+import com.github.tomakehurst.wiremock.client.WireMock.post
+import com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor
+import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
+import com.nexus.shopping.integration.checkout.application.PaymentReconciliationUseCase
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.core.env.Environment
 import org.springframework.jdbc.core.JdbcTemplate
+import org.wiremock.spring.ConfigureWireMock
+import org.wiremock.spring.EnableWireMock
+import org.wiremock.spring.InjectWireMock
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -24,6 +34,7 @@ import kotlin.test.assertEquals
         "spring.jpa.hibernate.ddl-auto=none",
     ],
 )
+@EnableWireMock(ConfigureWireMock(baseUrlProperties = ["nexus.payment-service.base-url"]))
 class PaymentCheckoutHttpTest {
     @Autowired
     private lateinit var environment: Environment
@@ -31,64 +42,83 @@ class PaymentCheckoutHttpTest {
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
 
+    @Autowired
+    private lateinit var reconciliation: PaymentReconciliationUseCase
+
+    @InjectWireMock
+    private lateinit var wireMock: WireMockServer
+
     private val mapper = JsonMapper.builder().build()
     private val httpClient = HttpClient.newHttpClient()
 
     @Test
     fun `approved payment confirms Order and sends Notification`() {
+        stubDispatch("provider-attempt-1")
         val port = environment.getRequiredProperty("local.server.port")
         val customerId = createCustomer(port)
         addItem(port, customerId)
 
-        val response = checkout(port, customerId, "approved-${UUID.randomUUID()}", "approved")
+        val dispatched = checkout(port, customerId, "approved-${UUID.randomUUID()}", "approved")
+        assertEquals(202, dispatched.statusCode())
+        val orderId = mapper.readTree(dispatched.body())["id"].asLong()
 
-        assertEquals(201, response.statusCode())
-        val order = mapper.readTree(response.body())
+        stubStatus("provider-attempt-1", "APPROVED")
+        reconciliation.reconcile()
+
+        val order = getOrder(port, customerId, orderId)
         assertEquals("CONFIRMED", order["status"].asText())
-        assertEquals("APPROVED", scalar("SELECT status FROM payment_attempts WHERE reference_id = ?", "checkout:${order["id"].asLong()}"))
-        assertEquals("SENT", scalar("SELECT status FROM notifications WHERE reference_id = ?", order["id"].asLong()))
+        assertEquals("APPROVED", scalar("SELECT status FROM payment_attempts WHERE reference_id = ?", "checkout:$orderId"))
+        assertEquals("SENT", scalar("SELECT status FROM notifications WHERE reference_id = ?", orderId))
     }
 
     @Test
     fun `rejected payment fails Order without creating Notification`() {
+        stubDispatch("provider-attempt-2")
         val port = environment.getRequiredProperty("local.server.port")
         val customerId = createCustomer(port)
         addItem(port, customerId)
 
-        val response = checkout(port, customerId, "rejected-${UUID.randomUUID()}", "rejected")
+        val dispatched = checkout(port, customerId, "rejected-${UUID.randomUUID()}", "rejected")
+        assertEquals(202, dispatched.statusCode())
+        val orderId = mapper.readTree(dispatched.body())["id"].asLong()
 
-        assertEquals(201, response.statusCode())
-        val order = mapper.readTree(response.body())
+        stubStatus("provider-attempt-2", "REJECTED")
+        reconciliation.reconcile()
+
+        val order = getOrder(port, customerId, orderId)
         assertEquals("PAYMENT_FAILED", order["status"].asText())
-        assertEquals("REJECTED", scalar("SELECT status FROM payment_attempts WHERE reference_id = ?", "checkout:${order["id"].asLong()}"))
-        assertEquals(0, count("SELECT COUNT(*) FROM notifications WHERE reference_id = ?", order["id"].asLong()))
+        assertEquals("REJECTED", scalar("SELECT status FROM payment_attempts WHERE reference_id = ?", "checkout:$orderId"))
+        assertEquals(0, count("SELECT COUNT(*) FROM notifications WHERE reference_id = ?", orderId))
     }
 
     @Test
     fun `checkout replay reconciles terminal result without a second provider dispatch or Notification`() {
+        stubDispatch("provider-attempt-3")
         val port = environment.getRequiredProperty("local.server.port")
         val customerId = createCustomer(port)
         addItem(port, customerId)
         val idempotencyKey = "replay-${UUID.randomUUID()}"
 
         val created = checkout(port, customerId, idempotencyKey, "approved")
+        assertEquals(202, created.statusCode())
+        val orderId = mapper.readTree(created.body())["id"].asLong()
+
+        stubStatus("provider-attempt-3", "APPROVED")
+        reconciliation.reconcile()
+
         val replay = checkout(port, customerId, idempotencyKey, "approved")
 
-        assertEquals(201, created.statusCode())
         assertEquals(200, replay.statusCode())
-        val createdOrder = mapper.readTree(created.body())
         val replayedOrder = mapper.readTree(replay.body())
-        assertEquals(createdOrder["id"].asLong(), replayedOrder["id"].asLong())
+        assertEquals(orderId, replayedOrder["id"].asLong())
         assertEquals("CONFIRMED", replayedOrder["status"].asText())
-        assertEquals(
-            1,
-            count("SELECT COUNT(*) FROM payment_provider_dispatches WHERE reference_id = ?", "checkout:${createdOrder["id"].asLong()}"),
-        )
-        assertEquals(1, count("SELECT COUNT(*) FROM notifications WHERE reference_id = ?", createdOrder["id"].asLong()))
+        wireMock.verify(1, postRequestedFor(urlEqualTo("/v1/payments")))
+        assertEquals(1, count("SELECT COUNT(*) FROM notifications WHERE reference_id = ?", orderId))
     }
 
     @Test
     fun `same checkout key with a different token returns conflict without another dispatch`() {
+        stubDispatch("provider-attempt-4")
         val port = environment.getRequiredProperty("local.server.port")
         val customerId = createCustomer(port)
         addItem(port, customerId)
@@ -97,10 +127,15 @@ class PaymentCheckoutHttpTest {
         val created = checkout(port, customerId, idempotencyKey, "approved")
         val conflict = checkout(port, customerId, idempotencyKey, "different-token")
 
-        assertEquals(201, created.statusCode())
+        assertEquals(202, created.statusCode())
         assertEquals(409, conflict.statusCode())
-        val orderId = mapper.readTree(created.body())["id"].asLong()
-        assertEquals(1, count("SELECT COUNT(*) FROM payment_provider_dispatches WHERE reference_id = ?", "checkout:$orderId"))
+        wireMock.verify(1, postRequestedFor(urlEqualTo("/v1/payments")))
+
+        // Drain this test's own dispatched attempt so it doesn't linger as REQUESTED and get
+        // swept up (and fail on a missing stub) by another test's reconciliation.reconcile() call
+        // against this class's shared H2 database.
+        stubStatus("provider-attempt-4", "APPROVED")
+        reconciliation.reconcile()
     }
 
     @Test
@@ -115,6 +150,51 @@ class PaymentCheckoutHttpTest {
         assertEquals(0, count("SELECT COUNT(*) FROM orders WHERE customer_id = ?", customerId))
         assertEquals("ACTIVE", scalar("SELECT status FROM carts WHERE customer_id = ?", customerId))
     }
+
+    private fun stubDispatch(providerAttemptReference: String) {
+        wireMock.stubFor(
+            post(urlEqualTo("/v1/payments"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(202)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            """{"attemptReference":"$providerAttemptReference","referenceId":"irrelevant","status":"PROCESSING","replayed":false}""",
+                        ),
+                ),
+        )
+    }
+
+    private fun stubStatus(
+        providerAttemptReference: String,
+        status: String,
+    ) {
+        wireMock.stubFor(
+            get(urlEqualTo("/v1/payments/$providerAttemptReference"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""{"attemptReference":"$providerAttemptReference","status":"$status"}"""),
+                ),
+        )
+    }
+
+    private fun getOrder(
+        port: String,
+        customerId: Long,
+        orderId: Long,
+    ) = mapper.readTree(
+        httpClient
+            .send(
+                HttpRequest
+                    .newBuilder()
+                    .uri(URI.create("http://localhost:$port/customers/$customerId/orders/$orderId"))
+                    .GET()
+                    .build(),
+                HttpResponse.BodyHandlers.ofString(),
+            ).body(),
+    )
 
     private fun createCustomer(port: String): Long {
         val suffix = UUID.randomUUID().toString().replace("-", "")

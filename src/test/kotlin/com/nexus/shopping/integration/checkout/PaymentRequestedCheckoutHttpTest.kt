@@ -1,30 +1,26 @@
 package com.nexus.shopping.integration.checkout
 
 import com.fasterxml.jackson.databind.json.JsonMapper
-import com.nexus.shopping.payment.adapter.outbound.provider.LoggingPaymentProviderGateway
-import com.nexus.shopping.payment.application.port.outbound.PaymentProviderGateway
-import com.nexus.shopping.payment.application.port.outbound.ProviderProcessingRequest
-import com.nexus.shopping.payment.application.port.outbound.ProviderProcessingResult
+import com.github.tomakehurst.wiremock.WireMockServer
+import com.github.tomakehurst.wiremock.client.WireMock.aResponse
+import com.github.tomakehurst.wiremock.client.WireMock.get
+import com.github.tomakehurst.wiremock.client.WireMock.post
+import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
+import com.nexus.shopping.integration.checkout.application.PaymentReconciliationUseCase
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.context.TestConfiguration
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Import
-import org.springframework.context.annotation.Primary
 import org.springframework.core.env.Environment
 import org.springframework.jdbc.core.JdbcTemplate
+import org.wiremock.spring.ConfigureWireMock
+import org.wiremock.spring.EnableWireMock
+import org.wiremock.spring.InjectWireMock
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.util.UUID
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -37,7 +33,7 @@ import kotlin.test.assertTrue
         "spring.jpa.hibernate.ddl-auto=none",
     ],
 )
-@Import(PaymentRequestedCheckoutHttpTest.BlockingProviderConfiguration::class)
+@EnableWireMock(ConfigureWireMock(baseUrlProperties = ["nexus.payment-service.base-url"]))
 class PaymentRequestedCheckoutHttpTest {
     @Autowired
     private lateinit var environment: Environment
@@ -46,42 +42,73 @@ class PaymentRequestedCheckoutHttpTest {
     private lateinit var jdbcTemplate: JdbcTemplate
 
     @Autowired
-    private lateinit var provider: BlockingPaymentProvider
+    private lateinit var reconciliation: PaymentReconciliationUseCase
+
+    @InjectWireMock
+    private lateinit var wireMock: WireMockServer
 
     private val mapper = JsonMapper.builder().build()
     private val httpClient = HttpClient.newHttpClient()
 
     @Test
-    fun `valid payment lease times out as 202 with WAITING_PAYMENT and reconciles later`() {
+    fun `checkout responds WAITING_PAYMENT immediately then confirms once reconciliation observes an approved status`() {
+        stubDispatch("provider-attempt-1")
         val port = environment.getRequiredProperty("local.server.port")
         val customerId = createCustomer(port)
         addItem(port, customerId)
         val idempotencyKey = "requested-${UUID.randomUUID()}"
-        val executor = Executors.newSingleThreadExecutor()
 
-        try {
-            val owner = executor.submit<HttpResponse<String>> { checkout(port, customerId, idempotencyKey) }
-            assertTrue(provider.entered.await(10, TimeUnit.SECONDS), "Provider was not invoked")
+        val dispatched = checkout(port, customerId, idempotencyKey)
 
-            val waiting = checkout(port, customerId, idempotencyKey)
+        assertEquals(202, dispatched.statusCode())
+        val order = mapper.readTree(dispatched.body())
+        assertEquals("WAITING_PAYMENT", order["status"].asText())
+        assertEquals(
+            "REQUESTED",
+            scalar("SELECT status FROM payment_attempts WHERE reference_id = ?", "checkout:${order["id"].asLong()}"),
+        )
+        assertEquals(0, count("SELECT COUNT(*) FROM notifications WHERE reference_id = ?", order["id"].asLong()))
 
-            assertEquals(202, waiting.statusCode())
-            val waitingOrder = mapper.readTree(waiting.body())
-            assertEquals("WAITING_PAYMENT", waitingOrder["status"].asText())
-            assertEquals(
-                "REQUESTED",
-                scalar("SELECT status FROM payment_attempts WHERE reference_id = ?", "checkout:${waitingOrder["id"].asLong()}"),
-            )
-            assertEquals(0, count("SELECT COUNT(*) FROM notifications WHERE reference_id = ?", waitingOrder["id"].asLong()))
+        val replayWhileProcessing = checkout(port, customerId, idempotencyKey)
+        assertEquals(202, replayWhileProcessing.statusCode())
+        assertEquals("WAITING_PAYMENT", mapper.readTree(replayWhileProcessing.body())["status"].asText())
 
-            provider.release.countDown()
-            val completed = owner.get(10, TimeUnit.SECONDS)
-            assertEquals(201, completed.statusCode())
-            assertEquals("CONFIRMED", mapper.readTree(completed.body())["status"].asText())
-        } finally {
-            provider.release.countDown()
-            executor.shutdownNow()
-        }
+        stubStatus("provider-attempt-1", "APPROVED")
+        reconciliation.reconcile()
+
+        val confirmedReplay = checkout(port, customerId, idempotencyKey)
+        assertEquals(200, confirmedReplay.statusCode())
+        assertEquals("CONFIRMED", mapper.readTree(confirmedReplay.body())["status"].asText())
+        assertEquals(1, count("SELECT COUNT(*) FROM notifications WHERE reference_id = ?", order["id"].asLong()))
+    }
+
+    private fun stubDispatch(providerAttemptReference: String) {
+        wireMock.stubFor(
+            post(urlEqualTo("/v1/payments"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(202)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            """{"attemptReference":"$providerAttemptReference","referenceId":"irrelevant","status":"PROCESSING","replayed":false}""",
+                        ),
+                ),
+        )
+    }
+
+    private fun stubStatus(
+        providerAttemptReference: String,
+        status: String,
+    ) {
+        wireMock.stubFor(
+            get(urlEqualTo("/v1/payments/$providerAttemptReference"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""{"attemptReference":"$providerAttemptReference","status":"$status"}"""),
+                ),
+        )
     }
 
     private fun createCustomer(port: String): Long {
@@ -192,27 +219,4 @@ class PaymentRequestedCheckoutHttpTest {
         sql: String,
         argument: Any,
     ): Int = requireNotNull(jdbcTemplate.queryForObject(sql, Int::class.java, argument))
-
-    @TestConfiguration
-    class BlockingProviderConfiguration {
-        @Bean
-        @Primary
-        fun blockingPaymentProvider(
-            @Qualifier("loggingPaymentProviderGateway")
-            delegate: LoggingPaymentProviderGateway,
-        ): BlockingPaymentProvider = BlockingPaymentProvider(delegate)
-    }
-}
-
-class BlockingPaymentProvider(
-    private val delegate: PaymentProviderGateway,
-) : PaymentProviderGateway {
-    val entered = CountDownLatch(1)
-    val release = CountDownLatch(1)
-
-    override fun process(request: ProviderProcessingRequest): ProviderProcessingResult {
-        entered.countDown()
-        check(release.await(10, TimeUnit.SECONDS)) { "Timed out waiting to release provider" }
-        return delegate.process(request)
-    }
 }

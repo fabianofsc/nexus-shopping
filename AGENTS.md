@@ -8,7 +8,8 @@
 ## Project Snapshot
 
 - Backend REST API educacional: catalogo de produtos com evolucao incremental de performance e arquitetura.
-- Stack: Kotlin, Java 21, Gradle Wrapper, Spring Boot 4, Actuator, Flyway, PostgreSQL, Spring Data JPA.
+- Stack: Kotlin, Java 21, Gradle Wrapper, Spring Boot 4, Actuator, Flyway, PostgreSQL, Spring Data JPA, WireMock (testes de integracao HTTP).
+- Dependencia obrigatoria de runtime: `nexus-payment-service` (imagem `fabianofsc/nexus-payment-service:latest`), unico provider de pagamento.
 - Docker Hub: `fabianofsc/nexus-shopping` com tags `baseline`, `indexes`, `pagination`, `latest`.
 
 ## Architecture
@@ -45,7 +46,7 @@ Decisoes fixas:
 env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
-- Docker Compose: `docker compose up -d postgres` / `docker compose down -v`
+- Docker Compose: `docker compose up -d postgres` para so o banco; `docker compose up -d` sobe tambem `nexus-payment-service` + `dummy-pay` (imagens publicadas, sem clone extra).
 - Busca de arquivos/texto com `rg` / `rg --files`.
 - Guardrail de lint pre-push (`make install-hooks`, uma vez por clone): bloqueia `git push` se `ktlintCheck` falhar. Bypass pontual: `git push --no-verify`.
 - Nao commitar outputs de build nem relatorios HTML do JMeter em `build/`.

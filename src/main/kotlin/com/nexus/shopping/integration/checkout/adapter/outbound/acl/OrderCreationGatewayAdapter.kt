@@ -52,6 +52,11 @@ class OrderCreationGatewayAdapter(
             ).toCheckoutSnapshot()
 }
 
+internal fun parseCheckoutOrderReference(orderReference: String): Long? {
+    if (!orderReference.startsWith("checkout:")) return null
+    return orderReference.removePrefix("checkout:").toLongOrNull()
+}
+
 private fun CheckoutCustomerSnapshot.toOrderSnapshot() = CustomerSnapshot(customerId, name, document, documentType, email, phone)
 
 private fun CheckoutShippingAddressSnapshot.toOrderSnapshot() =

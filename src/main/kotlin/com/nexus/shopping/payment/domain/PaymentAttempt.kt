@@ -12,6 +12,7 @@ data class PaymentAttempt private constructor(
     val status: PaymentStatus,
     val provider: PaymentProvider,
     val providerTransactionId: String?,
+    val providerAttemptReference: String?,
     val idempotencyKey: String,
     val authorizationFingerprint: String,
     val processingLeaseUntil: Instant?,
@@ -39,6 +40,13 @@ data class PaymentAttempt private constructor(
         )
     }
 
+    fun recordProviderDispatch(providerAttemptReference: String): PaymentAttempt {
+        if (status != PaymentStatus.REQUESTED) {
+            throw PaymentDomainValidationException("only requested payment attempts can record a provider dispatch.")
+        }
+        return copy(providerAttemptReference = providerAttemptReference)
+    }
+
     companion object {
         fun restored(
             id: Long,
@@ -49,6 +57,7 @@ data class PaymentAttempt private constructor(
             status: PaymentStatus,
             provider: PaymentProvider,
             providerTransactionId: String?,
+            providerAttemptReference: String?,
             idempotencyKey: String,
             authorizationFingerprint: String,
             processingLeaseUntil: Instant?,
@@ -65,6 +74,7 @@ data class PaymentAttempt private constructor(
                 status = status,
                 provider = provider,
                 providerTransactionId = providerTransactionId,
+                providerAttemptReference = providerAttemptReference,
                 idempotencyKey = idempotencyKey,
                 authorizationFingerprint = authorizationFingerprint,
                 processingLeaseUntil = processingLeaseUntil,
@@ -94,6 +104,7 @@ data class PaymentAttempt private constructor(
                 status = PaymentStatus.REQUESTED,
                 provider = provider,
                 providerTransactionId = null,
+                providerAttemptReference = null,
                 idempotencyKey = idempotencyKey,
                 authorizationFingerprint = authorizationFingerprint,
                 processingLeaseUntil = processingLeaseUntil,

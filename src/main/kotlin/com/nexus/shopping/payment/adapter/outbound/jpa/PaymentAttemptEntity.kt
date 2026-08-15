@@ -36,9 +36,11 @@ class PaymentAttemptEntity(
     var status: PaymentStatus = PaymentStatus.REQUESTED,
     @Enumerated(EnumType.STRING)
     @Column(name = "provider", nullable = false, length = 64)
-    var provider: PaymentProvider = PaymentProvider.LOGGING_PROVIDER,
+    var provider: PaymentProvider = PaymentProvider.PAYMENT_SERVICE,
     @Column(name = "provider_transaction_id", length = 255)
     var providerTransactionId: String? = null,
+    @Column(name = "provider_attempt_reference", length = 255)
+    var providerAttemptReference: String? = null,
     @Column(name = "idempotency_key", nullable = false, length = 255)
     var idempotencyKey: String = "",
     @Column(name = "authorization_fingerprint", nullable = false, length = 64)
@@ -62,6 +64,7 @@ class PaymentAttemptEntity(
             status = status,
             provider = provider,
             providerTransactionId = providerTransactionId,
+            providerAttemptReference = providerAttemptReference,
             idempotencyKey = idempotencyKey,
             authorizationFingerprint = authorizationFingerprint,
             processingLeaseUntil = processingLeaseUntil,
@@ -81,6 +84,7 @@ fun PaymentAttempt.toEntity(): PaymentAttemptEntity =
         status = status,
         provider = provider,
         providerTransactionId = providerTransactionId,
+        providerAttemptReference = providerAttemptReference,
         idempotencyKey = idempotencyKey,
         authorizationFingerprint = authorizationFingerprint,
         processingLeaseUntil = processingLeaseUntil,

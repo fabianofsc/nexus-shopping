@@ -49,6 +49,9 @@ logging:
 nexus:
   payment:
     authorization-fingerprint-secret: ${PAYMENT_AUTHORIZATION_FINGERPRINT_SECRET:development-only-change-me}
+  payment-service:
+    base-url: ${NEXUS_PAYMENT_SERVICE_BASE_URL:http://localhost:8081}
+    polling-interval: ${NEXUS_PAYMENT_SERVICE_POLLING_INTERVAL:2000}
   cache:
     product:
       ttl: 10m

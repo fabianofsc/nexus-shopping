@@ -46,7 +46,7 @@ class PaymentMigrationContractTest {
                 INSERT INTO payment_attempts (
                     attempt_reference, reference_id, amount, currency, status, provider,
                     idempotency_key, authorization_fingerprint, processing_lease_token, processing_lease_until
-                ) VALUES (?, ?, 19.90, 'BRL', 'REQUESTED', 'LOGGING_PROVIDER', ?, ?, ?, CURRENT_TIMESTAMP)
+                ) VALUES (?, ?, 19.90, 'BRL', 'REQUESTED', 'PAYMENT_SERVICE', ?, ?, ?, CURRENT_TIMESTAMP)
                 """.trimIndent(),
             ).use { statement ->
                 statement.setString(1, attemptReference)

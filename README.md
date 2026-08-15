@@ -29,7 +29,7 @@ Veja tambem [REFERENCE_POINTS.md](REFERENCE_POINTS.md) para as tags imutaveis de
 
 ## Evolucao para E-commerce
 
-O codigo atual e um monolito modular com quatro Bounded Contexts implementados: `Product`, `Customer`, `Cart` e `Notification`. `Order` e `Payment` permanecem planejados para as proximas etapas, antes de qualquer extracao para microservices.
+O codigo atual e um monolito modular com seis Bounded Contexts implementados: `Product`, `Customer`, `Cart`, `Order`, `Payment` e `Notification`. O checkout e orquestrado pela camada `integration/checkout`.
 
 ![Mapa de Bounded Contexts do Nexus Shopping](docs/assets/bounded-contexts/nexus-shopping-bounded-context-map-preview.png)
 
@@ -55,8 +55,8 @@ flowchart LR
 
 Estado atual:
 
-- Implementados: `Product`, `Customer`, `Cart` e `Notification`.
-- Planejados: `Order` e `Payment`.
+- Implementados: `Product`, `Customer`, `Cart`, `Order`, `Payment` e `Notification`.
+- Checkout: fluxo de integracao entre Cart, Order, Payment e Notification.
 - Fora de escopo nesta etapa: `Inventory` e `Auth/Identity`.
 
 Decisoes principais:
@@ -65,10 +65,27 @@ Decisoes principais:
 - `Checkout` e um fluxo, nao um Bounded Context separado nesta fase.
 - `Customer` e dono dos dados cadastrais, mas `Order` guarda snapshot historico.
 - `Product` no catalogo, `ProductSummary` no carrinho e `OrderItemSnapshot` no pedido nao sao o mesmo modelo global.
-- `Payment` deve ser o primeiro candidato a extracao futura, por proteger o core de uma integracao externa.
+- `Payment` foi extraido: o Nexus consome o `nexus-payment-service` real via HTTP (ports/ACL), unico provider de pagamento — o adapter simulado local foi removido. O `nexus-payment-service`, por sua vez, e quem fala com o PSP DummyPay; o Nexus nunca chama DummyPay diretamente.
 - Redis e usado como cache distribuido das consultas de produto; nao e um Bounded Context.
 
-ADR completo: [docs/decisions/2026-07-17-prd-commerce-bounded-contexts.md](docs/decisions/2026-07-17-prd-commerce-bounded-contexts.md).
+ADRs: [Bounded Contexts](docs/decisions/2026-07-17-prd-commerce-bounded-contexts.md) e [servicos externos autonomos](docs/decisions/2026-08-12-prd-autonomous-external-services.md).
+
+### Servicos externos autonomos
+
+Dois servicos Go ja foram implementados em repositorios separados, com banco,
+credenciais, ciclo de vida e contrato HTTP proprios. O Payment Service
+(`nexus-payment-service`) ja e chamado pelo runtime do Nexus via HTTP/ACL,
+como unico provider de pagamento; DummyPay continua sendo falado apenas pelo
+Payment Service, nunca diretamente pelo Nexus. Nao ha dependencia de codigo,
+submodulo, tabela ou banco compartilhado entre os repositorios.
+
+| Servico | Papel | Estado de integracao com o Nexus |
+| --- | --- | --- |
+| DummyPay | PSP deterministico para vendas com cartao | Implementado; consumido pelo Payment Service, nunca diretamente pelo Nexus. |
+| Notification Service | Entrega generica de e-mail e SMS simulados | Implementado; sera consumido por um adapter/ACL quando a notificacao sair do monolito. |
+
+Os limites, contratos e a sequencia de evolucao estao em
+[docs/agents/external-services.md](docs/agents/external-services.md).
 
 ## Arquitetura
 
@@ -76,7 +93,7 @@ O projeto segue arquitetura hexagonal (Ports and Adapters), aplicada de forma in
 
 ```
 com/nexus/shopping/
-  {product,customer,cart,notification}/
+  {product,customer,cart,order,payment,notification}/
     domain/           -> tipos de negocio puros
     application/
       port/outbound/  -> portas outbound
@@ -88,6 +105,7 @@ com/nexus/shopping/
       outbound/jpa/   -> entidades JPA e adapters de persistencia
   platform/           -> excecoes e handlers compartilhados
   infra/              -> detalhes tecnicos transversais (HTTP, correlation-id)
+  integration/checkout/ -> workflow e ACLs entre os contextos
 ```
 
 Restricoes de design:
@@ -172,6 +190,11 @@ docker compose up -d postgres redis
 ./gradlew bootRun
 ```
 
+A partir desta versao, `nexus-payment-service` e uma dependencia obrigatoria de runtime — sem
+ele, o checkout falha ao tentar despachar o pagamento. `docker compose up -d` (sem especificar
+servicos) sobe a stack completa, incluindo Payment Service e Dummy Pay, a partir de imagens
+publicadas.
+
 O seed padrao e de `1000` produtos. Para usar outro volume:
 
 ```bash
@@ -210,6 +233,8 @@ Principais recursos HTTP:
 - Clientes: criacao e detalhe em `/customers`.
 - Carrinho ativo: consulta e mutacao de itens em `/customers/{customerId}/cart`.
 - Notificacoes: envio, detalhe e listagem paginada em `/notifications`.
+- Pedidos: detalhe, listagem e cancelamento em `/customers/{customerId}/orders`.
+- Checkout: `POST /customers/{customerId}/cart/checkout`, com `Idempotency-Key` e token de pagamento.
 
 O contrato detalhado das consultas de catalogo esta em [docs/agents/api-endpoints.md](docs/agents/api-endpoints.md).
 

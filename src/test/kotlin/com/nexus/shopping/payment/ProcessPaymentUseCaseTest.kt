@@ -9,10 +9,12 @@ import com.nexus.shopping.payment.application.port.outbound.PaymentAuthorization
 import com.nexus.shopping.payment.application.port.outbound.PaymentProviderGateway
 import com.nexus.shopping.payment.application.port.outbound.ProviderProcessingRequest
 import com.nexus.shopping.payment.application.port.outbound.ProviderProcessingResult
+import com.nexus.shopping.payment.application.port.outbound.ProviderStatusResult
 import com.nexus.shopping.payment.application.usecase.ProcessPaymentUseCase
 import com.nexus.shopping.payment.domain.PaymentAmount
 import com.nexus.shopping.payment.domain.PaymentAttempt
 import com.nexus.shopping.payment.domain.PaymentCurrency
+import com.nexus.shopping.payment.domain.PaymentProvider
 import com.nexus.shopping.payment.domain.PaymentStatus
 import java.math.BigDecimal
 import java.time.Instant
@@ -52,7 +54,7 @@ class ProcessPaymentUseCaseTest {
         ProcessPaymentUseCase(PaymentAttemptRepositoryFake(), provider, FixedFingerprintSecret()).process(command())
 
         assertEquals(
-            "v1_edb959fdea610389a04d691e46b65164dbbac2fde27d29776972ff8e3e257869",
+            "v1_2f73833ff1517332455a99230561614b353a522427e6f343280c4e0336eddb0f",
             provider.requests.single().providerDispatchKey,
         )
     }
@@ -66,7 +68,7 @@ class ProcessPaymentUseCaseTest {
         )
 
         assertEquals(
-            "v1_5eb2178088d786fc3cc60b797f02705f061dd9666bfc8471a5190a1be5a5810f",
+            "v1_e7dde74055a837b0aabe2a45002af87bf95c9a04489262cff3d2af930d15d7b2",
             provider.requests.single().providerDispatchKey,
         )
     }
@@ -124,6 +126,29 @@ class ProcessPaymentUseCaseTest {
     }
 
     @Test
+    fun `keeps the attempt requested and records the provider attempt reference when dispatch is still processing`() {
+        val repository = PaymentAttemptRepositoryFake()
+        val provider = RequestedProvider()
+
+        val result = ProcessPaymentUseCase(repository, provider, FixedFingerprintSecret()).process(command())
+
+        assertEquals(PaymentStatus.REQUESTED, result.status)
+        assertEquals(PaymentStatus.REQUESTED, repository.attempts.single().status)
+        assertEquals("nexus-attempt-1", repository.attempts.single().providerAttemptReference)
+        assertEquals(PaymentProvider.PAYMENT_SERVICE, repository.attempts.single().provider)
+        assertEquals(0, repository.completeCalls)
+    }
+
+    @Test
+    fun `tags the created attempt with the active gateway's provider identity`() {
+        val repository = PaymentAttemptRepositoryFake()
+
+        ProcessPaymentUseCase(repository, ApprovedProvider(), FixedFingerprintSecret()).process(command())
+
+        assertEquals(PaymentProvider.PAYMENT_SERVICE, repository.attempts.single().provider)
+    }
+
+    @Test
     fun `rejects reuse of a reference and idempotency key with a different token`() {
         val useCase = ProcessPaymentUseCase(PaymentAttemptRepositoryFake(), ApprovedProvider(), FixedFingerprintSecret())
         useCase.process(command())
@@ -151,16 +176,34 @@ private class FixedFingerprintSecret : PaymentAuthorizationFingerprintSecretPort
 }
 
 private class ApprovedProvider : PaymentProviderGateway {
+    override val provider = PaymentProvider.PAYMENT_SERVICE
     val requests = mutableListOf<ProviderProcessingRequest>()
 
     override fun process(request: ProviderProcessingRequest): ProviderProcessingResult {
         requests += request
         return ProviderProcessingResult(PaymentStatus.APPROVED, "provider-tx-1")
     }
+
+    override fun checkStatus(providerAttemptReference: String): ProviderStatusResult =
+        throw UnsupportedOperationException("Not used by this fake.")
+}
+
+private class RequestedProvider : PaymentProviderGateway {
+    override val provider = PaymentProvider.PAYMENT_SERVICE
+    val requests = mutableListOf<ProviderProcessingRequest>()
+
+    override fun process(request: ProviderProcessingRequest): ProviderProcessingResult {
+        requests += request
+        return ProviderProcessingResult(PaymentStatus.REQUESTED, null, "nexus-attempt-1")
+    }
+
+    override fun checkStatus(providerAttemptReference: String): ProviderStatusResult =
+        throw UnsupportedOperationException("Not used by this fake.")
 }
 
 private class PaymentAttemptRepositoryFake : PaymentAttemptRepositoryPort {
     val attempts = mutableListOf<PaymentAttempt>()
+    var completeCalls = 0
 
     override fun reserve(attempt: PaymentAttempt): PaymentAttemptReservation {
         val existing =
@@ -187,10 +230,28 @@ private class PaymentAttemptRepositoryFake : PaymentAttemptRepositoryPort {
         providerTransactionId: String?,
         completedAt: Instant,
     ): PaymentAttempt? {
+        completeCalls++
         val current = attempts.firstOrNull { it.attemptReference == attemptReference } ?: return null
         if (current.processingLeaseToken != processingLeaseToken) return null
         val completed = current.complete(status, providerTransactionId, completedAt)
         attempts[attempts.indexOf(current)] = completed
         return completed
     }
+
+    override fun recordProviderDispatch(
+        attemptReference: String,
+        processingLeaseToken: String,
+        providerAttemptReference: String,
+    ): PaymentAttempt? {
+        val current = attempts.firstOrNull { it.attemptReference == attemptReference } ?: return null
+        if (current.processingLeaseToken != processingLeaseToken) return null
+        val dispatched = current.recordProviderDispatch(providerAttemptReference)
+        attempts[attempts.indexOf(current)] = dispatched
+        return dispatched
+    }
+
+    override fun findPendingByProvider(
+        provider: PaymentProvider,
+        limit: Int,
+    ): List<PaymentAttempt> = attempts.filter { it.status == PaymentStatus.REQUESTED && it.provider == provider }.take(limit)
 }

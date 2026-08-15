@@ -3,8 +3,10 @@ package com.nexus.shopping.payment.adapter.outbound.jpa
 import com.nexus.shopping.payment.application.port.outbound.PaymentAttemptRepositoryPort
 import com.nexus.shopping.payment.application.port.outbound.PaymentAttemptReservation
 import com.nexus.shopping.payment.domain.PaymentAttempt
+import com.nexus.shopping.payment.domain.PaymentProvider
 import com.nexus.shopping.payment.domain.PaymentStatus
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionDefinition
@@ -65,6 +67,39 @@ class PaymentJpaRepositoryAdapter(
             },
         )
     }
+
+    override fun recordProviderDispatch(
+        attemptReference: String,
+        processingLeaseToken: String,
+        providerAttemptReference: String,
+    ): PaymentAttempt? {
+        val dispatched =
+            requireNotNull(
+                transactions.execute {
+                    repository.recordProviderDispatchIfCurrentLeaseToken(
+                        attemptReference = attemptReference,
+                        processingLeaseToken = processingLeaseToken,
+                        providerAttemptReference = providerAttemptReference,
+                    ) == 1
+                },
+            )
+        if (!dispatched) return null
+        return requireNotNull(
+            transactions.execute {
+                repository.findByAttemptReference(attemptReference).orElse(null)?.toDomain()
+            },
+        )
+    }
+
+    override fun findPendingByProvider(
+        provider: PaymentProvider,
+        limit: Int,
+    ): List<PaymentAttempt> =
+        requireNotNull(
+            transactions.execute {
+                repository.findPendingByProvider(provider, PageRequest.of(0, limit)).map { it.toDomain() }
+            },
+        )
 
     private fun reserveInNewTransaction(attempt: PaymentAttempt): PaymentAttemptReservation =
         requireNotNull(

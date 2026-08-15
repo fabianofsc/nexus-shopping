@@ -8,10 +8,19 @@ import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressSnapshot
+import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingCommand
+import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingResult
+import com.nexus.shopping.integration.checkout.application.model.PaymentResultStatus
+import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentProcessingGateway
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.context.TestConfiguration
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Import
+import org.springframework.context.annotation.Primary
 import org.springframework.jdbc.core.JdbcTemplate
 import java.math.BigDecimal
+import java.util.UUID
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -31,6 +40,7 @@ import com.nexus.shopping.cart.domain.Currency as CartCurrency
         "spring.jpa.hibernate.ddl-auto=none",
     ],
 )
+@Import(CheckoutOrderConcurrencyTest.FakePaymentConfiguration::class)
 class CheckoutOrderConcurrencyTest {
     @Autowired
     private lateinit var carts: CartJpaRepositoryAdapter
@@ -155,5 +165,21 @@ class CheckoutOrderConcurrencyTest {
             executor.shutdown()
         }
         return results.toList()
+    }
+
+    @TestConfiguration
+    class FakePaymentConfiguration {
+        @Bean
+        @Primary
+        fun fakePaymentProcessingGateway(): PaymentProcessingGateway =
+            object : PaymentProcessingGateway {
+                override fun process(command: PaymentProcessingCommand): PaymentProcessingResult =
+                    PaymentProcessingResult(
+                        attemptReference = "pay_${UUID.randomUUID()}",
+                        status = PaymentResultStatus.REQUESTED,
+                        providerTransactionId = null,
+                        replayed = false,
+                    )
+            }
     }
 }
