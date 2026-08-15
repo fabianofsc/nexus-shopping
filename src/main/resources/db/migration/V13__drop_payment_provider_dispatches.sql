@@ -1,0 +1,1 @@
+DROP TABLE payment_provider_dispatches;

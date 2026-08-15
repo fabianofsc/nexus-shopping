@@ -225,53 +225,35 @@ class PaymentJpaRepositoryAdapterTest {
     }
 
     @Test
-    fun `findPendingByProvider only returns requested attempts for the given provider`() {
-        val loggingRequested = requested(referenceId = "order-pending-logging", idempotencyKey = "payment-pending-logging")
-        val nexusRequested =
-            requested(
-                referenceId = "order-pending-nexus",
-                idempotencyKey = "payment-pending-nexus",
-                provider = PaymentProvider.NEXUS_PAYMENT_SERVICE,
-            )
-        val nexusCompleted =
-            requested(
-                referenceId = "order-pending-nexus-completed",
-                idempotencyKey = "payment-pending-nexus-completed",
-                provider = PaymentProvider.NEXUS_PAYMENT_SERVICE,
-            )
-        attempts.reserve(loggingRequested)
-        attempts.reserve(nexusRequested)
-        val completedCreated = assertIs<PaymentAttemptReservation.Created>(attempts.reserve(nexusCompleted)).attempt
+    fun `findPendingByProvider only returns attempts still in the requested status`() {
+        val pending = requested(referenceId = "order-pending", idempotencyKey = "payment-pending")
+        val toComplete = requested(referenceId = "order-completed", idempotencyKey = "payment-completed")
+        attempts.reserve(pending)
+        val completedCreated = assertIs<PaymentAttemptReservation.Created>(attempts.reserve(toComplete)).attempt
         attempts.complete(
             completedCreated.attemptReference,
-            nexusCompleted.processingLeaseToken!!,
+            toComplete.processingLeaseToken!!,
             PaymentStatus.APPROVED,
             "provider-tx",
             Instant.now(),
         )
 
-        val pending = attempts.findPendingByProvider(PaymentProvider.NEXUS_PAYMENT_SERVICE)
+        val result = attempts.findPendingByProvider(PaymentProvider.PAYMENT_SERVICE)
 
-        assertEquals(
-            listOf(nexusRequested.referenceId),
-            pending.map { it.referenceId }.filter { it == nexusRequested.referenceId },
-        )
-        assertEquals(1, pending.count { it.referenceId == nexusRequested.referenceId })
-        assertEquals(0, pending.count { it.referenceId == loggingRequested.referenceId })
-        assertEquals(0, pending.count { it.referenceId == nexusCompleted.referenceId })
+        assertEquals(1, result.count { it.referenceId == pending.referenceId })
+        assertEquals(0, result.count { it.referenceId == toComplete.referenceId })
     }
 
     private fun requested(
         referenceId: String,
         idempotencyKey: String,
         processingLeaseUntil: Instant = Instant.now().plusSeconds(60),
-        provider: PaymentProvider = PaymentProvider.LOGGING_PROVIDER,
     ) = PaymentAttempt.requested(
         attemptReference = "pay-${UUID.randomUUID()}",
         referenceId = referenceId,
         amount = PaymentAmount.of("19.90".toBigDecimal()),
         currency = PaymentCurrency.of("BRL"),
-        provider = provider,
+        provider = PaymentProvider.PAYMENT_SERVICE,
         idempotencyKey = idempotencyKey,
         authorizationFingerprint = "fingerprint-${UUID.randomUUID()}",
         processingLeaseToken = "lease-${UUID.randomUUID()}",

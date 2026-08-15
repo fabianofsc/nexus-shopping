@@ -17,7 +17,7 @@ class ReconcilePendingPaymentAttemptsUseCase(
 ) : ReconcilePendingPaymentAttemptsInputPort {
     override fun reconcile(): List<PaymentReconciliationResult> =
         paymentAttemptRepository
-            .findPendingByProvider(PaymentProvider.NEXUS_PAYMENT_SERVICE)
+            .findPendingByProvider(PaymentProvider.PAYMENT_SERVICE)
             .mapNotNull(::reconcileAttempt)
 
     private fun reconcileAttempt(attempt: PaymentAttempt): PaymentReconciliationResult? {

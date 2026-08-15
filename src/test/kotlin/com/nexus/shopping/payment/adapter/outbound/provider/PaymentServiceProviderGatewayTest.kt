@@ -21,7 +21,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
-class NexusPaymentServiceProviderGatewayTest {
+class PaymentServiceProviderGatewayTest {
     @Test
     fun `process sends the derived idempotency key and body then maps 202 PROCESSING to a requested result`() {
         val (gateway, server) = gatewayWithMockServer()
@@ -148,10 +148,10 @@ class NexusPaymentServiceProviderGatewayTest {
             providerDispatchKey = "dispatch-key-1",
         )
 
-    private fun gatewayWithMockServer(): Pair<NexusPaymentServiceProviderGateway, MockRestServiceServer> {
+    private fun gatewayWithMockServer(): Pair<PaymentServiceProviderGateway, MockRestServiceServer> {
         val builder = RestClient.builder()
         val server = MockRestServiceServer.bindTo(builder).build()
-        val gateway = NexusPaymentServiceProviderGateway(builder, "http://nexus-payment-service")
+        val gateway = PaymentServiceProviderGateway(builder, "http://nexus-payment-service")
         return gateway to server
     }
 }

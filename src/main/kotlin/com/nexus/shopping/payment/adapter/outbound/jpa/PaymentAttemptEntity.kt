@@ -36,7 +36,7 @@ class PaymentAttemptEntity(
     var status: PaymentStatus = PaymentStatus.REQUESTED,
     @Enumerated(EnumType.STRING)
     @Column(name = "provider", nullable = false, length = 64)
-    var provider: PaymentProvider = PaymentProvider.LOGGING_PROVIDER,
+    var provider: PaymentProvider = PaymentProvider.PAYMENT_SERVICE,
     @Column(name = "provider_transaction_id", length = 255)
     var providerTransactionId: String? = null,
     @Column(name = "provider_attempt_reference", length = 255)

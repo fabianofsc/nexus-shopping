@@ -10,6 +10,9 @@ management:
       enabled: false
 
 nexus:
+  payment-service:
+    base-url: http://localhost:8081
+    polling-interval: 600000
   cache:
     redis:
       enabled: false

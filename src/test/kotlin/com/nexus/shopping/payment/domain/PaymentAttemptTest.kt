@@ -55,7 +55,7 @@ class PaymentAttemptTest {
             referenceId = "checkout:42",
             amount = PaymentAmount.of(BigDecimal("19.90")),
             currency = PaymentCurrency.of("BRL"),
-            provider = PaymentProvider.LOGGING_PROVIDER,
+            provider = PaymentProvider.PAYMENT_SERVICE,
             idempotencyKey = "checkout-key-1",
             authorizationFingerprint = "fingerprint",
             processingLeaseToken = "lease-1",

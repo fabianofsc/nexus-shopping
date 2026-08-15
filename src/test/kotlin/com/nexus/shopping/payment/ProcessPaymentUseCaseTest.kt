@@ -54,7 +54,7 @@ class ProcessPaymentUseCaseTest {
         ProcessPaymentUseCase(PaymentAttemptRepositoryFake(), provider, FixedFingerprintSecret()).process(command())
 
         assertEquals(
-            "v1_edb959fdea610389a04d691e46b65164dbbac2fde27d29776972ff8e3e257869",
+            "v1_2f73833ff1517332455a99230561614b353a522427e6f343280c4e0336eddb0f",
             provider.requests.single().providerDispatchKey,
         )
     }
@@ -68,7 +68,7 @@ class ProcessPaymentUseCaseTest {
         )
 
         assertEquals(
-            "v1_5eb2178088d786fc3cc60b797f02705f061dd9666bfc8471a5190a1be5a5810f",
+            "v1_e7dde74055a837b0aabe2a45002af87bf95c9a04489262cff3d2af930d15d7b2",
             provider.requests.single().providerDispatchKey,
         )
     }
@@ -135,7 +135,7 @@ class ProcessPaymentUseCaseTest {
         assertEquals(PaymentStatus.REQUESTED, result.status)
         assertEquals(PaymentStatus.REQUESTED, repository.attempts.single().status)
         assertEquals("nexus-attempt-1", repository.attempts.single().providerAttemptReference)
-        assertEquals(PaymentProvider.NEXUS_PAYMENT_SERVICE, repository.attempts.single().provider)
+        assertEquals(PaymentProvider.PAYMENT_SERVICE, repository.attempts.single().provider)
         assertEquals(0, repository.completeCalls)
     }
 
@@ -145,7 +145,7 @@ class ProcessPaymentUseCaseTest {
 
         ProcessPaymentUseCase(repository, ApprovedProvider(), FixedFingerprintSecret()).process(command())
 
-        assertEquals(PaymentProvider.LOGGING_PROVIDER, repository.attempts.single().provider)
+        assertEquals(PaymentProvider.PAYMENT_SERVICE, repository.attempts.single().provider)
     }
 
     @Test
@@ -176,7 +176,7 @@ private class FixedFingerprintSecret : PaymentAuthorizationFingerprintSecretPort
 }
 
 private class ApprovedProvider : PaymentProviderGateway {
-    override val provider = PaymentProvider.LOGGING_PROVIDER
+    override val provider = PaymentProvider.PAYMENT_SERVICE
     val requests = mutableListOf<ProviderProcessingRequest>()
 
     override fun process(request: ProviderProcessingRequest): ProviderProcessingResult {
@@ -189,7 +189,7 @@ private class ApprovedProvider : PaymentProviderGateway {
 }
 
 private class RequestedProvider : PaymentProviderGateway {
-    override val provider = PaymentProvider.NEXUS_PAYMENT_SERVICE
+    override val provider = PaymentProvider.PAYMENT_SERVICE
     val requests = mutableListOf<ProviderProcessingRequest>()
 
     override fun process(request: ProviderProcessingRequest): ProviderProcessingResult {

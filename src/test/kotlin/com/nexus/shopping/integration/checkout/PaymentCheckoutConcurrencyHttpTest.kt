@@ -1,8 +1,13 @@
 package com.nexus.shopping.integration.checkout
 
 import com.fasterxml.jackson.databind.json.JsonMapper
+import com.github.tomakehurst.wiremock.WireMockServer
+import com.github.tomakehurst.wiremock.client.WireMock.aResponse
+import com.github.tomakehurst.wiremock.client.WireMock.post
+import com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor
+import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
 import com.nexus.shopping.payment.adapter.outbound.jpa.PaymentJpaRepositoryAdapter
-import com.nexus.shopping.payment.adapter.outbound.provider.LoggingPaymentProviderGateway
+import com.nexus.shopping.payment.adapter.outbound.provider.PaymentServiceProviderGateway
 import com.nexus.shopping.payment.application.port.outbound.PaymentAttemptRepositoryPort
 import com.nexus.shopping.payment.application.port.outbound.PaymentAttemptReservation
 import com.nexus.shopping.payment.application.port.outbound.PaymentProviderGateway
@@ -21,6 +26,9 @@ import org.springframework.context.annotation.Import
 import org.springframework.context.annotation.Primary
 import org.springframework.core.env.Environment
 import org.springframework.jdbc.core.JdbcTemplate
+import org.wiremock.spring.ConfigureWireMock
+import org.wiremock.spring.EnableWireMock
+import org.wiremock.spring.InjectWireMock
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -46,6 +54,7 @@ import kotlin.test.assertTrue
         "spring.jpa.hibernate.ddl-auto=none",
     ],
 )
+@EnableWireMock(ConfigureWireMock(baseUrlProperties = ["nexus.payment-service.base-url"]))
 @Import(PaymentCheckoutConcurrencyHttpTest.ConcurrencyConfiguration::class)
 class PaymentCheckoutConcurrencyHttpTest {
     @Autowired
@@ -60,11 +69,25 @@ class PaymentCheckoutConcurrencyHttpTest {
     @Autowired
     private lateinit var attempts: ObservingPaymentAttemptRepository
 
+    @InjectWireMock
+    private lateinit var wireMock: WireMockServer
+
     private val mapper = JsonMapper.builder().build()
     private val httpClient = HttpClient.newHttpClient()
 
     @Test
-    fun `concurrent identical checkouts produce one dispatch and consistent terminal responses`() {
+    fun `concurrent identical checkouts produce one dispatch and consistent WAITING_PAYMENT responses`() {
+        wireMock.stubFor(
+            post(urlEqualTo("/v1/payments"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(202)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            """{"attemptReference":"provider-attempt-1","referenceId":"irrelevant","status":"PROCESSING","replayed":false}""",
+                        ),
+                ),
+        )
         val port = environment.getRequiredProperty("local.server.port")
         val customerId = createCustomer(port)
         addItem(port, customerId)
@@ -85,14 +108,13 @@ class PaymentCheckoutConcurrencyHttpTest {
             provider.release.countDown()
 
             val completed = responses.map { it.get(15, TimeUnit.SECONDS) }
-            assertEquals(listOf(200, 200, 200, 200, 200, 200, 200, 201), completed.map { it.statusCode() }.sorted())
+            assertEquals(List(REQUEST_COUNT) { 202 }, completed.map { it.statusCode() })
             val orders = completed.map { mapper.readTree(it.body()) }
-            assertEquals(setOf("CONFIRMED"), orders.map { it["status"].asText() }.toSet())
+            assertEquals(setOf("WAITING_PAYMENT"), orders.map { it["status"].asText() }.toSet())
             assertEquals(1, orders.map { it["id"].asLong() }.toSet().size)
             val orderId = orders.first()["id"].asLong()
-            assertEquals(1, count("SELECT COUNT(*) FROM payment_provider_dispatches WHERE reference_id = ?", "checkout:$orderId"))
+            wireMock.verify(1, postRequestedFor(urlEqualTo("/v1/payments")))
             assertEquals(1, count("SELECT COUNT(*) FROM payment_attempts WHERE reference_id = ?", "checkout:$orderId"))
-            assertEquals(1, count("SELECT COUNT(*) FROM notifications WHERE reference_id = ?", orderId))
         } finally {
             provider.release.countDown()
             executor.shutdownNow()
@@ -215,8 +237,8 @@ class PaymentCheckoutConcurrencyHttpTest {
         @Bean
         @Primary
         fun concurrentBlockingPaymentProvider(
-            @Qualifier("loggingPaymentProviderGateway")
-            delegate: LoggingPaymentProviderGateway,
+            @Qualifier("paymentServiceProviderGateway")
+            delegate: PaymentServiceProviderGateway,
         ): ConcurrentBlockingPaymentProvider = ConcurrentBlockingPaymentProvider(delegate)
     }
 

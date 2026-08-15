@@ -10,7 +10,6 @@ import com.nexus.shopping.payment.application.port.outbound.ProviderStatusResult
 import com.nexus.shopping.payment.domain.PaymentProvider
 import com.nexus.shopping.payment.domain.PaymentStatus
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
@@ -18,13 +17,12 @@ import org.springframework.web.client.RestClientResponseException
 import org.springframework.web.client.body
 
 @Component
-@ConditionalOnProperty(prefix = "nexus.payment-service", name = ["enabled"], havingValue = "true")
-class NexusPaymentServiceProviderGateway(
+class PaymentServiceProviderGateway(
     restClientBuilder: RestClient.Builder,
     @Value("\${nexus.payment-service.base-url}")
     baseUrl: String,
 ) : PaymentProviderGateway {
-    override val provider = PaymentProvider.NEXUS_PAYMENT_SERVICE
+    override val provider = PaymentProvider.PAYMENT_SERVICE
 
     private val restClient = restClientBuilder.baseUrl(baseUrl).build()
     private val errorMapper = ObjectMapper()
