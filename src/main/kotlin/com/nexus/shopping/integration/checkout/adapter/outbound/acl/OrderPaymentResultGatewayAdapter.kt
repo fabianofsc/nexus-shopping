@@ -7,7 +7,7 @@ import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderSn
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
 import com.nexus.shopping.order.application.exception.OrderNotFoundException
 import com.nexus.shopping.order.application.port.inbound.ApplyOrderPaymentResultInputPort
-import com.nexus.shopping.order.application.usecase.GetOrderByIdUseCase
+import com.nexus.shopping.order.application.port.inbound.GetOrderByIdInputPort
 import com.nexus.shopping.order.domain.OrderStatus
 import org.springframework.stereotype.Component
 import com.nexus.shopping.order.application.command.ApplyOrderPaymentResultCommand as OrderApplyOrderPaymentResultCommand
@@ -15,7 +15,7 @@ import com.nexus.shopping.order.application.command.ApplyOrderPaymentResultComma
 @Component
 class OrderPaymentResultGatewayAdapter(
     private val orders: ApplyOrderPaymentResultInputPort,
-    private val getOrderById: GetOrderByIdUseCase,
+    private val getOrderById: GetOrderByIdInputPort,
 ) : OrderPaymentResultGateway {
     override fun apply(command: ApplyOrderPaymentResultCommand): CheckoutOrderSnapshot {
         val updated =

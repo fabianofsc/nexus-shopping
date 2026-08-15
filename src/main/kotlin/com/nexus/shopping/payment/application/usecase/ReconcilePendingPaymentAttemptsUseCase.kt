@@ -7,6 +7,7 @@ import com.nexus.shopping.payment.application.port.outbound.PaymentProviderGatew
 import com.nexus.shopping.payment.domain.PaymentAttempt
 import com.nexus.shopping.payment.domain.PaymentProvider
 import com.nexus.shopping.payment.domain.PaymentStatus
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Instant
 
@@ -18,7 +19,23 @@ class ReconcilePendingPaymentAttemptsUseCase(
     override fun reconcile(): List<PaymentReconciliationResult> =
         paymentAttemptRepository
             .findPendingByProvider(PaymentProvider.PAYMENT_SERVICE)
-            .mapNotNull(::reconcileAttempt)
+            .mapNotNull { attempt ->
+                try {
+                    reconcileAttempt(attempt)
+                } catch (exception: RuntimeException) {
+                    // One attempt's failure (e.g. a stale/unknown provider reference, or a
+                    // provider-side error) must not stop the rest of the batch from being
+                    // reconciled - the oldest pending attempt failing forever would otherwise
+                    // silently stall every other checkout.
+                    logger.warn(
+                        "Failed to reconcile payment attempt attemptReference={} providerAttemptReference={}",
+                        attempt.attemptReference,
+                        attempt.providerAttemptReference,
+                        exception,
+                    )
+                    null
+                }
+            }
 
     private fun reconcileAttempt(attempt: PaymentAttempt): PaymentReconciliationResult? {
         val providerAttemptReference = attempt.providerAttemptReference ?: return null
@@ -40,5 +57,9 @@ class ReconcilePendingPaymentAttemptsUseCase(
             status = completed.status,
             providerTransactionId = completed.providerTransactionId,
         )
+    }
+
+    private companion object {
+        val logger = LoggerFactory.getLogger(ReconcilePendingPaymentAttemptsUseCase::class.java)
     }
 }

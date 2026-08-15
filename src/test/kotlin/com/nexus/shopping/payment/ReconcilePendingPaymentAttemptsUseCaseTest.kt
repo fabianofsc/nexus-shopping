@@ -1,5 +1,6 @@
 package com.nexus.shopping.payment
 
+import com.nexus.shopping.payment.application.exception.PaymentProviderGatewayException
 import com.nexus.shopping.payment.application.port.outbound.PaymentAttemptRepositoryPort
 import com.nexus.shopping.payment.application.port.outbound.PaymentAttemptReservation
 import com.nexus.shopping.payment.application.port.outbound.PaymentProviderGateway
@@ -60,16 +61,41 @@ class ReconcilePendingPaymentAttemptsUseCaseTest {
         assertTrue(second.isEmpty())
     }
 
+    @Test
+    fun `a failure reconciling one attempt does not prevent other attempts from being reconciled`() {
+        val repository = PaymentAttemptRepositoryFake()
+        val failing = repository.seedDispatched(providerAttemptReference = "nexus-1")
+        val succeeding = repository.seedDispatched(providerAttemptReference = "nexus-2")
+        val gateway =
+            FakeProviderGateway(
+                statuses = mapOf("nexus-2" to ProviderStatusResult(PaymentStatus.APPROVED, "provider-tx-2")),
+                failing = setOf("nexus-1"),
+            )
+
+        val results = ReconcilePendingPaymentAttemptsUseCase(repository, gateway).reconcile()
+
+        assertEquals(1, results.size)
+        assertEquals(succeeding.attemptReference, results.single().attemptReference)
+        assertEquals(PaymentStatus.APPROVED, results.single().status)
+        assertEquals(PaymentStatus.REQUESTED, repository.attempts.first { it.attemptReference == failing.attemptReference }.status)
+        assertEquals(PaymentStatus.APPROVED, repository.attempts.first { it.attemptReference == succeeding.attemptReference }.status)
+    }
+
     private class FakeProviderGateway(
         private val statuses: Map<String, ProviderStatusResult>,
+        private val failing: Set<String> = emptySet(),
     ) : PaymentProviderGateway {
         override val provider = PaymentProvider.PAYMENT_SERVICE
 
         override fun process(request: ProviderProcessingRequest): ProviderProcessingResult =
             throw UnsupportedOperationException("Not used by this fake.")
 
-        override fun checkStatus(providerAttemptReference: String): ProviderStatusResult =
-            requireNotNull(statuses[providerAttemptReference]) { "No stubbed status for $providerAttemptReference" }
+        override fun checkStatus(providerAttemptReference: String): ProviderStatusResult {
+            if (providerAttemptReference in failing) {
+                throw PaymentProviderGatewayException("nexus-payment-service returned 502 (unknown).")
+            }
+            return requireNotNull(statuses[providerAttemptReference]) { "No stubbed status for $providerAttemptReference" }
+        }
     }
 
     private class PaymentAttemptRepositoryFake : PaymentAttemptRepositoryPort {
