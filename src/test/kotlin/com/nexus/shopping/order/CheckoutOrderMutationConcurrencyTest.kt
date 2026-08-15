@@ -21,6 +21,9 @@ import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressSnapshot
+import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingCommand
+import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingResult
+import com.nexus.shopping.integration.checkout.application.model.PaymentResultStatus
 import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentAuthorizationFingerprintGateway
@@ -32,6 +35,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.jdbc.core.JdbcTemplate
 import java.math.BigDecimal
+import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
@@ -67,9 +71,6 @@ class CheckoutOrderMutationConcurrencyTest {
 
     @Autowired
     private lateinit var paymentAuthorizationFingerprints: PaymentAuthorizationFingerprintGateway
-
-    @Autowired
-    private lateinit var payments: PaymentProcessingGateway
 
     @Autowired
     private lateinit var orderPaymentResults: OrderPaymentResultGateway
@@ -118,7 +119,7 @@ class CheckoutOrderMutationConcurrencyTest {
                     orders = OrderCreationGatewayAdapter(orderUseCase, orderUseCase),
                     paymentAuthorizationFingerprints = paymentAuthorizationFingerprints,
                     paymentValidation = paymentValidation,
-                    payments = payments,
+                    payments = FakeRequestedPaymentGateway,
                     orderPaymentResults = orderPaymentResults,
                     notifications = notifications,
                     transaction = transactions,
@@ -205,4 +206,14 @@ private class SignalingCartRepository(
         delegate.getOrCreateCartForMutationByCustomerId(customerId).also {
             mutationReadActiveCart.countDown()
         }
+}
+
+private object FakeRequestedPaymentGateway : PaymentProcessingGateway {
+    override fun process(command: PaymentProcessingCommand): PaymentProcessingResult =
+        PaymentProcessingResult(
+            attemptReference = "pay_${UUID.randomUUID()}",
+            status = PaymentResultStatus.REQUESTED,
+            providerTransactionId = null,
+            replayed = false,
+        )
 }

@@ -1,10 +1,18 @@
 package com.nexus.shopping.order
 
 import com.fasterxml.jackson.databind.json.JsonMapper
+import com.github.tomakehurst.wiremock.WireMockServer
+import com.github.tomakehurst.wiremock.client.WireMock.aResponse
+import com.github.tomakehurst.wiremock.client.WireMock.post
+import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
+import org.junit.jupiter.api.BeforeEach
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.core.env.Environment
 import org.springframework.jdbc.core.JdbcTemplate
+import org.wiremock.spring.ConfigureWireMock
+import org.wiremock.spring.EnableWireMock
+import org.wiremock.spring.InjectWireMock
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -27,6 +35,7 @@ import kotlin.test.assertTrue
         "spring.jpa.hibernate.ddl-auto=none",
     ],
 )
+@EnableWireMock(ConfigureWireMock(baseUrlProperties = ["nexus.payment-service.base-url"]))
 class OrderControllerTest {
     @Autowired
     private lateinit var environment: Environment
@@ -34,33 +43,51 @@ class OrderControllerTest {
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
 
+    @InjectWireMock
+    private lateinit var wireMock: WireMockServer
+
     private val mapper = JsonMapper.builder().build()
     private val httpClient = HttpClient.newHttpClient()
 
+    @BeforeEach
+    fun stubPaymentDispatch() {
+        wireMock.stubFor(
+            post(urlEqualTo("/v1/payments"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(202)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            """{"attemptReference":"provider-attempt-order-controller","referenceId":"irrelevant","status":"PROCESSING","replayed":false}""",
+                        ),
+                ),
+        )
+    }
+
     @Test
-    fun `POST checkout returns 201 with the order created from cart items`() {
+    fun `POST checkout returns 202 with the order created from cart items`() {
         val port = environment.getRequiredProperty("local.server.port")
         addItem(port, 1L)
 
         val response = checkoutCreated(port, 1L, "checkout-1")
 
-        assertEquals(201, response.statusCode())
+        assertEquals(202, response.statusCode())
         val order = mapper.readTree(response.body())
         assertEquals(1L, order["customerId"].asLong())
-        assertEquals("CONFIRMED", order["status"].asText())
+        assertEquals("WAITING_PAYMENT", order["status"].asText())
         assertEquals(1, order["items"].size())
     }
 
     @Test
-    fun `POST checkout replays the original order with 200 for the same idempotency key and payload`() {
+    fun `POST checkout replays the same WAITING_PAYMENT order for the same idempotency key and payload`() {
         val port = environment.getRequiredProperty("local.server.port")
         addItem(port, 2L)
 
         val created = checkoutCreated(port, 2L, "checkout-replay")
         val replay = post(port, "/customers/2/cart/checkout", checkoutBody(), "checkout-replay")
 
-        assertEquals(201, created.statusCode())
-        assertEquals(200, replay.statusCode())
+        assertEquals(202, created.statusCode())
+        assertEquals(202, replay.statusCode())
         assertEquals(mapper.readTree(created.body())["id"].asLong(), mapper.readTree(replay.body())["id"].asLong())
     }
 
@@ -336,7 +363,7 @@ class OrderControllerTest {
         idempotencyKey: String,
     ): HttpResponse<String> {
         val response = post(port, "/customers/$customerId/cart/checkout", checkoutBody(), idempotencyKey)
-        assertEquals(201, response.statusCode())
+        assertEquals(202, response.statusCode())
         return response
     }
 
