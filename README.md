@@ -65,7 +65,7 @@ Decisoes principais:
 - `Checkout` e um fluxo, nao um Bounded Context separado nesta fase.
 - `Customer` e dono dos dados cadastrais, mas `Order` guarda snapshot historico.
 - `Product` no catalogo, `ProductSummary` no carrinho e `OrderItemSnapshot` no pedido nao sao o mesmo modelo global.
-- `Payment` continua sendo a primeira fronteira de extracao. O PSP DummyPay ja existe como servico externo; o proximo passo e criar o Payment Service que o consome antes de refatorar o Nexus.
+- `Payment` foi extraido: o Nexus consome o `nexus-payment-service` real via HTTP (ports/ACL), unico provider de pagamento — o adapter simulado local foi removido. O `nexus-payment-service`, por sua vez, e quem fala com o PSP DummyPay; o Nexus nunca chama DummyPay diretamente.
 - Redis e usado como cache distribuido das consultas de produto; nao e um Bounded Context.
 
 ADRs: [Bounded Contexts](docs/decisions/2026-07-17-prd-commerce-bounded-contexts.md) e [servicos externos autonomos](docs/decisions/2026-08-12-prd-autonomous-external-services.md).
@@ -73,13 +73,15 @@ ADRs: [Bounded Contexts](docs/decisions/2026-07-17-prd-commerce-bounded-contexts
 ### Servicos externos autonomos
 
 Dois servicos Go ja foram implementados em repositorios separados, com banco,
-credenciais, ciclo de vida e contrato HTTP proprios. Eles ainda **nao sao
-chamados pelo runtime do Nexus**; portanto, nao ha dependencia de codigo,
-submodulo, tabela ou banco compartilhado.
+credenciais, ciclo de vida e contrato HTTP proprios. O Payment Service
+(`nexus-payment-service`) ja e chamado pelo runtime do Nexus via HTTP/ACL,
+como unico provider de pagamento; DummyPay continua sendo falado apenas pelo
+Payment Service, nunca diretamente pelo Nexus. Nao ha dependencia de codigo,
+submodulo, tabela ou banco compartilhado entre os repositorios.
 
 | Servico | Papel | Estado de integracao com o Nexus |
 | --- | --- | --- |
-| DummyPay | PSP deterministico para vendas com cartao | Implementado; sera consumido pelo futuro Payment Service, nunca diretamente pelo Nexus. |
+| DummyPay | PSP deterministico para vendas com cartao | Implementado; consumido pelo Payment Service, nunca diretamente pelo Nexus. |
 | Notification Service | Entrega generica de e-mail e SMS simulados | Implementado; sera consumido por um adapter/ACL quando a notificacao sair do monolito. |
 
 Os limites, contratos e a sequencia de evolucao estao em
@@ -187,6 +189,11 @@ Aplicacao local com uma instancia:
 docker compose up -d postgres redis
 ./gradlew bootRun
 ```
+
+A partir desta versao, `nexus-payment-service` e uma dependencia obrigatoria de runtime — sem
+ele, o checkout falha ao tentar despachar o pagamento. `docker compose up -d` (sem especificar
+servicos) sobe a stack completa, incluindo Payment Service e Dummy Pay, a partir de imagens
+publicadas.
 
 O seed padrao e de `1000` produtos. Para usar outro volume:
 

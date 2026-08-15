@@ -6,10 +6,13 @@ DummyPay e Notification Service estao implementados como servicos Go em
 repositorios independentes. Na arvore local atual, ficam respectivamente em
 `../dummy-pay` e `../notification-service`.
 
-Eles nao estao integrados ao runtime deste repositorio. O Nexus continua um
-monolito modular Kotlin com Payment e Notification locais; nenhuma chamada HTTP
-para esses servicos, dependencia de codigo, submodulo ou acesso cruzado a banco
-foi introduzido.
+DummyPay ainda nao esta integrado ao runtime deste repositorio; e falado
+exclusivamente pelo Payment Service. O Nexus **ja** consome o Payment Service
+(`nexus-payment-service`) real via HTTP/ACL para processar pagamentos — o
+adapter simulado local foi removido. Notification Service segue nao
+integrado; o Nexus continua com Notification local ate essa etapa futura.
+Nenhuma dependencia de codigo, submodulo ou acesso cruzado a banco foi
+introduzida em nenhum dos dois casos.
 
 ## Topologia alvo
 
@@ -86,7 +89,7 @@ parte da reconciliacao, sem interpretar regras internas do servico.
 1. Criar o Payment Service, com port para PSP e adapter HTTP para DummyPay.
 2. Integrar e validar o fluxo Payment Service -> DummyPay, incluindo
    idempotencia, webhooks, timeout e reconciliacao.
-3. Refatorar o Nexus para substituir o provider de Payment local pelo adapter
-   HTTP do Payment Service, preservando o contrato de checkout.
+3. ~~Refatorar o Nexus para substituir o provider de Payment local pelo adapter
+   HTTP do Payment Service, preservando o contrato de checkout.~~ Feito.
 4. Extrair o consumo de notificacao para o Notification Service por adapter/ACL
    proprio, sem acoplamento ao dominio de notificacao generico.
