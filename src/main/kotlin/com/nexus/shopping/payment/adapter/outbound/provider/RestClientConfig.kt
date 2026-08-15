@@ -1,5 +1,7 @@
 package com.nexus.shopping.payment.adapter.outbound.provider
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.client.JdkClientHttpRequestFactory
@@ -9,6 +11,15 @@ import java.time.Duration
 
 @Configuration
 class RestClientConfig {
+    // Spring Boot 4's own JacksonAutoConfiguration only publishes a Jackson 3
+    // (tools.jackson.databind) mapper bean - it powers the app's actual HTTP message
+    // conversion and is left untouched. This bean is a separate, explicit Jackson 2
+    // (com.fasterxml.jackson.databind) ObjectMapper, matching the project's own declared
+    // Jackson 2 dependencies (jackson-module-kotlin, jackson-datatype-jsr310), for adapters
+    // that parse JSON outside the request/response pipeline (e.g. an error body string).
+    @Bean
+    fun objectMapper(): ObjectMapper = jacksonObjectMapper()
+
     @Bean
     fun restClientBuilder(): RestClient.Builder {
         val httpClient =

@@ -21,11 +21,11 @@ class PaymentServiceProviderGateway(
     restClientBuilder: RestClient.Builder,
     @Value("\${nexus.payment-service.base-url}")
     baseUrl: String,
+    private val errorMapper: ObjectMapper,
 ) : PaymentProviderGateway {
     override val provider = PaymentProvider.PAYMENT_SERVICE
 
     private val restClient = restClientBuilder.baseUrl(baseUrl).build()
-    private val errorMapper = ObjectMapper()
 
     override fun process(request: ProviderProcessingRequest): ProviderProcessingResult {
         val response =

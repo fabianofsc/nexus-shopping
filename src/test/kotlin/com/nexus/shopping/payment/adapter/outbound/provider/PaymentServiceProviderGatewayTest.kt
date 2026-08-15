@@ -1,5 +1,6 @@
 package com.nexus.shopping.payment.adapter.outbound.provider
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.nexus.shopping.payment.application.exception.PaymentProviderGatewayException
 import com.nexus.shopping.payment.application.port.outbound.ProviderProcessingRequest
 import com.nexus.shopping.payment.domain.PaymentAmount
@@ -151,7 +152,7 @@ class PaymentServiceProviderGatewayTest {
     private fun gatewayWithMockServer(): Pair<PaymentServiceProviderGateway, MockRestServiceServer> {
         val builder = RestClient.builder()
         val server = MockRestServiceServer.bindTo(builder).build()
-        val gateway = PaymentServiceProviderGateway(builder, "http://nexus-payment-service")
+        val gateway = PaymentServiceProviderGateway(builder, "http://nexus-payment-service", jacksonObjectMapper())
         return gateway to server
     }
 }
