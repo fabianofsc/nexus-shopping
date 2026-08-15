@@ -13,6 +13,7 @@ x-app: &app-base
     PRODUCT_SEED_COUNT: ${PRODUCT_SEED_COUNT:-1000}
     SPRING_DATA_REDIS_HOST: redis
     SPRING_DATA_REDIS_PORT: 6379
+    NEXUS_PAYMENT_SERVICE_BASE_URL: ${NEXUS_PAYMENT_SERVICE_BASE_URL:-http://nexus-payment-service:8081}
   expose:
     - "8080"
   depends_on:
@@ -20,6 +21,8 @@ x-app: &app-base
       condition: service_healthy
     redis:
       condition: service_healthy
+    nexus-payment-service:
+      condition: service_started
   networks:
     - backend
   restart: unless-stopped
@@ -82,9 +85,85 @@ services:
       timeout: 5s
       retries: 5
 
+  # --- Payment Service (dependencia obrigatoria de runtime a partir desta versao) ---
+  # Sobe inteiramente a partir de imagens publicadas: nao requer clonar
+  # nexus-payment-service nem dummy-pay localmente.
+  nexus-payment-service:
+    image: fabianofsc/nexus-payment-service:latest
+    environment:
+      DB_URL: jdbc:postgresql://nexus-payment-postgres:5432/nexus_payment
+      DB_USERNAME: nexus
+      DB_PASSWORD: nexus
+      NEXUS_PAYMENT_DUMMYPAY_BASE_URL: http://dummypay:8080
+      SERVER_PORT: "8081"
+      NEXUS_PAYMENT_AUTHORIZATION_FINGERPRINT_SECRET: ${NEXUS_PAYMENT_AUTHORIZATION_FINGERPRINT_SECRET:-dev-secret-change-in-production}
+      NEXUS_PAYMENT_DUMMYPAY_KEY_ID: ${NEXUS_PAYMENT_DUMMYPAY_KEY_ID:-local-dev-account}
+      NEXUS_PAYMENT_DUMMYPAY_KEY_SECRET: ${NEXUS_PAYMENT_DUMMYPAY_KEY_SECRET:-change-me-to-a-long-random-value}
+      NEXUS_PAYMENT_DUMMYPAY_WEBHOOK_SECRET: ${NEXUS_PAYMENT_DUMMYPAY_WEBHOOK_SECRET:-dev-webhook-secret}
+    depends_on:
+      nexus-payment-postgres:
+        condition: service_healthy
+      dummypay:
+        condition: service_started
+    networks:
+      - backend
+    restart: unless-stopped
+
+  nexus-payment-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: nexus_payment
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: nexus
+    volumes:
+      - nexus-payment-pgdata:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus -d nexus_payment"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  dummypay-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: dummypay
+      POSTGRES_USER: dummypay
+      POSTGRES_PASSWORD: dummypay
+    volumes:
+      - dummypay-pgdata:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dummypay -d dummypay"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  dummypay:
+    image: fabianofsc/dummy-pay:latest
+    environment:
+      DUMMYPAY_HTTP_ADDR: ":8080"
+      DUMMYPAY_DATABASE_URL: "postgres://dummypay:dummypay@dummypay-postgres:5432/dummypay?sslmode=disable"
+      DUMMYPAY_ACCOUNT_KEY_ID: ${NEXUS_PAYMENT_DUMMYPAY_KEY_ID:-local-dev-account}
+      DUMMYPAY_ACCOUNT_KEY_SECRET: ${NEXUS_PAYMENT_DUMMYPAY_KEY_SECRET:-change-me-to-a-long-random-value}
+      DUMMYPAY_WEBHOOK_SECRET_ENC_KEY: "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE="
+      DUMMYPAY_PROCESSING_DELAY: "3s"
+      DUMMYPAY_IDEMPOTENCY_LEASE: "30s"
+      DUMMYPAY_WORKER_POLL_INTERVAL: "250ms"
+      DUMMYPAY_WEBHOOK_TIMEOUT: "5s"
+    depends_on:
+      dummypay-postgres:
+        condition: service_healthy
+    networks:
+      - backend
+
 networks:
   backend:
     driver: bridge
 
 volumes:
   postgres-data:
+  nexus-payment-pgdata:
+  dummypay-pgdata:
