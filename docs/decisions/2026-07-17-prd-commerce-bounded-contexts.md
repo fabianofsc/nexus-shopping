@@ -645,12 +645,12 @@ Melhorias para chegar a 10/10:
 - [x] Customer: feito.
 - [x] Notification: feito.
 - [x] Cart: feito; usa `customerId`, `ProductSummary`, carrinho `ACTIVE` e operacoes idempotentes de itens.
-- [ ] Order: pendente; contexto central, depende de snapshots, checkout e Payment.
-- [ ] Payment: pendente; fronteira importante, mas depende de Order existir.
+- [x] Order: feito; mantem snapshots historicos e aplica resultados de pagamento de forma idempotente.
+- [x] Payment: feito; processa tentativas idempotentes por meio de provider simulado e e integrado ao checkout.
 
 ### Sequencia recomendada
 
-1. Criar a spec de implementacao de Order + checkout sincrono.
-2. Implementar Order com snapshots historicos de cliente, endereco e itens.
-3. Implementar Payment como simulador interno chamado por Order.
-4. Conectar Notification aos eventos conceituais quando a etapa de mensageria for introduzida.
+1. Extrair `Payment` como primeiro servico, mantendo seu modelo e sua idempotencia autonomos.
+2. Substituir o adapter local por comunicacao HTTP entre Checkout/Order e Payment.
+3. Demonstrar timeout, retry, falha parcial e conciliacao por chave de idempotencia.
+4. Introduzir mensageria para os resultados de Payment e para Notification.
