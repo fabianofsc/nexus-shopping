@@ -11,6 +11,12 @@ import com.nexus.shopping.integration.checkout.application.model.CheckoutItemSna
 import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CreateCheckoutOrderCommand
 import com.nexus.shopping.integration.checkout.application.model.FindCheckoutOrderReplayCommand
+import com.nexus.shopping.inventory.application.command.DecrementStockCommand
+import com.nexus.shopping.inventory.application.command.DecrementStockItem
+import com.nexus.shopping.inventory.application.command.ReleaseStockCommand
+import com.nexus.shopping.inventory.application.command.ReleaseStockItem
+import com.nexus.shopping.inventory.application.port.inbound.DecrementStockInputPort
+import com.nexus.shopping.inventory.application.port.inbound.ReleaseStockInputPort
 import com.nexus.shopping.order.application.command.CreateOrderCommand
 import com.nexus.shopping.order.application.port.inbound.CreateOrderInputPort
 import com.nexus.shopping.order.application.port.inbound.CreatedOrder
@@ -125,6 +131,32 @@ class CheckoutGatewayAdaptersTest {
         assertEquals("checkout:1", result?.orderReference)
         assertEquals("ana@example.com", result?.recipientEmail)
         assertEquals(listOf(checkoutItem), result?.items)
+    }
+
+    @Test
+    fun `Inventory gateway translates checkout items into decrement and release commands`() {
+        val decrements = mutableListOf<DecrementStockCommand>()
+        val releases = mutableListOf<ReleaseStockCommand>()
+        val decrementPort =
+            object : DecrementStockInputPort {
+                override fun decrement(command: DecrementStockCommand) {
+                    decrements += command
+                }
+            }
+        val releasePort =
+            object : ReleaseStockInputPort {
+                override fun release(command: ReleaseStockCommand) {
+                    releases += command
+                }
+            }
+        val gateway = InventoryGatewayAdapter(decrementPort, releasePort)
+        val items = listOf(checkoutItem)
+
+        gateway.decrement("checkout:1", items)
+        gateway.release("checkout:1", items)
+
+        assertEquals(DecrementStockCommand("checkout:1", listOf(DecrementStockItem(1L, 2))), decrements.single())
+        assertEquals(ReleaseStockCommand("checkout:1", listOf(ReleaseStockItem(1L, 2))), releases.single())
     }
 
     private fun order() =

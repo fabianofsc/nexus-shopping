@@ -17,6 +17,7 @@ import com.nexus.shopping.integration.checkout.application.model.PaymentProcessi
 import com.nexus.shopping.integration.checkout.application.model.PaymentResultStatus
 import com.nexus.shopping.integration.checkout.application.model.PaymentValidationCommand
 import com.nexus.shopping.integration.checkout.application.port.outbound.CheckoutCartGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.InventoryGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderCreationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
@@ -29,6 +30,7 @@ import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertSame
 
 class CheckoutWorkflowUseCaseTest {
@@ -56,6 +58,7 @@ class CheckoutWorkflowUseCaseTest {
                 "replay",
                 "validate",
                 "create",
+                "decrement",
                 "confirm",
                 "transaction:end",
                 "payment",
@@ -126,6 +129,71 @@ class CheckoutWorkflowUseCaseTest {
         )
     }
 
+    @Test
+    fun `releases stock when payment is rejected and does not notify`() {
+        val events = mutableListOf<String>()
+        val rejectedOrder = order(replayed = false).copy(status = "PAYMENT_FAILED", awaitingPayment = false)
+        val checkout =
+            CheckoutWorkflowUseCase(
+                carts = RecordingCartGateway(events),
+                orders = RecordingOrderGateway(events),
+                paymentAuthorizationFingerprints =
+                    object : PaymentAuthorizationFingerprintGateway {
+                        override fun fingerprint(command: PaymentAuthorizationCommand): String {
+                            events += "fingerprint"
+                            return "opaque-payment-authorization-fingerprint"
+                        }
+                    },
+                paymentValidation =
+                    object : PaymentValidationGateway {
+                        override fun validate(command: PaymentValidationCommand) {
+                            events += "validate"
+                        }
+                    },
+                payments =
+                    object : PaymentProcessingGateway {
+                        override fun process(command: PaymentProcessingCommand): PaymentProcessingResult {
+                            events += "payment"
+                            return PaymentProcessingResult("pay-rejected", PaymentResultStatus.REJECTED, null, replayed = false)
+                        }
+                    },
+                orderPaymentResults =
+                    object : OrderPaymentResultGateway {
+                        override fun apply(command: ApplyOrderPaymentResultCommand): CheckoutOrderSnapshot {
+                            events += "apply"
+                            return rejectedOrder
+                        }
+                    },
+                notifications =
+                    object : NotificationGateway {
+                        override fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand) {
+                            events += "notify"
+                        }
+                    },
+                inventory = RecordingInventoryGateway(events),
+                transaction = ImmediateTransaction,
+            ).execute(command())
+
+        assertEquals(
+            listOf(
+                "fingerprint",
+                "replay",
+                "reserve",
+                "replay",
+                "validate",
+                "create",
+                "decrement",
+                "confirm",
+                "payment",
+                "apply",
+                "release",
+            ),
+            events,
+        )
+        assertFalse(events.contains("notify"))
+        assertEquals("PAYMENT_FAILED", rejectedOrder.status)
+    }
+
     private fun command() =
         CheckoutCommand(
             customerId = 10L,
@@ -141,6 +209,7 @@ class CheckoutWorkflowUseCaseTest {
         orders: OrderCreationGateway,
         transactions: TransactionPort,
         events: MutableList<String>,
+        inventory: InventoryGateway = RecordingInventoryGateway(events),
     ) = CheckoutWorkflowUseCase(
         carts = carts,
         orders = orders,
@@ -172,6 +241,7 @@ class CheckoutWorkflowUseCaseTest {
             object : NotificationGateway {
                 override fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand) = error("Not used for REQUESTED")
             },
+        inventory = inventory,
         transaction = transactions,
     )
 
@@ -226,6 +296,24 @@ class CheckoutWorkflowUseCaseTest {
             createdCommand = command
             creationFailure?.let { throw it }
             return createdOrder
+        }
+    }
+
+    private class RecordingInventoryGateway(
+        private val events: MutableList<String>,
+    ) : InventoryGateway {
+        override fun decrement(
+            orderReference: String,
+            items: List<CheckoutItemSnapshot>,
+        ) {
+            events += "decrement"
+        }
+
+        override fun release(
+            orderReference: String,
+            items: List<CheckoutItemSnapshot>,
+        ) {
+            events += "release"
         }
     }
 

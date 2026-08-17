@@ -13,6 +13,7 @@ import com.nexus.shopping.integration.checkout.application.model.PaymentProcessi
 import com.nexus.shopping.integration.checkout.application.model.PaymentResultStatus
 import com.nexus.shopping.integration.checkout.application.model.PaymentValidationCommand
 import com.nexus.shopping.integration.checkout.application.port.outbound.CheckoutCartGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.InventoryGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderCreationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
@@ -31,6 +32,7 @@ class CheckoutWorkflowUseCase(
     private val payments: PaymentProcessingGateway,
     private val orderPaymentResults: OrderPaymentResultGateway,
     private val notifications: NotificationGateway,
+    private val inventory: InventoryGateway,
     private val transaction: TransactionPort,
 ) {
     fun execute(command: CheckoutCommand): CheckoutOrderSnapshot {
@@ -82,6 +84,7 @@ class CheckoutWorkflowUseCase(
                         ),
                     )
                 if (!createdOrder.replayed && createdOrder.cartId == cart.reservationId) {
+                    inventory.decrement(createdOrder.orderReference, cart.items)
                     carts.confirmCheckout(cart.reservationId)
                 }
                 createdOrder
@@ -106,6 +109,9 @@ class CheckoutWorkflowUseCase(
                     payment = payment,
                 ),
             )
+        if (payment.status == PaymentResultStatus.REJECTED) {
+            inventory.release(order.orderReference, order.items)
+        }
         if (payment.status == PaymentResultStatus.APPROVED) {
             notifications.ensureOrderConfirmation(
                 EnsureOrderConfirmationCommand(

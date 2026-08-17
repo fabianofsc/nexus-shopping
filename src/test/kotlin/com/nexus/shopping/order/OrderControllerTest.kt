@@ -1,6 +1,7 @@
 package com.nexus.shopping.order
 
 import com.fasterxml.jackson.databind.json.JsonMapper
+import com.nexus.shopping.integration.checkout.seedStockedProduct
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.core.env.Environment
@@ -326,6 +327,7 @@ class OrderControllerTest {
         port: String,
         customerId: Long,
     ) {
+        jdbcTemplate.seedStockedProduct()
         val response = post(port, "/customers/$customerId/cart/items", addItemBody())
         assertEquals(200, response.statusCode())
     }

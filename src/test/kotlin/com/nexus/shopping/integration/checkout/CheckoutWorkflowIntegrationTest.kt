@@ -13,6 +13,7 @@ import com.nexus.shopping.integration.checkout.application.model.PaymentProcessi
 import com.nexus.shopping.integration.checkout.application.model.PaymentResultStatus
 import com.nexus.shopping.integration.checkout.application.model.PaymentValidationCommand
 import com.nexus.shopping.integration.checkout.application.port.outbound.CheckoutCartGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.InventoryGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderCreationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
@@ -49,6 +50,9 @@ class CheckoutWorkflowIntegrationTest {
 
     @Autowired
     private lateinit var transaction: TransactionPort
+
+    @Autowired
+    private lateinit var inventory: InventoryGateway
 
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
@@ -111,6 +115,7 @@ class CheckoutWorkflowIntegrationTest {
     }
 
     private fun prepareActiveCart(customerId: Long): Long {
+        jdbcTemplate.seedStockedProduct()
         jdbcTemplate.update("INSERT INTO carts (customer_id, status) VALUES (?, 'ACTIVE')", customerId)
         val cartId =
             requireNotNull(
@@ -182,6 +187,7 @@ class CheckoutWorkflowIntegrationTest {
                 object : NotificationGateway {
                     override fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand) = error("Not used")
                 },
+            inventory = inventory,
             transaction = transaction,
         )
 }

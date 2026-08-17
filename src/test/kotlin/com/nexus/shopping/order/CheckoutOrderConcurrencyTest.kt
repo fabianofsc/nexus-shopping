@@ -8,6 +8,7 @@ import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressSnapshot
+import com.nexus.shopping.integration.checkout.seedStockedProduct
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.jdbc.core.JdbcTemplate
@@ -88,6 +89,7 @@ class CheckoutOrderConcurrencyTest {
     }
 
     private fun prepareCart(customerId: Long) {
+        jdbcTemplate.seedStockedProduct()
         val cart = carts.getOrCreateActiveByCustomerId(customerId)
         carts.updateCart(requireNotNull(cart.id)) {
             it.copy(
@@ -103,6 +105,7 @@ class CheckoutOrderConcurrencyTest {
     }
 
     private fun createFreshActiveCart(customerId: Long): Long {
+        jdbcTemplate.seedStockedProduct()
         jdbcTemplate.update("INSERT INTO carts (customer_id, status) VALUES (?, 'ACTIVE')", customerId)
         val cartId = jdbcTemplate.queryForObject("SELECT MAX(id) FROM carts WHERE customer_id = ?", Long::class.java, customerId)
         jdbcTemplate.update(

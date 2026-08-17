@@ -116,6 +116,35 @@ class PaymentCheckoutHttpTest {
         assertEquals("ACTIVE", scalar("SELECT status FROM carts WHERE customer_id = ?", customerId))
     }
 
+    @Test
+    fun `checkout with insufficient stock returns 409 and rolls back Order and Cart`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val customerId = createCustomer(port)
+        addItem(port, customerId)
+        jdbcTemplate.update("UPDATE products SET inventory_quantity = 1 WHERE id = 10")
+
+        val response = checkout(port, customerId, "insufficient-${UUID.randomUUID()}", "approved")
+
+        assertEquals(409, response.statusCode())
+        assertEquals(0, count("SELECT COUNT(*) FROM orders WHERE customer_id = ?", customerId))
+        assertEquals("ACTIVE", scalar("SELECT status FROM carts WHERE customer_id = ?", customerId))
+        assertEquals(1, jdbcTemplate.stockOf(10L))
+    }
+
+    @Test
+    fun `rejected payment releases the reserved stock back`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val customerId = createCustomer(port)
+        addItem(port, customerId)
+
+        val response = checkout(port, customerId, "rejected-release-${UUID.randomUUID()}", "rejected")
+
+        assertEquals(201, response.statusCode())
+        val order = mapper.readTree(response.body())
+        assertEquals("PAYMENT_FAILED", order["status"].asText())
+        assertEquals(100, jdbcTemplate.stockOf(10L))
+    }
+
     private fun createCustomer(port: String): Long {
         val suffix = UUID.randomUUID().toString().replace("-", "")
         val response =
@@ -148,6 +177,7 @@ class PaymentCheckoutHttpTest {
         unitPriceAmount: String = "19.90",
         quantity: Int = 2,
     ) {
+        jdbcTemplate.seedStockedProduct()
         val response =
             post(
                 port,

@@ -126,6 +126,7 @@ class PaymentCheckoutReconciliationHttpTest {
         port: String,
         customerId: Long,
     ) {
+        jdbcTemplate.seedStockedProduct()
         assertEquals(
             200,
             post(
