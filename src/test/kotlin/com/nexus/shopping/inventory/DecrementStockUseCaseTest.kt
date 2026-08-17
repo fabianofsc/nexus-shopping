@@ -86,6 +86,11 @@ private class ProductStockFake(
         decrements += productId to quantity
         return true
     }
+
+    override fun increment(
+        productId: Long,
+        quantity: Int,
+    ) = error("Not used by decrement")
 }
 
 private class StockLedgerFake : StockLedgerPort {

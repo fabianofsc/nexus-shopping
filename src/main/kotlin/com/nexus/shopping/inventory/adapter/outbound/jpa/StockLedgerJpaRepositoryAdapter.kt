@@ -18,4 +18,11 @@ class StockLedgerJpaRepositoryAdapter(
         productId: Long,
         quantity: Int,
     ): Boolean = repository.decrementIfAvailable(productId, quantity) == 1
+
+    override fun increment(
+        productId: Long,
+        quantity: Int,
+    ) {
+        repository.increment(productId, quantity)
+    }
 }

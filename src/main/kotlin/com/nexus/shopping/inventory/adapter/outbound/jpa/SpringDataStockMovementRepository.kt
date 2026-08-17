@@ -21,4 +21,19 @@ interface SpringDataStockMovementRepository : JpaRepository<StockMovementEntity,
         @Param("productId") productId: Long,
         @Param("quantity") quantity: Int,
     ): Int
+
+    @Modifying(clearAutomatically = true)
+    @Query(
+        value = """
+            UPDATE products
+            SET inventory_quantity = inventory_quantity + :quantity,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = :productId
+        """,
+        nativeQuery = true,
+    )
+    fun increment(
+        @Param("productId") productId: Long,
+        @Param("quantity") quantity: Int,
+    ): Int
 }

@@ -5,4 +5,9 @@ interface ProductStockPort {
         productId: Long,
         quantity: Int,
     ): Boolean
+
+    fun increment(
+        productId: Long,
+        quantity: Int,
+    )
 }
