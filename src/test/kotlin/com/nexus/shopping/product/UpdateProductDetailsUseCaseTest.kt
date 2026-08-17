@@ -1,11 +1,18 @@
 package com.nexus.shopping.product.application.usecase
 
 import com.nexus.shopping.platform.domain.PageResult
+import com.nexus.shopping.product.application.command.CreateBrandCommand
+import com.nexus.shopping.product.application.command.CreateCategoryCommand
 import com.nexus.shopping.product.application.command.CreateProductCommand
 import com.nexus.shopping.product.application.command.UpdateProductDetailsCommand
 import com.nexus.shopping.product.application.exception.ProductNotFoundException
 import com.nexus.shopping.product.application.exception.ProductValidationException
+import com.nexus.shopping.product.application.port.outbound.BrandRepositoryPort
+import com.nexus.shopping.product.application.port.outbound.CategoryRepositoryPort
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
+import com.nexus.shopping.product.domain.Brand
+import com.nexus.shopping.product.domain.Category
+import com.nexus.shopping.product.domain.CategoryStatus
 import com.nexus.shopping.product.domain.Currency
 import com.nexus.shopping.product.domain.Product
 import com.nexus.shopping.product.domain.ProductStatus
@@ -59,7 +66,41 @@ class UpdateProductDetailsUseCaseTest {
             }
         }
 
-    private val useCase = UpdateProductDetailsUseCase(fakeRepo)
+    private val brands =
+        object : BrandRepositoryPort {
+            override fun findById(id: Long): Brand? =
+                if (id == 2L) Brand(2L, "Brand 2", null, LocalDateTime.now(), LocalDateTime.now()) else null
+
+            override fun findAll(): List<Brand> = emptyList()
+
+            override fun save(command: CreateBrandCommand): Brand = throw UnsupportedOperationException()
+        }
+
+    private val categories =
+        object : CategoryRepositoryPort {
+            override fun findById(id: Long): Category? =
+                when (id) {
+                    3L -> category(3L, CategoryStatus.ACTIVE)
+                    4L -> category(4L, CategoryStatus.INACTIVE)
+                    else -> null
+                }
+
+            override fun findAll(): List<Category> = emptyList()
+
+            override fun save(command: CreateCategoryCommand): Category = throw UnsupportedOperationException()
+
+            override fun updateStatus(
+                id: Long,
+                status: CategoryStatus,
+            ): Category? = throw UnsupportedOperationException()
+        }
+
+    private val useCase = UpdateProductDetailsUseCase(fakeRepo, brands, categories)
+
+    private fun category(
+        id: Long,
+        status: CategoryStatus,
+    ) = Category(id, null, "Category $id", "category-$id", status, LocalDateTime.now(), LocalDateTime.now())
 
     @Test
     fun `updates product details`() {
@@ -91,6 +132,23 @@ class UpdateProductDetailsUseCaseTest {
         }
         assertFailsWith<ProductValidationException> {
             useCase.execute(command(categoryId = 0L))
+        }
+    }
+
+    @Test
+    fun `throws ProductValidationException when brand or category does not exist`() {
+        assertFailsWith<ProductValidationException> {
+            useCase.execute(command(brandId = 999L))
+        }
+        assertFailsWith<ProductValidationException> {
+            useCase.execute(command(categoryId = 999L))
+        }
+    }
+
+    @Test
+    fun `throws ProductValidationException when category is inactive`() {
+        assertFailsWith<ProductValidationException> {
+            useCase.execute(command(categoryId = 4L))
         }
     }
 

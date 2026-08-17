@@ -6,6 +6,7 @@ import com.nexus.shopping.product.domain.ProductStatus
 import com.nexus.shopping.support.RedisIntegrationTest
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 import kotlin.test.Test
@@ -29,6 +30,9 @@ import kotlin.test.assertTrue
 class ProductJpaRepositoryAdapterTest : RedisIntegrationTest() {
     @Autowired
     private lateinit var repository: ProductJpaRepositoryAdapter
+
+    @Autowired
+    private lateinit var jdbcTemplate: JdbcTemplate
 
     @Test
     fun `findByCategoryId returns a slice with hasNext without count query`() {
@@ -163,6 +167,30 @@ class ProductJpaRepositoryAdapterTest : RedisIntegrationTest() {
                 slug = "archived-product",
                 description = null,
                 status = "ARCHIVED",
+                priceAmount = BigDecimal("10.00"),
+                currency = "BRL",
+                inventoryQuantity = 0,
+            ),
+        )
+
+        val result = repository.findByCategoryId(categoryId = 2L, page = 0, size = 10)
+
+        assertEquals(0, result.count)
+        assertTrue(result.content.isEmpty())
+    }
+
+    @Test
+    fun `findByCategoryId excludes products whose category is inactive`() {
+        jdbcTemplate.update("UPDATE categories SET status = 'INACTIVE' WHERE id = 2")
+        repository.save(
+            CreateProductCommand(
+                brandId = 1L,
+                categoryId = 2L,
+                sku = "SKU-INACTIVE-CAT",
+                name = "Inactive Category Product",
+                slug = "inactive-category-product",
+                description = null,
+                status = "ACTIVE",
                 priceAmount = BigDecimal("10.00"),
                 currency = "BRL",
                 inventoryQuantity = 0,

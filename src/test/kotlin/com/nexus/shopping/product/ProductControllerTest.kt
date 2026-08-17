@@ -372,7 +372,7 @@ class ProductControllerTest : RedisIntegrationTest() {
     }
 
     @Test
-    fun `POST products with missing foreign key returns 500 generic problem details`() {
+    fun `POST products with missing foreign key returns 400 problem details`() {
         val port = environment.getRequiredProperty("local.server.port")
         val body =
             """
@@ -390,12 +390,11 @@ class ProductControllerTest : RedisIntegrationTest() {
 
         assertExceptionDetail(
             response = response,
-            expectedStatus = 500,
-            expectedTitle = "Internal Server Error",
+            expectedStatus = 400,
+            expectedTitle = "Bad Request",
             expectedInstance = "/products",
-            expectedDetail = "Unexpected server error.",
+            expectedDetail = "brandId 999999999 does not reference an existing brand.",
         )
-        assertNoInternalDetailsLeaked(response.body())
     }
 
     @Test

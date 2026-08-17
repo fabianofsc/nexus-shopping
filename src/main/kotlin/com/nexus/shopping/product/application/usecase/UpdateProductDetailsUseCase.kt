@@ -5,7 +5,10 @@ import com.nexus.shopping.platform.application.logging.warnWithContext
 import com.nexus.shopping.product.application.command.UpdateProductDetailsCommand
 import com.nexus.shopping.product.application.exception.ProductNotFoundException
 import com.nexus.shopping.product.application.exception.ProductValidationException
+import com.nexus.shopping.product.application.port.outbound.BrandRepositoryPort
+import com.nexus.shopping.product.application.port.outbound.CategoryRepositoryPort
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
+import com.nexus.shopping.product.domain.CategoryStatus
 import com.nexus.shopping.product.domain.Product
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -13,6 +16,8 @@ import org.springframework.stereotype.Service
 @Service
 class UpdateProductDetailsUseCase(
     private val productRepository: ProductRepositoryPort,
+    private val brandRepository: BrandRepositoryPort,
+    private val categoryRepository: CategoryRepositoryPort,
 ) {
     fun execute(command: UpdateProductDetailsCommand): Product {
         logger.infoWithContext("product.update_details.started", "product.id" to command.id)
@@ -39,6 +44,14 @@ class UpdateProductDetailsUseCase(
         if (command.slug.length > 260) throwValidationFailed("slug must be at most 260 characters.")
         if (command.description != null && command.description.length > 2000) {
             throwValidationFailed("description must be at most 2000 characters.")
+        }
+        brandRepository.findById(command.brandId)
+            ?: throwValidationFailed("brandId ${command.brandId} does not reference an existing brand.")
+        val category =
+            categoryRepository.findById(command.categoryId)
+                ?: throwValidationFailed("categoryId ${command.categoryId} does not reference an existing category.")
+        if (category.status != CategoryStatus.ACTIVE) {
+            throwValidationFailed("categoryId ${command.categoryId} is not active.")
         }
     }
 

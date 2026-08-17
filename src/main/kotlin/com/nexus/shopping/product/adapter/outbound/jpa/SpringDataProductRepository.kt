@@ -22,6 +22,11 @@ interface SpringDataProductRepository : JpaRepository<ProductEntity, Long> {
         SELECT p FROM ProductEntity p
         WHERE p.categoryId = :categoryId
           AND p.status = :status
+          AND EXISTS (
+              SELECT 1 FROM CategoryEntity c
+              WHERE c.id = p.categoryId
+                AND c.status = com.nexus.shopping.product.domain.CategoryStatus.ACTIVE
+          )
         ORDER BY p.id
         """,
     )

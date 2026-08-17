@@ -4,7 +4,10 @@ import com.nexus.shopping.platform.application.logging.infoWithContext
 import com.nexus.shopping.platform.application.logging.warnWithContext
 import com.nexus.shopping.product.application.command.CreateProductCommand
 import com.nexus.shopping.product.application.exception.ProductValidationException
+import com.nexus.shopping.product.application.port.outbound.BrandRepositoryPort
+import com.nexus.shopping.product.application.port.outbound.CategoryRepositoryPort
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
+import com.nexus.shopping.product.domain.CategoryStatus
 import com.nexus.shopping.product.domain.Currency
 import com.nexus.shopping.product.domain.Product
 import com.nexus.shopping.product.domain.ProductStatus
@@ -14,6 +17,8 @@ import org.springframework.stereotype.Service
 @Service
 class ProductCreateUseCase(
     private val productRepository: ProductRepositoryPort,
+    private val brandRepository: BrandRepositoryPort,
+    private val categoryRepository: CategoryRepositoryPort,
 ) {
     fun create(command: CreateProductCommand): Product {
         logger.infoWithContext(
@@ -37,6 +42,15 @@ class ProductCreateUseCase(
         if (command.priceAmount < java.math.BigDecimal.ZERO) throwValidationFailed("priceAmount must be >= 0.")
         requireValidEnum<Currency>(command.currency, "currency") { throwValidationFailed(it) }
         if (command.inventoryQuantity < 0) throwValidationFailed("inventoryQuantity must be >= 0.")
+
+        brandRepository.findById(command.brandId)
+            ?: throwValidationFailed("brandId ${command.brandId} does not reference an existing brand.")
+        val category =
+            categoryRepository.findById(command.categoryId)
+                ?: throwValidationFailed("categoryId ${command.categoryId} does not reference an existing category.")
+        if (category.status != CategoryStatus.ACTIVE) {
+            throwValidationFailed("categoryId ${command.categoryId} is not active.")
+        }
 
         val product = productRepository.save(command)
         logger.infoWithContext(
