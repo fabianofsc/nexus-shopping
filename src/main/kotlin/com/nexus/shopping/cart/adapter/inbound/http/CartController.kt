@@ -2,24 +2,27 @@ package com.nexus.shopping.cart.adapter.inbound.http
 
 import com.nexus.shopping.cart.adapter.inbound.http.dto.AddCartItemRequest
 import com.nexus.shopping.cart.adapter.inbound.http.dto.CartResponse
+import com.nexus.shopping.cart.adapter.inbound.http.dto.UpdateCartItemQuantityRequest
 import com.nexus.shopping.cart.adapter.inbound.http.dto.toCommand
 import com.nexus.shopping.cart.adapter.inbound.http.dto.toResponse
 import com.nexus.shopping.cart.application.usecase.AddCartItemUseCase
 import com.nexus.shopping.cart.application.usecase.ClearCartUseCase
 import com.nexus.shopping.cart.application.usecase.GetActiveCartByCustomerIdUseCase
 import com.nexus.shopping.cart.application.usecase.RemoveCartItemUseCase
+import com.nexus.shopping.cart.application.usecase.UpdateCartItemQuantityUseCase
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 /**
  * Every endpoint here returns 200 with the current state of the cart, including the mutating ones
- * (POST/DELETE). Add/remove/clear operate on an existing resource (the customer's ACTIVE cart)
- * instead of creating a new top-level resource, so none of them warrants 201; returning the
+ * (POST/PUT/DELETE). Add/update/remove/clear operate on an existing resource (the customer's ACTIVE
+ * cart) instead of creating a new top-level resource, so none of them warrants 201; returning the
  * updated cart body on every call (instead of 204) lets callers always render the latest state
  * without a follow-up GET.
  */
@@ -28,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController
 class CartController(
     private val getActiveCartByCustomerIdUseCase: GetActiveCartByCustomerIdUseCase,
     private val addCartItemUseCase: AddCartItemUseCase,
+    private val updateCartItemQuantityUseCase: UpdateCartItemQuantityUseCase,
     private val removeCartItemUseCase: RemoveCartItemUseCase,
     private val clearCartUseCase: ClearCartUseCase,
 ) {
@@ -41,6 +45,13 @@ class CartController(
         @PathVariable customerId: Long,
         @RequestBody request: AddCartItemRequest,
     ): CartResponse = addCartItemUseCase.execute(request.toCommand(customerId)).toResponse()
+
+    @PutMapping("/items/{productId}")
+    fun updateItemQuantity(
+        @PathVariable customerId: Long,
+        @PathVariable productId: Long,
+        @RequestBody request: UpdateCartItemQuantityRequest,
+    ): CartResponse = updateCartItemQuantityUseCase.execute(request.toCommand(customerId, productId)).toResponse()
 
     @DeleteMapping("/items/{productId}")
     fun removeItem(

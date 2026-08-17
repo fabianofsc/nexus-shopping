@@ -72,6 +72,21 @@ class CartControllerTest {
         return httpClient.send(request, HttpResponse.BodyHandlers.ofString())
     }
 
+    private fun put(
+        port: String,
+        path: String,
+        body: String,
+    ): HttpResponse<String> {
+        val request =
+            HttpRequest
+                .newBuilder()
+                .uri(URI.create("http://localhost:$port$path"))
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(body))
+                .build()
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+    }
+
     private fun assertExceptionDetail(
         response: HttpResponse<String>,
         expectedStatus: Int,
@@ -242,5 +257,91 @@ class CartControllerTest {
             expectedTitle = "Bad Request",
             expectedInstance = "/customers/999999/cart/items",
         )
+    }
+
+    @Test
+    fun `PUT cart item quantity adjusts the absolute quantity and returns 200`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val customerId = createCustomer(port)
+        post(port, "/customers/$customerId/cart/items", addItemBody(productId = 10L, quantity = 2))
+
+        val response = put(port, "/customers/$customerId/cart/items/10", """{ "quantity": 5 }""")
+
+        assertEquals(200, response.statusCode())
+        val cart = mapper.readTree(response.body())
+        assertEquals(5, cart["items"][0]["quantity"].asInt())
+    }
+
+    @Test
+    fun `PUT cart item quantity zero removes the item and returns 200`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val customerId = createCustomer(port)
+        post(port, "/customers/$customerId/cart/items", addItemBody(productId = 10L, quantity = 2))
+
+        val response = put(port, "/customers/$customerId/cart/items/10", """{ "quantity": 0 }""")
+
+        assertEquals(200, response.statusCode())
+        val cart = mapper.readTree(response.body())
+        assertEquals(0, cart["items"].size())
+    }
+
+    @Test
+    fun `PUT cart item quantity for a product not in the cart returns 400 problem details`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val customerId = createCustomer(port)
+        post(port, "/customers/$customerId/cart/items", addItemBody(productId = 10L, quantity = 2))
+
+        val response = put(port, "/customers/$customerId/cart/items/99", """{ "quantity": 1 }""")
+
+        assertExceptionDetail(
+            response = response,
+            expectedStatus = 400,
+            expectedTitle = "Bad Request",
+            expectedInstance = "/customers/$customerId/cart/items/99",
+        )
+    }
+
+    @Test
+    fun `PUT cart item quantity negative returns 400 problem details`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val customerId = createCustomer(port)
+        post(port, "/customers/$customerId/cart/items", addItemBody(productId = 10L, quantity = 2))
+
+        val response = put(port, "/customers/$customerId/cart/items/10", """{ "quantity": -1 }""")
+
+        assertExceptionDetail(
+            response = response,
+            expectedStatus = 400,
+            expectedTitle = "Bad Request",
+            expectedInstance = "/customers/$customerId/cart/items/10",
+        )
+    }
+
+    private fun createCustomer(port: String): Long {
+        val body =
+            """
+            {
+              "name": "Ana Silva",
+              "document": "02648629025",
+              "documentType": "CPF",
+              "email": "ana.silva@example.com",
+              "street": "Rua das Flores",
+              "number": "123",
+              "neighborhood": "Centro",
+              "city": "Sao Paulo",
+              "state": "SP",
+              "zipCode": "01001000",
+              "country": "BR"
+            }
+            """.trimIndent()
+        val request =
+            HttpRequest
+                .newBuilder()
+                .uri(URI.create("http://localhost:$port/customers"))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build()
+        val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+        return mapper.readTree(response.body())["id"].asLong()
     }
 }

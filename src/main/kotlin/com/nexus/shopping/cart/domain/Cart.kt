@@ -38,5 +38,19 @@ data class Cart(
 
     fun withItemRemoved(productId: Long): Cart = copy(items = items.filterNot { it.productSummary.productId == productId })
 
+    fun withItemQuantity(
+        productId: Long,
+        quantity: Int,
+    ): Cart {
+        require(quantity >= 0) { "quantity must not be negative." }
+        if (quantity == 0) return withItemRemoved(productId)
+        return copy(
+            items =
+                items.map { item ->
+                    if (item.productSummary.productId == productId) item.copy(quantity = quantity) else item
+                },
+        )
+    }
+
     fun withItemsCleared(): Cart = copy(items = emptyList())
 }
