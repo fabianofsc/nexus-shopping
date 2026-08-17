@@ -1,6 +1,7 @@
 package com.nexus.shopping.product.adapter.outbound.jpa
 
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
+import com.nexus.shopping.product.domain.ProductStatus
 import org.mockito.Mockito.reset
 import org.mockito.Mockito.times
 import org.mockito.Mockito.verify
@@ -103,6 +104,7 @@ class ProductRedisCacheIntegrationTest {
             "Product 1",
             "Product 2",
             "Product 1%",
+            ProductStatus.ACTIVE,
             PageRequest.of(0, 3),
         )
     }

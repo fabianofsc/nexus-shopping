@@ -4,11 +4,14 @@ import com.nexus.shopping.platform.adapter.inbound.http.dto.PageResponse
 import com.nexus.shopping.product.adapter.inbound.http.dto.CreateProductRequest
 import com.nexus.shopping.product.adapter.inbound.http.dto.ProductResponse
 import com.nexus.shopping.product.adapter.inbound.http.dto.UpdatePriceRequest
+import com.nexus.shopping.product.adapter.inbound.http.dto.UpdateProductDetailsRequest
 import com.nexus.shopping.product.adapter.inbound.http.dto.toCommand
 import com.nexus.shopping.product.adapter.inbound.http.dto.toResponse
+import com.nexus.shopping.product.application.usecase.ArchiveProductUseCase
 import com.nexus.shopping.product.application.usecase.ProductCreateUseCase
 import com.nexus.shopping.product.application.usecase.ProductGetByIdUseCase
 import com.nexus.shopping.product.application.usecase.ProductSearchUseCase
+import com.nexus.shopping.product.application.usecase.UpdateProductDetailsUseCase
 import com.nexus.shopping.product.application.usecase.UpdateProductPriceUseCase
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
@@ -28,6 +31,8 @@ class ProductController(
     private val productCreateUseCase: ProductCreateUseCase,
     private val productGetByIdUseCase: ProductGetByIdUseCase,
     private val updateProductPriceUseCase: UpdateProductPriceUseCase,
+    private val updateProductDetailsUseCase: UpdateProductDetailsUseCase,
+    private val archiveProductUseCase: ArchiveProductUseCase,
 ) {
     @GetMapping
     fun search(
@@ -53,4 +58,15 @@ class ProductController(
         @PathVariable id: Long,
         @RequestBody request: UpdatePriceRequest,
     ): ProductResponse = updateProductPriceUseCase.execute(request.toCommand(id)).toResponse()
+
+    @PatchMapping("/{id}/details")
+    fun updateDetails(
+        @PathVariable id: Long,
+        @RequestBody request: UpdateProductDetailsRequest,
+    ): ProductResponse = updateProductDetailsUseCase.execute(request.toCommand(id)).toResponse()
+
+    @PostMapping("/{id}/archive")
+    fun archive(
+        @PathVariable id: Long,
+    ): ProductResponse = archiveProductUseCase.execute(id).toResponse()
 }

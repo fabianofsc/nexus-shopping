@@ -125,32 +125,40 @@ class ProductSpringCacheTest {
 
     @Test
     fun `findByCategoryId caches identical paginated searches`() {
-        `when`(springDataRepository.findByCategoryId(1L, PageRequest.of(0, 2)))
+        `when`(springDataRepository.findByCategoryId(1L, ProductStatus.ACTIVE, PageRequest.of(0, 2)))
             .thenReturn(productSlice(productEntity()))
 
         val first = productRepository.findByCategoryId(categoryId = 1L, page = 0, size = 2)
         val second = productRepository.findByCategoryId(categoryId = 1L, page = 0, size = 2)
 
         assertEquals(first, second)
-        verify(springDataRepository, times(1)).findByCategoryId(1L, PageRequest.of(0, 2))
+        verify(springDataRepository, times(1)).findByCategoryId(1L, ProductStatus.ACTIVE, PageRequest.of(0, 2))
     }
 
     @Test
     fun `findByCategoryId keeps each key parameter in a separate cache entry`() {
-        `when`(springDataRepository.findByCategoryId(1L, PageRequest.of(0, 2))).thenReturn(productSlice(productEntity()))
-        `when`(springDataRepository.findByCategoryId(1L, PageRequest.of(1, 2))).thenReturn(productSlice(productEntity()))
-        `when`(springDataRepository.findByCategoryId(1L, PageRequest.of(0, 3))).thenReturn(productSlice(productEntity()))
-        `when`(springDataRepository.findByCategoryId(2L, PageRequest.of(0, 2))).thenReturn(productSlice(productEntity()))
+        `when`(
+            springDataRepository.findByCategoryId(1L, ProductStatus.ACTIVE, PageRequest.of(0, 2)),
+        ).thenReturn(productSlice(productEntity()))
+        `when`(
+            springDataRepository.findByCategoryId(1L, ProductStatus.ACTIVE, PageRequest.of(1, 2)),
+        ).thenReturn(productSlice(productEntity()))
+        `when`(
+            springDataRepository.findByCategoryId(1L, ProductStatus.ACTIVE, PageRequest.of(0, 3)),
+        ).thenReturn(productSlice(productEntity()))
+        `when`(
+            springDataRepository.findByCategoryId(2L, ProductStatus.ACTIVE, PageRequest.of(0, 2)),
+        ).thenReturn(productSlice(productEntity()))
 
         productRepository.findByCategoryId(categoryId = 1L, page = 0, size = 2)
         productRepository.findByCategoryId(categoryId = 1L, page = 1, size = 2)
         productRepository.findByCategoryId(categoryId = 1L, page = 0, size = 3)
         productRepository.findByCategoryId(categoryId = 2L, page = 0, size = 2)
 
-        verify(springDataRepository).findByCategoryId(1L, PageRequest.of(0, 2))
-        verify(springDataRepository).findByCategoryId(1L, PageRequest.of(1, 2))
-        verify(springDataRepository).findByCategoryId(1L, PageRequest.of(0, 3))
-        verify(springDataRepository).findByCategoryId(2L, PageRequest.of(0, 2))
+        verify(springDataRepository).findByCategoryId(1L, ProductStatus.ACTIVE, PageRequest.of(0, 2))
+        verify(springDataRepository).findByCategoryId(1L, ProductStatus.ACTIVE, PageRequest.of(1, 2))
+        verify(springDataRepository).findByCategoryId(1L, ProductStatus.ACTIVE, PageRequest.of(0, 3))
+        verify(springDataRepository).findByCategoryId(2L, ProductStatus.ACTIVE, PageRequest.of(0, 2))
     }
 
     @Test
@@ -160,6 +168,7 @@ class ProductSpringCacheTest {
                 "Product 1",
                 "Product 2",
                 "Product 1%",
+                ProductStatus.ACTIVE,
                 PageRequest.of(0, 3),
             ),
         ).thenReturn(productSlice(productEntity()))
@@ -172,6 +181,7 @@ class ProductSpringCacheTest {
             "Product 1",
             "Product 2",
             "Product 1%",
+            ProductStatus.ACTIVE,
             PageRequest.of(0, 3),
         )
     }
@@ -183,6 +193,7 @@ class ProductSpringCacheTest {
                 "Product 1",
                 "Product 2",
                 "Product 1%",
+                ProductStatus.ACTIVE,
                 PageRequest.of(0, 3),
             ),
         ).thenReturn(productSlice(productEntity()))
@@ -191,6 +202,7 @@ class ProductSpringCacheTest {
                 "Product 1",
                 "Product 2",
                 "Product 1%",
+                ProductStatus.ACTIVE,
                 PageRequest.of(1, 3),
             ),
         ).thenReturn(productSlice(productEntity()))
@@ -199,6 +211,7 @@ class ProductSpringCacheTest {
                 "Product 1",
                 "Product 2",
                 "Product 1%",
+                ProductStatus.ACTIVE,
                 PageRequest.of(0, 4),
             ),
         ).thenReturn(productSlice(productEntity()))
@@ -207,6 +220,7 @@ class ProductSpringCacheTest {
                 "Product 2",
                 "Product 3",
                 "Product 2%",
+                ProductStatus.ACTIVE,
                 PageRequest.of(0, 3),
             ),
         ).thenReturn(productSlice(productEntity()))
@@ -216,17 +230,17 @@ class ProductSpringCacheTest {
         productRepository.findByName(name = "Product 1", page = 0, size = 4)
         productRepository.findByName(name = "Product 2", page = 0, size = 3)
 
-        verify(springDataRepository).findByNamePrefix("Product 1", "Product 2", "Product 1%", PageRequest.of(0, 3))
-        verify(springDataRepository).findByNamePrefix("Product 1", "Product 2", "Product 1%", PageRequest.of(1, 3))
-        verify(springDataRepository).findByNamePrefix("Product 1", "Product 2", "Product 1%", PageRequest.of(0, 4))
-        verify(springDataRepository).findByNamePrefix("Product 2", "Product 3", "Product 2%", PageRequest.of(0, 3))
+        verify(springDataRepository).findByNamePrefix("Product 1", "Product 2", "Product 1%", ProductStatus.ACTIVE, PageRequest.of(0, 3))
+        verify(springDataRepository).findByNamePrefix("Product 1", "Product 2", "Product 1%", ProductStatus.ACTIVE, PageRequest.of(1, 3))
+        verify(springDataRepository).findByNamePrefix("Product 1", "Product 2", "Product 1%", ProductStatus.ACTIVE, PageRequest.of(0, 4))
+        verify(springDataRepository).findByNamePrefix("Product 2", "Product 3", "Product 2%", ProductStatus.ACTIVE, PageRequest.of(0, 3))
     }
 
     @Test
     fun `updatePrice evicts cached category search`() {
         val original = productEntity(price = BigDecimal("19.90"))
         val updated = productEntity(price = BigDecimal("88.80"))
-        `when`(springDataRepository.findByCategoryId(1L, PageRequest.of(0, 2)))
+        `when`(springDataRepository.findByCategoryId(1L, ProductStatus.ACTIVE, PageRequest.of(0, 2)))
             .thenReturn(productSlice(original), productSlice(updated))
         `when`(springDataRepository.updatePriceById(1L, BigDecimal("88.80"))).thenReturn(1)
         `when`(springDataRepository.findById(1L)).thenReturn(Optional.of(updated))
@@ -249,7 +263,7 @@ class ProductSpringCacheTest {
                 .priceAmount,
         )
 
-        verify(springDataRepository, times(2)).findByCategoryId(1L, PageRequest.of(0, 2))
+        verify(springDataRepository, times(2)).findByCategoryId(1L, ProductStatus.ACTIVE, PageRequest.of(0, 2))
     }
 
     @Test
@@ -261,6 +275,7 @@ class ProductSpringCacheTest {
                 "Product 1",
                 "Product 2",
                 "Product 1%",
+                ProductStatus.ACTIVE,
                 PageRequest.of(0, 3),
             ),
         ).thenReturn(productSlice(existing), productSlice(existing, newProduct))
@@ -274,6 +289,7 @@ class ProductSpringCacheTest {
             "Product 1",
             "Product 2",
             "Product 1%",
+            ProductStatus.ACTIVE,
             PageRequest.of(0, 3),
         )
     }

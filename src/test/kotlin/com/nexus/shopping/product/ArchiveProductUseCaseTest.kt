@@ -14,8 +14,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
-class ProductGetByIdUseCaseTest {
-    private fun aProduct() =
+class ArchiveProductUseCaseTest {
+    private fun aProduct(status: ProductStatus) =
         Product(
             id = 1L,
             brandId = 1L,
@@ -24,7 +24,7 @@ class ProductGetByIdUseCaseTest {
             name = "Test Product",
             slug = "test-product",
             description = null,
-            status = ProductStatus.ACTIVE,
+            status = status,
             priceAmount = BigDecimal("19.90"),
             currency = Currency.BRL,
             inventoryQuantity = 0,
@@ -32,11 +32,11 @@ class ProductGetByIdUseCaseTest {
             updatedAt = LocalDateTime.of(2026, 1, 1, 0, 0),
         )
 
-    private var repoReturn: Product? = null
+    private var archivedStatus: ProductStatus? = null
 
     private val fakeRepo =
         object : ProductRepositoryPort {
-            override fun findById(id: Long): Product? = repoReturn
+            override fun findById(id: Long): Product? = throw UnsupportedOperationException()
 
             override fun findByCategoryId(
                 categoryId: Long,
@@ -57,7 +57,11 @@ class ProductGetByIdUseCaseTest {
                 priceAmount: BigDecimal,
             ): Product? = throw UnsupportedOperationException()
 
-            override fun archive(id: Long): Product? = throw UnsupportedOperationException()
+            override fun archive(id: Long): Product? {
+                if (id != 1L) return null
+                archivedStatus = ProductStatus.ARCHIVED
+                return aProduct(ProductStatus.ARCHIVED)
+            }
 
             override fun updateDetails(
                 id: Long,
@@ -65,32 +69,20 @@ class ProductGetByIdUseCaseTest {
             ): Product? = throw UnsupportedOperationException()
         }
 
-    private val useCase = ProductGetByIdUseCase(fakeRepo)
+    private val useCase = ArchiveProductUseCase(fakeRepo)
 
     @Test
-    fun `returns product when product exists`() {
-        repoReturn = aProduct()
+    fun `archives an active product`() {
+        val product = useCase.execute(1L)
 
-        val result = useCase.execute(1L)
-
-        assertEquals(1L, result.id)
+        assertEquals(ProductStatus.ARCHIVED, product.status)
+        assertEquals(ProductStatus.ARCHIVED, archivedStatus)
     }
 
     @Test
     fun `throws ProductNotFoundException when product does not exist`() {
-        repoReturn = null
-
         assertFailsWith<ProductNotFoundException> {
-            useCase.execute(1L)
-        }
-    }
-
-    @Test
-    fun `throws ProductNotFoundException when product is ARCHIVED`() {
-        repoReturn = aProduct().copy(status = ProductStatus.ARCHIVED)
-
-        assertFailsWith<ProductNotFoundException> {
-            useCase.execute(1L)
+            useCase.execute(999L)
         }
     }
 }

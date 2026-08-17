@@ -91,6 +91,50 @@ class ProductControllerTest : RedisIntegrationTest() {
         return httpClient.send(request, HttpResponse.BodyHandlers.ofString())
     }
 
+    private fun patchDetails(
+        port: String,
+        id: Long,
+        body: String,
+    ): HttpResponse<String> {
+        val request =
+            HttpRequest
+                .newBuilder()
+                .uri(URI.create("http://localhost:$port/products/$id/details"))
+                .header("Content-Type", "application/json")
+                .method("PATCH", HttpRequest.BodyPublishers.ofString(body))
+                .build()
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+    }
+
+    private fun postArchive(
+        port: String,
+        id: Long,
+    ): HttpResponse<String> {
+        val request =
+            HttpRequest
+                .newBuilder()
+                .uri(URI.create("http://localhost:$port/products/$id/archive"))
+                .POST(HttpRequest.BodyPublishers.noBody())
+                .build()
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+    }
+
+    private fun productBody(
+        sku: String,
+        name: String,
+        slug: String,
+        categoryId: Long,
+    ) = """
+        {
+          "brandId": 1,
+          "categoryId": $categoryId,
+          "sku": "$sku",
+          "name": "$name",
+          "slug": "$slug",
+          "priceAmount": 49.90
+        }
+        """.trimIndent()
+
     private fun delete(
         port: String,
         id: Long,
@@ -467,5 +511,79 @@ class ProductControllerTest : RedisIntegrationTest() {
             expectedInstance = "/products",
             expectedDetail = "Query parameter categoryId or name is required.",
         )
+    }
+
+    @Test
+    fun `POST product archive returns 200 with ARCHIVED status`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val created = mapper.readTree(post(port, productBody("SKU-ARCHIVE-CTRL", "Archive Me", "archive-me", 2)).body())
+
+        val response = postArchive(port, created["id"].asLong())
+
+        assertEquals(200, response.statusCode())
+        val product = mapper.readTree(response.body())
+        assertEquals("ARCHIVED", product["status"].asText())
+    }
+
+    @Test
+    fun `POST product archive with non-existent id returns 404 problem details`() {
+        val port = environment.getRequiredProperty("local.server.port")
+
+        val response = postArchive(port, 9999999999L)
+
+        assertExceptionDetail(
+            response = response,
+            expectedStatus = 404,
+            expectedTitle = "Not Found",
+            expectedInstance = "/products/9999999999/archive",
+        )
+    }
+
+    @Test
+    fun `PATCH product details updates metadata and returns 200`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val created = mapper.readTree(post(port, productBody("SKU-DETAILS-CTRL", "Original", "original", 1)).body())
+        val body = """{ "name": "Renamed", "slug": "renamed", "brandId": 1, "categoryId": 1 }"""
+
+        val response = patchDetails(port, created["id"].asLong(), body)
+
+        assertEquals(200, response.statusCode())
+        val product = mapper.readTree(response.body())
+        assertEquals("Renamed", product["name"].asText())
+        assertEquals("renamed", product["slug"].asText())
+    }
+
+    @Test
+    fun `PATCH product details with blank name returns 400 problem details`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val created = mapper.readTree(post(port, productBody("SKU-DETAILS-CTRL2", "Original", "original", 1)).body())
+        val body = """{ "name": "", "slug": "renamed", "brandId": 1, "categoryId": 1 }"""
+
+        val response = patchDetails(port, created["id"].asLong(), body)
+
+        assertExceptionDetail(
+            response = response,
+            expectedStatus = 400,
+            expectedTitle = "Bad Request",
+            expectedInstance = "/products/${created["id"].asLong()}/details",
+        )
+    }
+
+    @Test
+    fun `archived product disappears from search and detail`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val created = mapper.readTree(post(port, productBody("SKU-ARCH-FILTER", "Filter Me", "filter-me", 2)).body())
+        val id = created["id"].asLong()
+
+        val before = mapper.readTree(get(port, "?categoryId=2&page=0&size=50").body())
+        assertTrue(before["content"].size() >= 1)
+
+        postArchive(port, id)
+
+        val after = mapper.readTree(get(port, "?categoryId=2&page=0&size=50").body())
+        val ids = after["content"].map { it["id"].asLong() }
+        assertFalse(ids.contains(id))
+
+        assertEquals(404, getById(port, id).statusCode())
     }
 }

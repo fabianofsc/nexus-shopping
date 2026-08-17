@@ -3,6 +3,7 @@ package com.nexus.shopping.product.application.usecase
 import com.nexus.shopping.platform.domain.PageResult
 import com.nexus.shopping.product.application.command.CreateProductCommand
 import com.nexus.shopping.product.application.command.UpdatePriceCommand
+import com.nexus.shopping.product.application.command.UpdateProductDetailsCommand
 import com.nexus.shopping.product.application.exception.ProductNotFoundException
 import com.nexus.shopping.product.application.exception.ProductValidationException
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
@@ -57,6 +58,13 @@ class UpdateProductPriceUseCaseTest {
                 id: Long,
                 priceAmount: BigDecimal,
             ): Product? = repoReturn
+
+            override fun archive(id: Long): Product? = throw UnsupportedOperationException()
+
+            override fun updateDetails(
+                id: Long,
+                command: UpdateProductDetailsCommand,
+            ): Product? = throw UnsupportedOperationException()
         }
 
     private val useCase = UpdateProductPriceUseCase(fakeRepo)
