@@ -6,6 +6,13 @@ import com.nexus.shopping.cart.domain.Cart
 import com.nexus.shopping.cart.domain.CartItem
 import com.nexus.shopping.cart.domain.CartStatus
 import com.nexus.shopping.cart.domain.ProductSummary
+import com.nexus.shopping.customer.application.port.inbound.GetCustomerSnapshotInputPort
+import com.nexus.shopping.customer.domain.Address
+import com.nexus.shopping.customer.domain.Contact
+import com.nexus.shopping.customer.domain.Customer
+import com.nexus.shopping.customer.domain.CustomerStatus
+import com.nexus.shopping.customer.domain.DocumentType
+import com.nexus.shopping.integration.checkout.application.exception.CheckoutValidationException
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutItemSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressSnapshot
@@ -31,6 +38,7 @@ import java.math.BigDecimal
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import com.nexus.shopping.cart.domain.Currency as CartCurrency
 import com.nexus.shopping.order.domain.Currency as OrderCurrency
 
@@ -157,6 +165,49 @@ class CheckoutGatewayAdaptersTest {
 
         assertEquals(DecrementStockCommand("checkout:1", listOf(DecrementStockItem(1L, 2))), decrements.single())
         assertEquals(ReleaseStockCommand("checkout:1", listOf(ReleaseStockItem(1L, 2))), releases.single())
+    }
+
+    @Test
+    fun `Customer gateway resolves customer and address snapshots from the registered customer`() {
+        val customer =
+            Customer(
+                id = 10L,
+                name = "Ana Silva",
+                document = "12345678900",
+                documentType = DocumentType.CPF,
+                status = CustomerStatus.ACTIVE,
+                contact = Contact("ana@example.com", "+5511999990000"),
+                address = Address("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
+                createdAt = java.time.LocalDateTime.of(2026, 7, 26, 12, 0),
+                updatedAt = java.time.LocalDateTime.of(2026, 7, 26, 12, 0),
+            )
+        val snapshotPort =
+            object : GetCustomerSnapshotInputPort {
+                override fun getSnapshot(customerId: Long): Customer? = if (customerId == 10L) customer else null
+            }
+        val gateway = CustomerCheckoutGatewayAdapter(snapshotPort)
+
+        val resolution = gateway.resolve(10L)
+
+        assertEquals(10L, resolution.customer.customerId)
+        assertEquals("Ana Silva", resolution.customer.name)
+        assertEquals("ana@example.com", resolution.customer.email)
+        assertEquals("Sao Paulo", resolution.shippingAddress.city)
+        assertEquals("Rua A", resolution.shippingAddress.street)
+    }
+
+    @Test
+    fun `Customer gateway throws CheckoutValidationException when customer does not exist`() {
+        val gateway =
+            CustomerCheckoutGatewayAdapter(
+                object : GetCustomerSnapshotInputPort {
+                    override fun getSnapshot(customerId: Long): Customer? = null
+                },
+            )
+
+        assertFailsWith<CheckoutValidationException> {
+            gateway.resolve(999L)
+        }
     }
 
     private fun order() =
