@@ -52,7 +52,7 @@ private fun Contact.toResponse(): ContactResponse =
         phone = phone,
     )
 
-private fun Address.toResponse(): AddressResponse =
+fun Address.toResponse(): AddressResponse =
     AddressResponse(
         street = street,
         number = number,
