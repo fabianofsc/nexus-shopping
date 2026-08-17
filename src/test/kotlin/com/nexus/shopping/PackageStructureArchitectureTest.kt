@@ -32,10 +32,27 @@ class PackageStructureArchitectureTest {
             forbiddenPackages =
                 arrayOf(
                     "..cart..",
+                    "..inventory..",
                     "..order..",
                     "..payment..",
                     "..notification..",
                     "..integration.checkout.adapter..",
+                ),
+        )
+    }
+
+    @Test
+    fun `Inventory does not depend on other bounded contexts or Integration`() {
+        assertNoDependencies(
+            sourcePackage = "..inventory..",
+            forbiddenPackages =
+                arrayOf(
+                    "..cart..",
+                    "..customer..",
+                    "..order..",
+                    "..payment..",
+                    "..notification..",
+                    "..integration..",
                 ),
         )
     }
@@ -61,6 +78,7 @@ class PackageStructureArchitectureTest {
             .that()
             .resideOutsideOfPackages(
                 "..cart..",
+                "..inventory..",
                 "..order..",
                 "..payment..",
                 "..notification..",
@@ -69,6 +87,7 @@ class PackageStructureArchitectureTest {
             .dependOnClassesThat()
             .resideInAnyPackage(
                 "..cart.application.port.inbound..",
+                "..inventory.application.port.inbound..",
                 "..order.application.port.inbound..",
                 "..payment.application.port.inbound..",
                 "..notification.application.port.inbound..",
