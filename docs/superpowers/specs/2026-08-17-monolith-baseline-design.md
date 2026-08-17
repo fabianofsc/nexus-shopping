@@ -55,7 +55,7 @@ Gaps confirmados que este spec fecha:
 1. Inventory: baixa/reserva atomica no checkout + liberacao em falha/cancelamento + ledger de movimentacoes.
 2. Customer: CRUD de enderecos e selecao de endereco no checkout.
 3. Cart: update de quantidade de item.
-4. Catalogo: archive/update de produto e filtro `ACTIVE` na busca. Brands/categories ficam adiados (greenfield).
+4. Catalogo: archive/update de produto, filtro `ACTIVE` na busca e CRUD de brands/categories.
 5. ADR de adiamento de retry/reconciliation.
 6. `openapi.yaml` como contrato canonico.
 7. Script E2E de demonstracao.
@@ -186,11 +186,11 @@ Semantica (revisada em 2026-08-17):
 
 Reutiliza as regras de idempotencia e o lock de carrinho ACTIVE ja existentes.
 
-## Feature 4: Catalogo — Product archive, metadados e filtro ACTIVE
+## Feature 4: Catalogo — Product e CRUD de Brands/Categories
 
-Escopo revisado em 2026-08-17: **brands/categories ficam adiados** (nao ha entity nem
-controller hoje, somente tabelas; criar CRUD e greenfield e fica para um lote futuro).
-Este lote foca no gap real do catalogo: Product.
+Escopo revisado em 2026-08-17: o lote de Product (archive, metadados, filtro ACTIVE) foi
+concluido primeiro; o CRUD de **brands/categories** (greenfield) foi implementado depois,
+no mesmo contexto Product.
 
 ### Product
 
@@ -205,6 +205,21 @@ PATCH /products/{id}/details   -> update de name/slug/description/brandId/catego
 - `PATCH /products/{id}/details`: atualiza metadados (name, slug, description, brandId,
   categoryId) sem tocar em preco/estoque/status. Valida como no create. `404` se nao existe.
   Nota: o `PATCH /products/{id}` ja e usado para preco; os metadados usam `/details`.
+
+### Brands e Categories (CRUD)
+
+```text
+GET   /brands                    POST /brands
+GET   /categories                POST /categories
+                                 PATCH /categories/{id}/status  (ACTIVE/INACTIVE)
+```
+
+- Sem DELETE fisico (o catalogo usa soft-delete via status).
+- `brands` nao tem status; `categories` tem `ACTIVE`/`INACTIVE` (e hierarquia via `parentId`).
+- `ProductCreate`/`UpdateProductDetails` validam que o `brandId` existe e que o
+  `categoryId` existe **e esta ACTIVE** -> `400` (antes era `500` por FK no banco).
+- A busca por categoria (`findByCategoryId`) so retorna produtos de categorias `ACTIVE`;
+  mudar o status de uma categoria invalida o cache de busca.
 
 ### Filtro ACTIVE
 

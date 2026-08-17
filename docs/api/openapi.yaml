@@ -18,11 +18,9 @@ info:
       o corpo envia apenas `paymentToken`.
 
     > NOTA DE MANUTENCAO: este contrato deve ser atualizado junto com qualquer
-    > evolucao da API. Em particular, quando os CRUDs de `brands`/`categories`
-    > forem implementados (novos endpoints `GET/POST /brands`, `GET/POST
-    > /categories`, `PATCH /categories/{id}/status`), eles DEVEM ser adicionados
-    > aqui no mesmo lote.
-  version: 1.0.0
+    > evolucao da API (novos endpoints, campos ou comportamentos) no mesmo lote,
+    > para permanecer a fonte de verdade para a replicacao em outras linguagens.
+  version: 1.1.0
 servers:
   - url: http://localhost:8080
 tags:
@@ -153,6 +151,91 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Product"
+        "404":
+          $ref: "#/components/responses/Problem"
+  /brands:
+    get:
+      tags: [Catalog]
+      summary: Lista as marcas
+      responses:
+        "200":
+          description: Lista de marcas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Brand"
+    post:
+      tags: [Catalog]
+      summary: Cria uma marca
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBrandRequest"
+      responses:
+        "201":
+          description: Marca criada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Brand"
+        "400":
+          $ref: "#/components/responses/Problem"
+  /categories:
+    get:
+      tags: [Catalog]
+      summary: Lista as categorias
+      responses:
+        "200":
+          description: Lista de categorias
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+    post:
+      tags: [Catalog]
+      summary: Cria uma categoria
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCategoryRequest"
+      responses:
+        "201":
+          description: Categoria criada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/Problem"
+  /categories/{id}/status:
+    patch:
+      tags: [Catalog]
+      summary: Altera o status de uma categoria (ACTIVE/INACTIVE)
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCategoryStatusRequest"
+      responses:
+        "200":
+          description: Categoria atualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/Problem"
         "404":
           $ref: "#/components/responses/Problem"
   /customers:
@@ -590,6 +673,45 @@ components:
         description: { type: string, maxLength: 2000, nullable: true }
         brandId: { type: integer, format: int64 }
         categoryId: { type: integer, format: int64 }
+    Brand:
+      type: object
+      required: [id, name, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string, maxLength: 160 }
+        description: { type: string, maxLength: 1000, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CreateBrandRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 160 }
+        description: { type: string, maxLength: 1000, nullable: true }
+    Category:
+      type: object
+      required: [id, name, slug, status, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        parentId: { type: integer, format: int64, nullable: true }
+        name: { type: string, maxLength: 160 }
+        slug: { type: string, maxLength: 180 }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CreateCategoryRequest:
+      type: object
+      required: [name, slug]
+      properties:
+        parentId: { type: integer, format: int64, nullable: true }
+        name: { type: string, maxLength: 160 }
+        slug: { type: string, maxLength: 180 }
+        status: { type: string, enum: [ACTIVE, INACTIVE], default: ACTIVE }
+    UpdateCategoryStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
     Customer:
       type: object
       required: [id, name, document, documentType, status, contact, address, createdAt, updatedAt]

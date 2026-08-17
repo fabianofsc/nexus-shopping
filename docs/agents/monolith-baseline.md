@@ -89,6 +89,11 @@ POST   /products
 PATCH  /products/{id}             (preco)
 PATCH  /products/{id}/details
 POST   /products/{id}/archive
+GET    /brands
+POST   /brands
+GET    /categories
+POST   /categories
+PATCH  /categories/{id}/status
 POST   /customers
 GET    /customers/{id}
 GET    /customers/{customerId}/address
@@ -110,8 +115,7 @@ GET    /notifications/{id}
 Detalhes e schemas em [`docs/api/openapi.yaml`](../../docs/api/openapi.yaml).
 
 > **Manutencao do contrato:** o `openapi.yaml` e a fonte de verdade do contrato.
-> Qualquer evolucao da API **deve** atualizar esse arquivo no mesmo lote. Exemplo
-> previsto: os CRUDs de `brands`/`categories` (novos endpoints de catalogo).
+> Qualquer evolucao da API **deve** atualizar esse arquivo no mesmo lote.
 
 ## Trilha de evolucao (distribuicao fisica)
 
