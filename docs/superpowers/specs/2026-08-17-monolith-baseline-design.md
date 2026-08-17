@@ -236,6 +236,12 @@ Objetivo: permitir que implementacoes Node/TypeScript, Java e Python repliquem o
 comportamento a partir do contrato, com o Kotlin como implementacao de referencia.
 Nenhuma geracao de codigo nesta fase; o arquivo e versionado e revisado como contrato.
 
+Obrigacao de manutencao: **qualquer evolucao da API deve atualizar o `openapi.yaml` no
+mesmo lote**. Em particular, quando os CRUDs de `brands`/`categories` forem
+implementados (Feature 4 adiada), os novos endpoints (`GET/POST /brands`,
+`GET/POST /categories`, `PATCH /categories/{id}/status`) devem ser adicionados ao
+contrato junto com o codigo.
+
 ## Feature 7: Script E2E
 
 `scripts/e2e-monolith-demo.sh` (bash POSIX, `set -euo pipefail`, curl + asserts no estilo
