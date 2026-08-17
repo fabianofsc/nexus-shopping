@@ -13,6 +13,7 @@ import com.nexus.shopping.integration.checkout.application.model.PaymentProcessi
 import com.nexus.shopping.integration.checkout.application.model.PaymentResultStatus
 import com.nexus.shopping.integration.checkout.application.model.PaymentValidationCommand
 import com.nexus.shopping.integration.checkout.application.port.outbound.CheckoutCartGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.CheckoutCustomerGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.InventoryGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderCreationGateway
@@ -26,6 +27,7 @@ import org.springframework.stereotype.Service
 @Service
 class CheckoutWorkflowUseCase(
     private val carts: CheckoutCartGateway,
+    private val customers: CheckoutCustomerGateway,
     private val orders: OrderCreationGateway,
     private val paymentAuthorizationFingerprints: PaymentAuthorizationFingerprintGateway,
     private val paymentValidation: PaymentValidationGateway,
@@ -43,11 +45,12 @@ class CheckoutWorkflowUseCase(
                     idempotencyKey = command.idempotencyKey,
                 ),
             )
+        val resolution = customers.resolve(command.customerId)
         val replayCommand =
             FindCheckoutOrderReplayCommand(
                 customerId = command.customerId,
-                customerSnapshot = command.customerSnapshot,
-                shippingAddressSnapshot = command.shippingAddressSnapshot,
+                customerSnapshot = resolution.customer,
+                shippingAddressSnapshot = resolution.shippingAddress,
                 idempotencyKey = command.idempotencyKey,
                 paymentAuthorizationFingerprint = paymentAuthorizationFingerprint,
             )
@@ -76,8 +79,8 @@ class CheckoutWorkflowUseCase(
                         CreateCheckoutOrderCommand(
                             customerId = command.customerId,
                             cartId = cart.reservationId,
-                            customerSnapshot = command.customerSnapshot,
-                            shippingAddressSnapshot = command.shippingAddressSnapshot,
+                            customerSnapshot = resolution.customer,
+                            shippingAddressSnapshot = resolution.shippingAddress,
                             items = cart.items,
                             idempotencyKey = command.idempotencyKey,
                             paymentAuthorizationFingerprint = paymentAuthorizationFingerprint,

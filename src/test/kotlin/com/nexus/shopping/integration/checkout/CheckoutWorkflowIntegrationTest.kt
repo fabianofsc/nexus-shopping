@@ -4,8 +4,6 @@ import com.nexus.shopping.integration.checkout.application.CheckoutWorkflowUseCa
 import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPaymentResultCommand
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCartSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
-import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerSnapshot
-import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressSnapshot
 import com.nexus.shopping.integration.checkout.application.model.EnsureOrderConfirmationCommand
 import com.nexus.shopping.integration.checkout.application.model.PaymentAuthorizationCommand
 import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingCommand
@@ -13,6 +11,7 @@ import com.nexus.shopping.integration.checkout.application.model.PaymentProcessi
 import com.nexus.shopping.integration.checkout.application.model.PaymentResultStatus
 import com.nexus.shopping.integration.checkout.application.model.PaymentValidationCommand
 import com.nexus.shopping.integration.checkout.application.port.outbound.CheckoutCartGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.CheckoutCustomerGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.InventoryGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderCreationGateway
@@ -53,6 +52,9 @@ class CheckoutWorkflowIntegrationTest {
 
     @Autowired
     private lateinit var inventory: InventoryGateway
+
+    @Autowired
+    private lateinit var customers: CheckoutCustomerGateway
 
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
@@ -138,26 +140,6 @@ class CheckoutWorkflowIntegrationTest {
     private fun command(customerId: Long) =
         CheckoutCommand(
             customerId = customerId,
-            customerSnapshot =
-                CheckoutCustomerSnapshot(
-                    customerId,
-                    "Claudia Elaine Eloa Galvao",
-                    "378149714",
-                    "RG",
-                    "claudiaelainegalvao@athos.srv.br",
-                    "+5579995737583",
-                ),
-            shippingAddressSnapshot =
-                CheckoutShippingAddressSnapshot(
-                    "Rua Rafael de Aguiar",
-                    "557",
-                    null,
-                    "Pereira Lobo",
-                    "Aracaju",
-                    "SE",
-                    "49052220",
-                    "BR",
-                ),
             paymentToken = "approved",
             idempotencyKey = "rollback-checkout-$customerId",
         )
@@ -165,6 +147,7 @@ class CheckoutWorkflowIntegrationTest {
     private fun checkout(cartGateway: CheckoutCartGateway) =
         CheckoutWorkflowUseCase(
             carts = cartGateway,
+            customers = customers,
             orders = orders,
             paymentAuthorizationFingerprints =
                 object : PaymentAuthorizationFingerprintGateway {

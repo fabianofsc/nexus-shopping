@@ -156,23 +156,6 @@ class PaymentCheckoutConcurrencyHttpTest {
             "/customers/$customerId/cart/checkout",
             """
             {
-              "customerSnapshot": {
-                "name": "Concurrent Customer",
-                "document": "12345678900",
-                "documentType": "CPF",
-                "email": "concurrent@example.com",
-                "phone": null
-              },
-              "shippingAddressSnapshot": {
-                "street": "Rua Teste",
-                "number": "1",
-                "complement": null,
-                "neighborhood": "Centro",
-                "city": "Sao Paulo",
-                "state": "SP",
-                "zipCode": "01001000",
-                "country": "BR"
-              },
               "paymentToken": "approved"
             }
             """.trimIndent(),

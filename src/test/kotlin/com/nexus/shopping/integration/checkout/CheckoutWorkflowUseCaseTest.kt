@@ -4,6 +4,7 @@ import com.nexus.shopping.integration.checkout.application.CheckoutWorkflowUseCa
 import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPaymentResultCommand
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCartSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
+import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerResolution
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutItemSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderSnapshot
@@ -17,6 +18,7 @@ import com.nexus.shopping.integration.checkout.application.model.PaymentProcessi
 import com.nexus.shopping.integration.checkout.application.model.PaymentResultStatus
 import com.nexus.shopping.integration.checkout.application.model.PaymentValidationCommand
 import com.nexus.shopping.integration.checkout.application.port.outbound.CheckoutCartGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.CheckoutCustomerGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.InventoryGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderCreationGateway
@@ -52,6 +54,7 @@ class CheckoutWorkflowUseCaseTest {
         assertEquals(
             listOf(
                 "fingerprint",
+                "customer",
                 "transaction:start",
                 "replay",
                 "reserve",
@@ -82,7 +85,7 @@ class CheckoutWorkflowUseCaseTest {
         val result = workflow(carts, orders, ImmediateTransaction, events).execute(command())
 
         assertEquals(replay, result)
-        assertEquals(listOf("fingerprint", "replay", "payment"), events)
+        assertEquals(listOf("fingerprint", "customer", "replay", "payment"), events)
     }
 
     @Test
@@ -95,7 +98,7 @@ class CheckoutWorkflowUseCaseTest {
         val result = workflow(carts, orders, ImmediateTransaction, events).execute(command())
 
         assertEquals(replay, result)
-        assertEquals(listOf("fingerprint", "replay", "reserve", "replay", "validate", "create", "payment"), events)
+        assertEquals(listOf("fingerprint", "customer", "replay", "reserve", "replay", "validate", "create", "payment"), events)
     }
 
     @Test
@@ -124,7 +127,17 @@ class CheckoutWorkflowUseCaseTest {
 
         assertSame(failure, thrown)
         assertEquals(
-            listOf("fingerprint", "transaction:start", "replay", "reserve", "replay", "validate", "create", "transaction:rollback"),
+            listOf(
+                "fingerprint",
+                "customer",
+                "transaction:start",
+                "replay",
+                "reserve",
+                "replay",
+                "validate",
+                "create",
+                "transaction:rollback",
+            ),
             events,
         )
     }
@@ -136,6 +149,7 @@ class CheckoutWorkflowUseCaseTest {
         val checkout =
             CheckoutWorkflowUseCase(
                 carts = RecordingCartGateway(events),
+                customers = RecordingCustomerGateway(events),
                 orders = RecordingOrderGateway(events),
                 paymentAuthorizationFingerprints =
                     object : PaymentAuthorizationFingerprintGateway {
@@ -177,6 +191,7 @@ class CheckoutWorkflowUseCaseTest {
         assertEquals(
             listOf(
                 "fingerprint",
+                "customer",
                 "replay",
                 "reserve",
                 "replay",
@@ -197,9 +212,6 @@ class CheckoutWorkflowUseCaseTest {
     private fun command() =
         CheckoutCommand(
             customerId = 10L,
-            customerSnapshot = CheckoutCustomerSnapshot(10L, "Ana Silva", "12345678900", "CPF", "ana@example.com", null),
-            shippingAddressSnapshot =
-                CheckoutShippingAddressSnapshot("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
             paymentToken = "approved",
             idempotencyKey = "checkout-1",
         )
@@ -210,8 +222,10 @@ class CheckoutWorkflowUseCaseTest {
         transactions: TransactionPort,
         events: MutableList<String>,
         inventory: InventoryGateway = RecordingInventoryGateway(events),
+        customers: CheckoutCustomerGateway = RecordingCustomerGateway(events),
     ) = CheckoutWorkflowUseCase(
         carts = carts,
+        customers = customers,
         orders = orders,
         paymentAuthorizationFingerprints =
             object : PaymentAuthorizationFingerprintGateway {
@@ -247,6 +261,12 @@ class CheckoutWorkflowUseCaseTest {
 
     private fun item() = CheckoutItemSnapshot(1L, "Produto A", BigDecimal("19.90"), "BRL", 2)
 
+    private fun customer() = CheckoutCustomerSnapshot(10L, "Ana Silva", "12345678900", "CPF", "ana@example.com", null)
+
+    private fun shippingAddress() = CheckoutShippingAddressSnapshot("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR")
+
+    private fun resolution() = CheckoutCustomerResolution(customer(), shippingAddress())
+
     private fun order(replayed: Boolean) =
         CheckoutOrderSnapshot(
             id = 1L,
@@ -254,8 +274,8 @@ class CheckoutWorkflowUseCaseTest {
             customerId = 10L,
             cartId = 100L,
             recipientEmail = "ana@example.com",
-            customerSnapshot = command().customerSnapshot,
-            shippingAddressSnapshot = command().shippingAddressSnapshot,
+            customerSnapshot = customer(),
+            shippingAddressSnapshot = shippingAddress(),
             items = listOf(item()),
             totalAmount = BigDecimal("39.80"),
             status = "WAITING_PAYMENT",
@@ -314,6 +334,15 @@ class CheckoutWorkflowUseCaseTest {
             items: List<CheckoutItemSnapshot>,
         ) {
             events += "release"
+        }
+    }
+
+    private inner class RecordingCustomerGateway(
+        private val events: MutableList<String>,
+    ) : CheckoutCustomerGateway {
+        override fun resolve(customerId: Long): CheckoutCustomerResolution {
+            events += "customer"
+            return resolution()
         }
     }
 

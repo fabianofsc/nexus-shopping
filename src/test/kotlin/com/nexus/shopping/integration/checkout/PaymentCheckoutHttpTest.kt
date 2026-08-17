@@ -206,23 +206,6 @@ class PaymentCheckoutHttpTest {
             "/customers/$customerId/cart/checkout",
             """
             {
-              "customerSnapshot": {
-                "name": "Payment Customer",
-                "document": "12345678900",
-                "documentType": "CPF",
-                "email": "payment@example.com",
-                "phone": null
-              },
-              "shippingAddressSnapshot": {
-                "street": "Rua Teste",
-                "number": "1",
-                "complement": null,
-                "neighborhood": "Centro",
-                "city": "Sao Paulo",
-                "state": "SP",
-                "zipCode": "01001000",
-                "country": "BR"
-              },
               "paymentToken": "$paymentToken"
             }
             """.trimIndent(),

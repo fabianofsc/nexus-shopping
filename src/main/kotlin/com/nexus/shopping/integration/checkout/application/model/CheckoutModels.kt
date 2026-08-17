@@ -5,15 +5,16 @@ import java.time.Instant
 
 data class CheckoutCommand(
     val customerId: Long,
-    val customerSnapshot: CheckoutCustomerSnapshot,
-    val shippingAddressSnapshot: CheckoutShippingAddressSnapshot,
     val paymentToken: String,
     val idempotencyKey: String,
 ) {
-    override fun toString(): String =
-        "CheckoutCommand(customerId=$customerId, customerSnapshot=$customerSnapshot, " +
-            "shippingAddressSnapshot=$shippingAddressSnapshot, paymentToken=<redacted>, idempotencyKey=$idempotencyKey)"
+    override fun toString(): String = "CheckoutCommand(customerId=$customerId, paymentToken=<redacted>, idempotencyKey=$idempotencyKey)"
 }
+
+data class CheckoutCustomerResolution(
+    val customer: CheckoutCustomerSnapshot,
+    val shippingAddress: CheckoutShippingAddressSnapshot,
+)
 
 data class CheckoutCustomerSnapshot(
     val customerId: Long,

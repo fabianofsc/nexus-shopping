@@ -5,9 +5,7 @@ import com.nexus.shopping.cart.domain.CartItem
 import com.nexus.shopping.cart.domain.ProductSummary
 import com.nexus.shopping.integration.checkout.application.CheckoutWorkflowUseCase
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
-import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderSnapshot
-import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressSnapshot
 import com.nexus.shopping.integration.checkout.seedStockedProduct
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -123,9 +121,6 @@ class CheckoutOrderConcurrencyTest {
         idempotencyKey: String,
     ) = CheckoutCommand(
         customerId = customerId,
-        customerSnapshot = CheckoutCustomerSnapshot(customerId, "Ana Silva", "12345678900", "CPF", "ana@example.com", null),
-        shippingAddressSnapshot =
-            CheckoutShippingAddressSnapshot("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
         paymentToken = "approved",
         idempotencyKey = idempotencyKey,
     )
