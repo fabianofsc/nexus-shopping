@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.json.JsonMapper
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.KotlinModule
-import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.cache.CacheManager
@@ -49,10 +48,8 @@ class ProductCacheConfig {
     )
     fun productRedisCacheManager(
         connectionFactory: RedisConnectionFactory,
-        objectMapperProvider: ObjectProvider<ObjectMapper>,
         properties: ProductCacheProperties,
     ): CacheManager {
-        val objectMapper = objectMapperProvider.getIfAvailable(::fallbackObjectMapper)
         val defaultConfiguration =
             RedisCacheConfiguration
                 .defaultCacheConfig()
@@ -60,7 +57,7 @@ class ProductCacheConfig {
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(StringRedisSerializer()))
                 .serializeValuesWith(
                     RedisSerializationContext.SerializationPair.fromSerializer(
-                        GenericJackson2JsonRedisSerializer(cacheObjectMapper(objectMapper)),
+                        GenericJackson2JsonRedisSerializer(cacheObjectMapper(fallbackObjectMapper())),
                     ),
                 ).disableCachingNullValues()
 
