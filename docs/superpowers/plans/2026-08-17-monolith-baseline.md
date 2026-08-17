@@ -139,23 +139,25 @@ git add src/main src/test
 git commit -m "feat: update cart item quantity"
 ```
 
-### Task 7: Catalogo - brands, categories, archive e filtro ACTIVE
+### Task 7: Catalogo - Product archive, metadados e filtro ACTIVE
 
 **Files:**
 
-- Create: `product/adapter/inbound/http/{BrandController,CategoryController}.kt` + DTOs e use cases minimos (list/create, category status)
-- Modify: `product` (use case `ArchiveProductUseCase`, `UpdateProductUseCase` parcial, `ProductController` `POST /products/{id}/archive` e `PATCH /products/{id}`)
-- Modify: `SpringDataProductRepository` busca filtra `status = 'ACTIVE'` (`findByCategoryId`, `findByNamePrefix`) e `getById` nao expoe ARCHIVED
-- Test: HTTP + use cases + busca com ARCHIVED oculto
+- Modify: `product` (use cases `ArchiveProductUseCase`/`UpdateProductDetailsUseCase`, commands, `ProductController` `POST /{id}/archive` e `PATCH /{id}/details`, `ProductRepositoryPort` + adapter JPA)
+- Modify: `SpringDataProductRepository` busca filtra `status = ACTIVE` (`findByCategoryId`, `findByNamePrefix`)
+- Modify: `ProductGetByIdUseCase` oculta `ARCHIVED`
+- Test: HTTP + use cases + adapter + busca com ARCHIVED oculto
 
-- [ ] **Step 1: Escrever testes vermelhos.** Categoria INACTIVE nao aparece; produto ARCHIVED some da busca e do detalhe; archive/update funcionais.
-- [ ] **Step 2: Implementar use cases, controllers e filtros de query.**
-- [ ] **Step 3: Ajustar contratos de busca da spec de performance (nada de COUNT; manter Slice).**
+Nota: brands/categories ficam adiados (greenfield); escopo focado em Product.
+
+- [ ] **Step 1: Escrever testes vermelhos.** Archive muda status; `PATCH /details` atualiza; busca filtra `ACTIVE`; detalhe oculta `ARCHIVED`; 404s.
+- [ ] **Step 2: Implementar use cases, controller, port/adapter e filtro nas queries (manter Slice, sem COUNT).**
+- [ ] **Step 3: Atualizar fakes e rodar testes.**
 - [ ] **Step 4: Commit.**
 
 ```bash
 git add src/main src/test
-git commit -m "feat: catalog CRUD with active-only search"
+git commit -m "feat: catalog product archive and details update with active-only search"
 ```
 
 ### Task 8: ADR de adiamento de retry/reconciliation

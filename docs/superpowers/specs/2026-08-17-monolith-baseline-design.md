@@ -55,7 +55,7 @@ Gaps confirmados que este spec fecha:
 1. Inventory: baixa/reserva atomica no checkout + liberacao em falha/cancelamento + ledger de movimentacoes.
 2. Customer: CRUD de enderecos e selecao de endereco no checkout.
 3. Cart: update de quantidade de item.
-4. Catalogo: CRUD minimo de brands/categories, archive/update de produto e filtro `ACTIVE` na busca.
+4. Catalogo: archive/update de produto e filtro `ACTIVE` na busca. Brands/categories ficam adiados (greenfield).
 5. ADR de adiamento de retry/reconciliation.
 6. `openapi.yaml` como contrato canonico.
 7. Script E2E de demonstracao.
@@ -186,29 +186,31 @@ Semantica (revisada em 2026-08-17):
 
 Reutiliza as regras de idempotencia e o lock de carrinho ACTIVE ja existentes.
 
-## Feature 4: Catalogo — CRUD minimo
+## Feature 4: Catalogo — Product archive, metadados e filtro ACTIVE
 
-### Brands e Categories
-
-```text
-GET   /brands          GET   /categories
-POST  /brands          POST  /categories
-                      PATCH /categories/{id}/status   (ACTIVE/INACTIVE)
-```
-
-- Novos contextos? Nao: `brands`/`categories` continuam no contexto Product (sao parte
-  do catalogo). Ganham controller + use cases no padrao existente.
-- Busca por categoria deve considerar apenas categorias `ACTIVE`.
+Escopo revisado em 2026-08-17: **brands/categories ficam adiados** (nao ha entity nem
+controller hoje, somente tabelas; criar CRUD e greenfield e fica para um lote futuro).
+Este lote foca no gap real do catalogo: Product.
 
 ### Product
 
 ```text
-POST  /products/{id}/archive   -> status ARCHIVED
-PATCH /products/{id}           -> update parcial de name/slug/description/brandId/categoryId
+POST  /products/{id}/archive   -> status ARCHIVED (idempotente)
+PATCH /products/{id}/details   -> update de name/slug/description/brandId/categoryId
 ```
 
-- A busca (`findByCategoryId` e `findByNamePrefix`) passa a filtrar `status = 'ACTIVE'`.
-- `getById` nao lista produto `ARCHIVED` para clientes (nao muda para admin; nao ha admin).
+- `POST /products/{id}/archive`: muda o status para `ARCHIVED`. `404` se o produto nao
+  existe. Idempotente: arquivar algo ja ARCHIVED e um no-op. Invalida o cache de detalhe
+  e de busca.
+- `PATCH /products/{id}/details`: atualiza metadados (name, slug, description, brandId,
+  categoryId) sem tocar em preco/estoque/status. Valida como no create. `404` se nao existe.
+  Nota: o `PATCH /products/{id}` ja e usado para preco; os metadados usam `/details`.
+
+### Filtro ACTIVE
+
+- A busca (`findByCategoryId` e `findByNamePrefix`) passa a filtrar `status = ACTIVE`:
+  produtos `ARCHIVED`/`INACTIVE` somem do catalogo publico.
+- `getById` nao lista produto `ARCHIVED` para clientes (devolve `404`; nao ha admin).
 
 ## Feature 5: ADR de adiamento de retry/reconciliation
 
@@ -341,7 +343,7 @@ Riscos:
 - [ ] Estoque nunca fica negativo sob concorrencia.
 - [ ] Endereco unico com sobrescrita (`GET`/`PUT`); checkout usa o endereco cadastrado do cliente.
 - [ ] Update de quantidade no carrinho (`PUT`, 0 remove, ausente -> 400).
-- [ ] Brands/categories CRUD minimo; busca filtra `ACTIVE`; archive de produto.
+- [ ] Archive e `PATCH /details` de produto; busca filtra `ACTIVE`; detalhe oculta `ARCHIVED`.
 - [ ] `openapi.yaml` cobre todos os endpoints e contratos.
 - [ ] `e2e-monolith-demo.sh` passa contra o compose local.
 - [ ] Manual do aluno linkado no README.
