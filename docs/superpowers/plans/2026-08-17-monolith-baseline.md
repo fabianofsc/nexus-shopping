@@ -88,39 +88,39 @@ git add src/main src/test
 git commit -m "feat: integrate inventory into checkout and cancellation"
 ```
 
-### Task 4: Customer - CRUD de enderecos
+### Task 4: Customer - endereco unico com sobrescrita
 
 **Files:**
 
-- Create: `customer/adapter/inbound/http/AddressController.kt` + DTOs
-- Create: use cases `{List,Create,Update,Delete}CustomerAddress*` + comandos/excecoes
-- Test: `AddressControllerTest.kt`, use case tests (posse do endereco -> 404)
+- Create: `customer/adapter/inbound/http/CustomerAddressController.kt` + `dto/UpdateCustomerAddressRequest.kt`
+- Create: use case `UpdateCustomerAddressUseCase` + command; port `updateAddress` no `CustomerRepositoryPort` e adapter JPA
+- Test: `CustomerAddressControllerTest.kt`, `UpdateCustomerAddressUseCaseTest.kt`
 
-- [ ] **Step 1: Escrever testes vermelhos.** List/create/update/delete; endereco de outro `customerId` -> 404; create -> 201.
-- [ ] **Step 2: Implementar use cases e controller no padrao de Customer.**
+- [ ] **Step 1: Escrever testes vermelhos.** `GET /customers/{customerId}/address` devolve o endereco; `PUT` sobrescreve; cliente inexistente -> 404; campo invalido -> 400.
+- [ ] **Step 2: Implementar use case e controller no padrao de Customer (endereco unico, sem lista).**
 - [ ] **Step 3: Commit.**
 
 ```bash
 git add src/main src/test
-git commit -m "feat: add customer address CRUD"
+git commit -m "feat: add customer address get and update"
 ```
 
-### Task 5: Customer - resolucao de snapshot e contrato `addressId` no checkout
+### Task 5: Customer - resolucao de snapshot e contrato sem snapshots inline no checkout
 
 **Files:**
 
-- Create: porta inbound/outbound de resolucao de snapshot do Customer (valida posse do `addressId`)
+- Create: porta inbound/outbound de resolucao de snapshot do Customer (valida cliente existente com endereco)
 - Modify: `integration/checkout` (`CheckoutRequest`, `CheckoutWorkflowUseCase`, gateways da ACL)
-- Modify: testes HTTP de checkout (todos os cenarios trocam snapshot inline por `addressId`)
+- Modify: testes HTTP de checkout (todos os cenarios removem snapshots inline)
 
-- [ ] **Step 1: Escrever testes HTTP vermelhos.** Checkout com `addressId` de outro cliente -> 404; valido -> cria Order com snapshots resolvidos.
+- [ ] **Step 1: Escrever testes HTTP vermelhos.** Checkout de cliente sem endereco -> 404/400; valido -> cria Order com snapshots resolvidos.
 - [ ] **Step 2: Implementar resolucao.** Workflow resolve customer/address via porta do Customer; passa snapshots para Order; Order segue imutavel.
 - [ ] **Step 3: Atualizar todos os testes de checkout/replay/202/concorrencia para o novo contrato.**
 - [ ] **Step 4: Commit.**
 
 ```bash
 git add src/main src/test
-git commit -m "feat: resolve checkout address by id"
+git commit -m "feat: resolve checkout customer address from registration"
 ```
 
 ### Task 6: Cart - update de quantidade

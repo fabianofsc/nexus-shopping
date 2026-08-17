@@ -69,18 +69,22 @@ Gaps confirmados que este spec fecha:
 - Devolucao/reembolso/chargeback, entrega/frete/fulfilment.
 - Carrinho e enderecos novos exigem `customerId` confiavel (sem autenticacao, como hoje).
 
-## Decisao de contrato: checkout passa a usar `addressId`
+## Decisao de contrato: checkout passa a usar o endereco cadastrado do cliente
 
 Hoje o `CheckoutRequest` exige `customerSnapshot` e `shippingAddressSnapshot` inline no
 body. Isso faz o cliente digitar dados que ja deveriam estar cadastrados e impede o
-workflow de validar a posse do endereco.
+workflow de validar o cadastro.
 
-Decisao:
+Decisao (revisada em 2026-08-17): o baseline usa **um unico endereco por cliente, com
+sobrescrita** (`PUT /customers/{customerId}/address`). Nao ha lista de enderecos nesta
+fase; multiplos enderecos (casa/trabalho) sao evolucao futura e nao trazem ganho
+didatico para o baseline.
 
-- `POST /customers/{customerId}/cart/checkout` passa a receber `{ addressId, paymentToken }`.
+- `POST /customers/{customerId}/cart/checkout` passa a receber `{ paymentToken }`,
+  sem snapshots inline.
 - O workflow (camada `integration/checkout`) resolve o snapshot do cliente e do endereco
-  consultando Customer por uma porta propria (`CustomerSnapshotPort`), valida que o
-  `addressId` pertence ao `customerId` e passa os snapshots resolvidos para Order.
+  consultando Customer por uma porta propria (`CustomerSnapshotPort`), validando que o
+  cliente existe e possui endereco cadastrado, e passa os snapshots resolvidos para Order.
 - `Order` continua persistindo os snapshots como fato historico imutavel e continua nao
   consultando Customer durante a criacao do pedido (vale para o futuro distribuido).
 - Os testes HTTP existentes que enviam snapshots inline sao atualizados.
@@ -144,27 +148,28 @@ fazem apenas uma vencer. Testes de concorrencia com barreira (mesmo padrao de
 `CartConcurrencyTest`) validam que nenhuma excecao de unicidade/estado escapa e que o
 estoque nunca fica negativo.
 
-## Feature 2: Customer — CRUD de enderecos e uso no checkout
+## Feature 2: Customer — endereco unico com sobrescrita e uso no checkout
 
 ### Endpoints
 
 ```text
-GET    /customers/{customerId}/addresses
-POST   /customers/{customerId}/addresses          -> 201
-PUT    /customers/{customerId}/addresses/{addressId}
-DELETE /customers/{customerId}/addresses/{addressId}  -> 204
+GET  /customers/{customerId}/address
+PUT  /customers/{customerId}/address
 ```
 
-- Endereco inexistente ou de outro `customerId` -> `404 Not Found`.
-- CRUD segue o padrao hexagonal de Customer (usecase valida, adapter nao valida).
-- Delete e fisico (simples); nao afeta pedidos ja criados (que guardam snapshot).
+- `GET` devolve o endereco cadastrado; cliente inexistente -> `404 Not Found`.
+- `PUT` sobrescreve integralmente o endereco (todos os campos obrigatorios, mesmas
+  validacoes do cadastro). Cliente inexistente -> `404 Not Found`; campo invalido -> `400`.
+- CRUD segue o padrao hexagonal de Customer (use case valida, adapter nao valida).
+- Nao ha DELETE nesta fase: o endereco e obrigatorio para checkout e o cadastro de
+  cliente exige um endereco.
 
 ### Porta de resolucao para o checkout
 
 Customer expoe (em `application/port/inbound`) uma operacao para o workflow resolver o
-snapshot de cliente e endereco a partir de `customerId + addressId`, validando posse.
-O adapter local que implementa essa porta faz a leitura no banco compartilhado; no
-futuro vira chamada HTTP ao Customer Service.
+snapshot de cliente e endereco a partir do `customerId`, validando que o cliente existe
+e possui endereco. O adapter local que implementa essa porta faz a leitura no banco
+compartilhado; no futuro vira chamada HTTP ao Customer Service.
 
 ## Feature 3: Cart — update de quantidade
 
@@ -276,7 +281,7 @@ existe). Address CRUD usa tabelas existentes de V4.
 - Concorrencia de estoque com barreira; nunca estoque negativo.
 - `PackageStructureArchitectureTest` ganha as regras de `inventory` (nao importa outros
   contextos; domain/application sem imports de framework).
-- Contratos HTTP de checkout atualizados para `addressId`.
+- Contratos HTTP de checkout atualizados para resolver o endereco cadastrado do cliente.
 - Migrations portaveis validas em H2 (testes) e PostgreSQL (runtime).
 - Build final com `env GRADLE_USER_HOME=.../.gradle-local ./gradlew build`.
 
@@ -329,7 +334,7 @@ Riscos:
 - [ ] Checkout com `approved` baixa estoque, confirma pedido e notifica.
 - [ ] Pagamento `rejected` libera o estoque; cancelamento devolve o estoque.
 - [ ] Estoque nunca fica negativo sob concorrencia.
-- [ ] CRUD de enderecos completo; checkout usa `addressId` e valida posse.
+- [ ] Endereco unico com sobrescrita (`GET`/`PUT`); checkout usa o endereco cadastrado do cliente.
 - [ ] Update de quantidade no carrinho (0 remove, novo adiciona, senal ajusta).
 - [ ] Brands/categories CRUD minimo; busca filtra `ACTIVE`; archive de produto.
 - [ ] `openapi.yaml` cobre todos os endpoints e contratos.
