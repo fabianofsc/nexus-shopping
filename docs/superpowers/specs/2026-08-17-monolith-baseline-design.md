@@ -175,14 +175,16 @@ compartilhado; no futuro vira chamada HTTP ao Customer Service.
 
 `PUT /customers/{customerId}/cart/items/{productId}` com body `{ "quantity": N }`.
 
-Semantica:
+Semantica (revisada em 2026-08-17):
 
 - `N == 0` -> remove o item (equivalente a `DELETE`);
-- produto fora do carrinho e `N > 0` -> adiciona com `ProductSummary` do catalogo;
-- senao, ajusta a quantidade absoluta do item existente.
+- `N > 0` -> ajusta a quantidade absoluta do item existente;
+- produto fora do carrinho com `N > 0` -> `400`: o item deve ser adicionado via
+  `POST /cart/items` primeiro. O Cart continua recebendo dados denormalizados do chamador
+  e **nao consulta o Catalogo** (sem novo acoplamento Cart -> Product neste baseline);
+- `N < 0` -> `400`.
 
-Reutiliza as regras de idempotencia e o lock de carrinho ACTIVE ja existentes. Ajusta o
-preco total automaticamente (o carrinho ja calcula `totalAmount`).
+Reutiliza as regras de idempotencia e o lock de carrinho ACTIVE ja existentes.
 
 ## Feature 4: Catalogo — CRUD minimo
 
@@ -302,9 +304,12 @@ existe). Address CRUD usa tabelas existentes de V4.
 
 ### Update de quantidade: PUT absoluto vs PATCH delta
 
-- **Escolhida:** `PUT` com quantidade absoluta. Previsivel e idempotente, combina com as
-  demais operacoes do carrinho.
+- **Escolhida:** `PUT` com quantidade absoluta de item existente (0 remove; ausente -> 400).
+  Previsivel e idempotente, combina com as demais operacoes do carrinho e nao introduz
+  consulta ao Catalogo.
 - Rejeitada: PATCH com delta. Menos previsivel para o aluno e para o contrato.
+- Rejeitada: adicionar produto ausente via PUT consultando o Catalogo. Introduziria
+  acoplamento Cart -> Product que o baseline ainda nao tem.
 
 ## Consequencias
 
@@ -335,7 +340,7 @@ Riscos:
 - [ ] Pagamento `rejected` libera o estoque; cancelamento devolve o estoque.
 - [ ] Estoque nunca fica negativo sob concorrencia.
 - [ ] Endereco unico com sobrescrita (`GET`/`PUT`); checkout usa o endereco cadastrado do cliente.
-- [ ] Update de quantidade no carrinho (0 remove, novo adiciona, senal ajusta).
+- [ ] Update de quantidade no carrinho (`PUT`, 0 remove, ausente -> 400).
 - [ ] Brands/categories CRUD minimo; busca filtra `ACTIVE`; archive de produto.
 - [ ] `openapi.yaml` cobre todos os endpoints e contratos.
 - [ ] `e2e-monolith-demo.sh` passa contra o compose local.

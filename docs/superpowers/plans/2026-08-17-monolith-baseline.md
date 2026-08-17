@@ -127,11 +127,11 @@ git commit -m "feat: resolve checkout customer address from registration"
 
 **Files:**
 
-- Modify: `cart` (use case `UpdateCartItemQuantityUseCase`, comando, controller `PUT /cart/items/{productId}`, DTO)
-- Test: `CartControllerTest` + use case (0 remove, novo adiciona, existente ajusta; total recalculado)
+- Modify: `cart` (use case `UpdateCartItemQuantityUseCase`, comando, `Cart.withItemQuantity`, controller `PUT /cart/items/{productId}`, DTO)
+- Test: `CartControllerTest` + use case + `CartTest` (0 remove, ausente -> 400, ajusta absoluto)
 
-- [ ] **Step 1: Escrever testes vermelhos.** Semantica 0/novo/existente; mesmo lock e idempotencia do carrinho ACTIVE.
-- [ ] **Step 2: Implementar use case e endpoint reutilizando `AddCartItem`/`RemoveCartItem`.**
+- [ ] **Step 1: Escrever testes vermelhos.** Semantica 0/ausente/existente; mesmo lock e idempotencia do carrinho ACTIVE; sem consulta ao Catalogo.
+- [ ] **Step 2: Implementar use case e endpoint reutilizando o lock de `updateCart`.**
 - [ ] **Step 3: Commit.**
 
 ```bash
