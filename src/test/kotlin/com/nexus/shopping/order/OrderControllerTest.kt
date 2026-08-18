@@ -5,6 +5,7 @@ import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock.aResponse
 import com.github.tomakehurst.wiremock.client.WireMock.post
 import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
+import com.nexus.shopping.integration.checkout.seedStockedProduct
 import org.junit.jupiter.api.BeforeEach
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -114,29 +115,12 @@ class OrderControllerTest {
     }
 
     @Test
-    fun `POST checkout returns 400 for blank or oversized snapshots`() {
-        val port = environment.getRequiredProperty("local.server.port")
-        val blankCustomer = createCustomer(port, "blank-checkout-snapshot")
-        val oversizedAddress = createCustomer(port, "long-checkout-snapshot")
-        addItem(port, blankCustomer)
-        addItem(port, oversizedAddress)
-
-        val blankResponse =
-            post(port, "/customers/$blankCustomer/cart/checkout", checkoutBody(customerName = " "), "blank-snapshot")
-        val oversizedResponse =
-            post(port, "/customers/$oversizedAddress/cart/checkout", checkoutBody(street = "s".repeat(221)), "long-snapshot")
-
-        assertProblemDetail(blankResponse, 400, "Bad Request", "/customers/$blankCustomer/cart/checkout")
-        assertProblemDetail(oversizedResponse, 400, "Bad Request", "/customers/$oversizedAddress/cart/checkout")
-    }
-
-    @Test
     fun `POST checkout returns 409 problem details when the key is reused with a different payload`() {
         val port = environment.getRequiredProperty("local.server.port")
         addItem(port, 3L)
         checkoutCreated(port, 3L, "checkout-conflict")
 
-        val response = post(port, "/customers/3/cart/checkout", checkoutBody(number = "999"), "checkout-conflict")
+        val response = post(port, "/customers/3/cart/checkout", checkoutBody(paymentToken = "different-token"), "checkout-conflict")
 
         assertProblemDetail(response, 409, "Conflict", "/customers/3/cart/checkout")
     }
@@ -353,6 +337,7 @@ class OrderControllerTest {
         port: String,
         customerId: Long,
     ) {
+        jdbcTemplate.seedStockedProduct()
         val response = post(port, "/customers/$customerId/cart/items", addItemBody())
         assertEquals(200, response.statusCode())
     }
@@ -463,30 +448,10 @@ class OrderControllerTest {
         assertEquals(expectedInstance, problem["instance"].asText())
     }
 
-    private fun checkoutBody(
-        number: String = "123",
-        customerName: String = "Ana Silva",
-        street: String = "Rua das Flores",
-    ) = """
+    private fun checkoutBody(paymentToken: String = "approved") =
+        """
         {
-          "customerSnapshot": {
-            "name": "$customerName",
-            "document": "12345678900",
-            "documentType": "CPF",
-            "email": "ana@example.com",
-            "phone": "+5511999990000"
-          },
-          "shippingAddressSnapshot": {
-            "street": "$street",
-            "number": "$number",
-            "complement": "Apto 45",
-            "neighborhood": "Centro",
-            "city": "Sao Paulo",
-            "state": "SP",
-            "zipCode": "01001000",
-            "country": "BR"
-          },
-          "paymentToken": "approved"
+          "paymentToken": "$paymentToken"
         }
         """.trimIndent()
 }

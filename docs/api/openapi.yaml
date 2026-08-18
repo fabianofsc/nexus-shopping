@@ -1,0 +1,908 @@
+openapi: 3.0.3
+info:
+  title: Nexus Shopping Backend
+  description: |
+    Contrato canonico do monolito de e-commerce (baseline `monolith-first`). E a
+    fonte de verdade do contrato HTTP para replicacao em outras linguagens
+    (Node/TypeScript, Java, Python): o Kotlin e a implementacao de referencia e
+    deve seguir este arquivo.
+
+    Convencoes:
+    - Erros seguem RFC 7807 (application/problem+json).
+    - Paginacao usa Slice sem COUNT(*): o campo `count` e o numero de linhas da
+      pagina atual e `hasNext` indica se ha mais paginas.
+    - Escritas no carrinho retornam o estado atualizado do carrinho (200).
+    - O checkout exige o cabecalho `Idempotency-Key` e devolve 200 (replay),
+      201 (criado) ou 202 (pagamento pendente).
+    - O checkout resolve cliente e endereco a partir do `customerId` do path;
+      o corpo envia apenas `paymentToken`.
+
+    > NOTA DE MANUTENCAO: este contrato deve ser atualizado junto com qualquer
+    > evolucao da API (novos endpoints, campos ou comportamentos) no mesmo lote,
+    > para permanecer a fonte de verdade para a replicacao em outras linguagens.
+  version: 1.1.0
+servers:
+  - url: http://localhost:8080
+tags:
+  - name: Catalog
+  - name: Customers
+  - name: Cart
+  - name: Checkout
+  - name: Orders
+  - name: Notifications
+paths:
+  /actuator/health:
+    get:
+      tags: [Catalog]
+      summary: Health check do Actuator
+      responses:
+        "200":
+          description: Aplicacao saudavel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /products:
+    get:
+      tags: [Catalog]
+      summary: Busca paginada de produtos (por categoria OU por nome, nunca ambos)
+      parameters:
+        - $ref: "#/components/parameters/CategoryId"
+        - $ref: "#/components/parameters/Name"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: Slice paginado de produtos ativos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductPage"
+        "400":
+          $ref: "#/components/responses/Problem"
+    post:
+      tags: [Catalog]
+      summary: Cria um produto
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProductRequest"
+      responses:
+        "201":
+          description: Produto criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "400":
+          $ref: "#/components/responses/Problem"
+  /products/{id}:
+    get:
+      tags: [Catalog]
+      summary: Detalhe de produto (nao expoe produtos ARCHIVED)
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Produto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          $ref: "#/components/responses/Problem"
+    patch:
+      tags: [Catalog]
+      summary: Atualiza o preco do produto
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePriceRequest"
+      responses:
+        "200":
+          description: Produto atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+  /products/{id}/details:
+    patch:
+      tags: [Catalog]
+      summary: Atualiza metadados do produto (name, slug, description, brandId, categoryId)
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProductDetailsRequest"
+      responses:
+        "200":
+          description: Produto atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+  /products/{id}/archive:
+    post:
+      tags: [Catalog]
+      summary: Arquiva um produto (status ARCHIVED; idempotente)
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Produto arquivado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          $ref: "#/components/responses/Problem"
+  /brands:
+    get:
+      tags: [Catalog]
+      summary: Lista as marcas
+      responses:
+        "200":
+          description: Lista de marcas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Brand"
+    post:
+      tags: [Catalog]
+      summary: Cria uma marca
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBrandRequest"
+      responses:
+        "201":
+          description: Marca criada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Brand"
+        "400":
+          $ref: "#/components/responses/Problem"
+  /categories:
+    get:
+      tags: [Catalog]
+      summary: Lista as categorias
+      responses:
+        "200":
+          description: Lista de categorias
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+    post:
+      tags: [Catalog]
+      summary: Cria uma categoria
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCategoryRequest"
+      responses:
+        "201":
+          description: Categoria criada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/Problem"
+  /categories/{id}/status:
+    patch:
+      tags: [Catalog]
+      summary: Altera o status de uma categoria (ACTIVE/INACTIVE)
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCategoryStatusRequest"
+      responses:
+        "200":
+          description: Categoria atualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+  /customers:
+    post:
+      tags: [Customers]
+      summary: Cria um cliente com contato e endereco
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCustomerRequest"
+      responses:
+        "201":
+          description: Cliente criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "400":
+          $ref: "#/components/responses/Problem"
+  /customers/{id}:
+    get:
+      tags: [Customers]
+      summary: Detalhe do cliente
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Cliente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "404":
+          $ref: "#/components/responses/Problem"
+  /customers/{customerId}/address:
+    get:
+      tags: [Customers]
+      summary: Endereco cadastrado do cliente
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      responses:
+        "200":
+          description: Endereco
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Address"
+        "404":
+          $ref: "#/components/responses/Problem"
+    put:
+      tags: [Customers]
+      summary: Sobrescreve o endereco cadastrado do cliente (endereco unico)
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Address"
+      responses:
+        "200":
+          description: Endereco atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Address"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+  /customers/{customerId}/cart:
+    get:
+      tags: [Cart]
+      summary: Carrinho ativo do cliente (cria um vazio se nao existir)
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      responses:
+        "200":
+          description: Carrinho
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+  /customers/{customerId}/cart/items:
+    post:
+      tags: [Cart]
+      summary: Adiciona item ao carrinho ativo (soma quantidade se ja existir)
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddCartItemRequest"
+      responses:
+        "200":
+          description: Carrinho atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+        "400":
+          $ref: "#/components/responses/Problem"
+    delete:
+      tags: [Cart]
+      summary: Remove todos os itens do carrinho ativo
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      responses:
+        "200":
+          description: Carrinho vazio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+  /customers/{customerId}/cart/items/{productId}:
+    put:
+      tags: [Cart]
+      summary: Define a quantidade absoluta de um item (0 remove; ausente -> 400)
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+        - $ref: "#/components/parameters/ProductId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCartItemQuantityRequest"
+      responses:
+        "200":
+          description: Carrinho atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+        "400":
+          $ref: "#/components/responses/Problem"
+    delete:
+      tags: [Cart]
+      summary: Remove um item do carrinho ativo
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+        - $ref: "#/components/parameters/ProductId"
+      responses:
+        "200":
+          description: Carrinho atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+  /customers/{customerId}/cart/checkout:
+    post:
+      tags: [Checkout]
+      summary: Fecha o carrinho, cria o pedido, paga e notifica (com baixa de estoque)
+      description: |
+        Requer o cabecalho `Idempotency-Key`. Resolve cliente e endereco do cadastro,
+        baixa estoque (409 se insuficiente), cria a Order com snapshots historicos,
+        processa o pagamento (approved/rejected) e notifica em caso de aprovacao.
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutRequest"
+      responses:
+        "200":
+          description: Replay idempotente (mesma Idempotency-Key e payload)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutResponse"
+        "201":
+          description: Checkout criado (pedido CONFIRMED ou PAYMENT_FAILED)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutResponse"
+        "202":
+          description: Pagamento pendente (pedido WAITING_PAYMENT)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutResponse"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+  /customers/{customerId}/orders:
+    get:
+      tags: [Orders]
+      summary: Lista pedidos do cliente (paginado)
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: Slice paginado de pedidos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderPage"
+  /customers/{customerId}/orders/{orderId}:
+    get:
+      tags: [Orders]
+      summary: Detalhe de um pedido do cliente
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: Pedido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          $ref: "#/components/responses/Problem"
+    post:
+      tags: [Orders]
+      summary: Cancela um pedido em WAITING_PAYMENT (libera o estoque)
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: Pedido cancelado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+  /notifications:
+    post:
+      tags: [Notifications]
+      summary: Envia uma notificacao (idempotente por notificationKey)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendNotificationRequest"
+      responses:
+        "201":
+          description: Notificacao criada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+        "400":
+          $ref: "#/components/responses/Problem"
+    get:
+      tags: [Notifications]
+      summary: Lista notificacoes (opcionalmente por customerId, paginado)
+      parameters:
+        - name: customerId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: Slice paginado de notificacoes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationPage"
+  /notifications/{id}:
+    get:
+      tags: [Notifications]
+      summary: Detalhe de uma notificacao
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Notificacao
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+        "404":
+          $ref: "#/components/responses/Problem"
+components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    CustomerId:
+      name: customerId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    ProductId:
+      name: productId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        maxLength: 255
+    CategoryId:
+      name: categoryId
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int64
+    Name:
+      name: name
+      in: query
+      required: false
+      schema:
+        type: string
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
+    Size:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        default: 50
+        minimum: 1
+        maximum: 500
+  responses:
+    Problem:
+      description: Erro com Problem Details (RFC 7807)
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+  schemas:
+    ProblemDetails:
+      type: object
+      required: [type, title, status, detail, instance]
+      properties:
+        type:
+          type: string
+          example: "about:blank"
+        title:
+          type: string
+          example: "Bad Request"
+        status:
+          type: integer
+          example: 400
+        detail:
+          type: string
+        instance:
+          type: string
+    Health:
+      type: object
+      additionalProperties: true
+    Product:
+      type: object
+      required: [id, brandId, categoryId, sku, name, slug, status, priceAmount, currency, inventoryQuantity, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        brandId: { type: integer, format: int64 }
+        categoryId: { type: integer, format: int64 }
+        sku: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string, nullable: true }
+        status: { type: string, enum: [ACTIVE, INACTIVE, ARCHIVED] }
+        priceAmount: { type: number, format: double }
+        currency: { type: string, enum: [BRL] }
+        inventoryQuantity: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ProductPage:
+      $ref: "#/components/schemas/Page"
+    CreateProductRequest:
+      type: object
+      required: [brandId, categoryId, sku, name, slug, priceAmount]
+      properties:
+        brandId: { type: integer, format: int64 }
+        categoryId: { type: integer, format: int64 }
+        sku: { type: string, maxLength: 120 }
+        name: { type: string, maxLength: 220 }
+        slug: { type: string, maxLength: 260 }
+        description: { type: string, maxLength: 2000, nullable: true }
+        status: { type: string, enum: [ACTIVE, INACTIVE, ARCHIVED], default: ACTIVE }
+        priceAmount: { type: number, format: double }
+        currency: { type: string, enum: [BRL], default: BRL }
+        inventoryQuantity: { type: integer, default: 0 }
+    UpdatePriceRequest:
+      type: object
+      required: [priceAmount]
+      properties:
+        priceAmount: { type: number, format: double }
+    UpdateProductDetailsRequest:
+      type: object
+      required: [name, slug, brandId, categoryId]
+      properties:
+        name: { type: string, maxLength: 220 }
+        slug: { type: string, maxLength: 260 }
+        description: { type: string, maxLength: 2000, nullable: true }
+        brandId: { type: integer, format: int64 }
+        categoryId: { type: integer, format: int64 }
+    Brand:
+      type: object
+      required: [id, name, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string, maxLength: 160 }
+        description: { type: string, maxLength: 1000, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CreateBrandRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 160 }
+        description: { type: string, maxLength: 1000, nullable: true }
+    Category:
+      type: object
+      required: [id, name, slug, status, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        parentId: { type: integer, format: int64, nullable: true }
+        name: { type: string, maxLength: 160 }
+        slug: { type: string, maxLength: 180 }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CreateCategoryRequest:
+      type: object
+      required: [name, slug]
+      properties:
+        parentId: { type: integer, format: int64, nullable: true }
+        name: { type: string, maxLength: 160 }
+        slug: { type: string, maxLength: 180 }
+        status: { type: string, enum: [ACTIVE, INACTIVE], default: ACTIVE }
+    UpdateCategoryStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+    Customer:
+      type: object
+      required: [id, name, document, documentType, status, contact, address, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        document: { type: string }
+        documentType: { type: string, enum: [CPF, RG, CNPJ, CNH] }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+        contact: { $ref: "#/components/schemas/Contact" }
+        address: { $ref: "#/components/schemas/Address" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CreateCustomerRequest:
+      type: object
+      required: [name, document, documentType, email, street, number, neighborhood, city, state, zipCode]
+      properties:
+        name: { type: string, maxLength: 160 }
+        document: { type: string, maxLength: 32 }
+        documentType: { type: string, enum: [CPF, RG, CNPJ, CNH] }
+        email: { type: string, maxLength: 254 }
+        phone: { type: string, maxLength: 32, nullable: true }
+        street: { type: string, maxLength: 180 }
+        number: { type: string, maxLength: 40 }
+        complement: { type: string, maxLength: 120, nullable: true }
+        neighborhood: { type: string, maxLength: 120 }
+        city: { type: string, maxLength: 120 }
+        state: { type: string, maxLength: 60 }
+        zipCode: { type: string, maxLength: 20 }
+        country: { type: string, maxLength: 2, default: BR }
+    Contact:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string }
+        phone: { type: string, nullable: true }
+    Address:
+      type: object
+      required: [street, number, neighborhood, city, state, zipCode, country]
+      properties:
+        street: { type: string, maxLength: 180 }
+        number: { type: string, maxLength: 40 }
+        complement: { type: string, maxLength: 120, nullable: true }
+        neighborhood: { type: string, maxLength: 120 }
+        city: { type: string, maxLength: 120 }
+        state: { type: string, maxLength: 60 }
+        zipCode: { type: string, maxLength: 20 }
+        country: { type: string, maxLength: 2 }
+    Cart:
+      type: object
+      required: [id, customerId, status, items, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        customerId: { type: integer, format: int64 }
+        status: { type: string, enum: [ACTIVE, CHECKED_OUT, ABANDONED] }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/CartItem" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CartItem:
+      type: object
+      required: [productId, productName, unitPriceAmount, currency, quantity]
+      properties:
+        productId: { type: integer, format: int64 }
+        productName: { type: string }
+        unitPriceAmount: { type: number, format: double }
+        currency: { type: string, enum: [BRL] }
+        quantity: { type: integer, minimum: 1 }
+    AddCartItemRequest:
+      type: object
+      required: [productId, productName, unitPriceAmount, currency, quantity]
+      properties:
+        productId: { type: integer, format: int64 }
+        productName: { type: string }
+        unitPriceAmount: { type: number, format: double }
+        currency: { type: string, enum: [BRL] }
+        quantity: { type: integer, minimum: 1 }
+    UpdateCartItemQuantityRequest:
+      type: object
+      required: [quantity]
+      properties:
+        quantity: { type: integer, minimum: 0 }
+    CheckoutRequest:
+      type: object
+      required: [paymentToken]
+      properties:
+        paymentToken: { type: string }
+    CheckoutResponse:
+      type: object
+      required: [id, customerId, cartId, customerSnapshot, shippingAddressSnapshot, items, totalAmount, status, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        customerId: { type: integer, format: int64 }
+        cartId: { type: integer, format: int64 }
+        customerSnapshot: { $ref: "#/components/schemas/OrderCustomerSnapshot" }
+        shippingAddressSnapshot: { $ref: "#/components/schemas/OrderShippingAddressSnapshot" }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/OrderItem" }
+        totalAmount: { type: number, format: double }
+        status: { type: string, enum: [WAITING_PAYMENT, PAYMENT_PROCESSING, PAYMENT_FAILED, CONFIRMED, CANCELLED] }
+        createdAt: { type: string, format: date-time }
+        cancelledAt: { type: string, format: date-time, nullable: true }
+    Order:
+      type: object
+      required: [id, customerId, cartId, customerSnapshot, shippingAddressSnapshot, items, totalAmount, status, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        customerId: { type: integer, format: int64 }
+        cartId: { type: integer, format: int64 }
+        customerSnapshot: { $ref: "#/components/schemas/OrderCustomerSnapshot" }
+        shippingAddressSnapshot: { $ref: "#/components/schemas/OrderShippingAddressSnapshot" }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/OrderItem" }
+        totalAmount: { type: number, format: double }
+        status: { type: string, enum: [WAITING_PAYMENT, PAYMENT_PROCESSING, PAYMENT_FAILED, CONFIRMED, CANCELLED] }
+        createdAt: { type: string, format: date-time }
+        cancelledAt: { type: string, format: date-time, nullable: true }
+    OrderCustomerSnapshot:
+      type: object
+      required: [customerId, name, document, documentType, email]
+      properties:
+        customerId: { type: integer, format: int64 }
+        name: { type: string }
+        document: { type: string }
+        documentType: { type: string }
+        email: { type: string }
+        phone: { type: string, nullable: true }
+    OrderShippingAddressSnapshot:
+      type: object
+      required: [street, number, neighborhood, city, state, zipCode, country]
+      properties:
+        street: { type: string }
+        number: { type: string }
+        complement: { type: string, nullable: true }
+        neighborhood: { type: string }
+        city: { type: string }
+        state: { type: string }
+        zipCode: { type: string }
+        country: { type: string }
+    OrderItem:
+      type: object
+      required: [productId, productName, unitPriceAmount, currency, quantity, totalAmount]
+      properties:
+        productId: { type: integer, format: int64 }
+        productName: { type: string }
+        unitPriceAmount: { type: number, format: double }
+        currency: { type: string }
+        quantity: { type: integer }
+        totalAmount: { type: number, format: double }
+    OrderPage:
+      $ref: "#/components/schemas/Page"
+    Notification:
+      type: object
+      required: [id, customerId, recipientEmail, type, channel, status, subject, body, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        customerId: { type: integer, format: int64 }
+        recipientEmail: { type: string }
+        type: { type: string, enum: [ORDER_CONFIRMED, ORDER_PAYMENT_FAILED, ORDER_CANCELLED] }
+        channel: { type: string, enum: [EMAIL] }
+        status: { type: string, enum: [PENDING, SENDING, SENT, FAILED] }
+        subject: { type: string }
+        body: { type: string }
+        referenceId: { type: integer, format: int64, nullable: true }
+        createdAt: { type: string, format: date-time }
+        sentAt: { type: string, format: date-time, nullable: true }
+    SendNotificationRequest:
+      type: object
+      required: [customerId, notificationKey, recipientEmail, type]
+      properties:
+        customerId: { type: integer, format: int64 }
+        notificationKey: { type: string }
+        recipientEmail: { type: string }
+        type: { type: string, enum: [ORDER_CONFIRMED, ORDER_PAYMENT_FAILED, ORDER_CANCELLED] }
+        referenceId: { type: integer, format: int64, nullable: true }
+        templateParams:
+          type: object
+          additionalProperties: { type: string }
+    NotificationPage:
+      $ref: "#/components/schemas/Page"
+    Page:
+      type: object
+      required: [content, page, size, count, hasNext]
+      properties:
+        content:
+          type: array
+          items: {}
+        page: { type: integer }
+        size: { type: integer }
+        count: { type: integer }
+        hasNext: { type: boolean }

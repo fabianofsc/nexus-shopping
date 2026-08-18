@@ -1,5 +1,6 @@
 package com.nexus.shopping.product.adapter.outbound.jpa
 
+import com.nexus.shopping.product.domain.ProductStatus
 import org.springframework.data.domain.Pageable
 import org.springframework.data.domain.Slice
 import org.springframework.data.jpa.repository.JpaRepository
@@ -20,11 +21,18 @@ interface SpringDataProductRepository : JpaRepository<ProductEntity, Long> {
         """
         SELECT p FROM ProductEntity p
         WHERE p.categoryId = :categoryId
+          AND p.status = :status
+          AND EXISTS (
+              SELECT 1 FROM CategoryEntity c
+              WHERE c.id = p.categoryId
+                AND c.status = com.nexus.shopping.product.domain.CategoryStatus.ACTIVE
+          )
         ORDER BY p.id
         """,
     )
     fun findByCategoryId(
         @Param("categoryId") categoryId: Long,
+        @Param("status") status: ProductStatus,
         pageable: Pageable,
     ): Slice<ProductEntity>
 
@@ -34,6 +42,7 @@ interface SpringDataProductRepository : JpaRepository<ProductEntity, Long> {
         WHERE p.name >= :name
           AND p.name < :upperBound
           AND p.name LIKE :prefix
+          AND p.status = :status
         ORDER BY p.name
         """,
     )
@@ -41,6 +50,7 @@ interface SpringDataProductRepository : JpaRepository<ProductEntity, Long> {
         @Param("name") name: String,
         @Param("upperBound") upperBound: String,
         @Param("prefix") prefix: String,
+        @Param("status") status: ProductStatus,
         pageable: Pageable,
     ): Slice<ProductEntity>
 }

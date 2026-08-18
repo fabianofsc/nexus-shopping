@@ -13,6 +13,8 @@ import com.nexus.shopping.integration.checkout.application.model.PaymentProcessi
 import com.nexus.shopping.integration.checkout.application.model.PaymentResultStatus
 import com.nexus.shopping.integration.checkout.application.model.PaymentValidationCommand
 import com.nexus.shopping.integration.checkout.application.port.outbound.CheckoutCartGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.CheckoutCustomerGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.InventoryGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderCreationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
@@ -25,12 +27,14 @@ import org.springframework.stereotype.Service
 @Service
 class CheckoutWorkflowUseCase(
     private val carts: CheckoutCartGateway,
+    private val customers: CheckoutCustomerGateway,
     private val orders: OrderCreationGateway,
     private val paymentAuthorizationFingerprints: PaymentAuthorizationFingerprintGateway,
     private val paymentValidation: PaymentValidationGateway,
     private val payments: PaymentProcessingGateway,
     private val orderPaymentResults: OrderPaymentResultGateway,
     private val notifications: NotificationGateway,
+    private val inventory: InventoryGateway,
     private val transaction: TransactionPort,
 ) {
     fun execute(command: CheckoutCommand): CheckoutOrderSnapshot {
@@ -41,11 +45,12 @@ class CheckoutWorkflowUseCase(
                     idempotencyKey = command.idempotencyKey,
                 ),
             )
+        val resolution = customers.resolve(command.customerId)
         val replayCommand =
             FindCheckoutOrderReplayCommand(
                 customerId = command.customerId,
-                customerSnapshot = command.customerSnapshot,
-                shippingAddressSnapshot = command.shippingAddressSnapshot,
+                customerSnapshot = resolution.customer,
+                shippingAddressSnapshot = resolution.shippingAddress,
                 idempotencyKey = command.idempotencyKey,
                 paymentAuthorizationFingerprint = paymentAuthorizationFingerprint,
             )
@@ -74,14 +79,15 @@ class CheckoutWorkflowUseCase(
                         CreateCheckoutOrderCommand(
                             customerId = command.customerId,
                             cartId = cart.reservationId,
-                            customerSnapshot = command.customerSnapshot,
-                            shippingAddressSnapshot = command.shippingAddressSnapshot,
+                            customerSnapshot = resolution.customer,
+                            shippingAddressSnapshot = resolution.shippingAddress,
                             items = cart.items,
                             idempotencyKey = command.idempotencyKey,
                             paymentAuthorizationFingerprint = paymentAuthorizationFingerprint,
                         ),
                     )
                 if (!createdOrder.replayed && createdOrder.cartId == cart.reservationId) {
+                    inventory.decrement(createdOrder.orderReference, cart.items)
                     carts.confirmCheckout(cart.reservationId)
                 }
                 createdOrder

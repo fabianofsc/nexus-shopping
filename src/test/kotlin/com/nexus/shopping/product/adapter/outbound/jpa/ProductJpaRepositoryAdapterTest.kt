@@ -1,9 +1,12 @@
 package com.nexus.shopping.product.adapter.outbound.jpa
 
 import com.nexus.shopping.product.application.command.CreateProductCommand
+import com.nexus.shopping.product.application.command.UpdateProductDetailsCommand
+import com.nexus.shopping.product.domain.ProductStatus
 import com.nexus.shopping.support.RedisIntegrationTest
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 import kotlin.test.Test
@@ -27,6 +30,9 @@ import kotlin.test.assertTrue
 class ProductJpaRepositoryAdapterTest : RedisIntegrationTest() {
     @Autowired
     private lateinit var repository: ProductJpaRepositoryAdapter
+
+    @Autowired
+    private lateinit var jdbcTemplate: JdbcTemplate
 
     @Test
     fun `findByCategoryId returns a slice with hasNext without count query`() {
@@ -148,6 +154,138 @@ class ProductJpaRepositoryAdapterTest : RedisIntegrationTest() {
         assertEquals(0, result.count)
         assertFalse(result.hasNext)
         assertTrue(result.content.isEmpty())
+    }
+
+    @Test
+    fun `findByCategoryId excludes non ACTIVE products`() {
+        repository.save(
+            CreateProductCommand(
+                brandId = 1L,
+                categoryId = 2L,
+                sku = "SKU-ARCHIVED",
+                name = "Archived Product",
+                slug = "archived-product",
+                description = null,
+                status = "ARCHIVED",
+                priceAmount = BigDecimal("10.00"),
+                currency = "BRL",
+                inventoryQuantity = 0,
+            ),
+        )
+
+        val result = repository.findByCategoryId(categoryId = 2L, page = 0, size = 10)
+
+        assertEquals(0, result.count)
+        assertTrue(result.content.isEmpty())
+    }
+
+    @Test
+    fun `findByCategoryId excludes products whose category is inactive`() {
+        jdbcTemplate.update("UPDATE categories SET status = 'INACTIVE' WHERE id = 2")
+        repository.save(
+            CreateProductCommand(
+                brandId = 1L,
+                categoryId = 2L,
+                sku = "SKU-INACTIVE-CAT",
+                name = "Inactive Category Product",
+                slug = "inactive-category-product",
+                description = null,
+                status = "ACTIVE",
+                priceAmount = BigDecimal("10.00"),
+                currency = "BRL",
+                inventoryQuantity = 0,
+            ),
+        )
+
+        val result = repository.findByCategoryId(categoryId = 2L, page = 0, size = 10)
+
+        assertEquals(0, result.count)
+        assertTrue(result.content.isEmpty())
+    }
+
+    @Test
+    fun `archive sets the product status to ARCHIVED`() {
+        val created =
+            repository.save(
+                CreateProductCommand(
+                    brandId = 1L,
+                    categoryId = 1L,
+                    sku = "SKU-ARCHIVE-001",
+                    name = "To Archive",
+                    slug = "to-archive",
+                    description = null,
+                    status = "ACTIVE",
+                    priceAmount = BigDecimal("10.00"),
+                    currency = "BRL",
+                    inventoryQuantity = 0,
+                ),
+            )
+
+        val archived = repository.archive(created.id)
+
+        assertNotNull(archived)
+        assertEquals(ProductStatus.ARCHIVED, archived!!.status)
+    }
+
+    @Test
+    fun `archive returns null when product does not exist`() {
+        assertNull(repository.archive(999999999L))
+    }
+
+    @Test
+    fun `updateDetails updates the product metadata`() {
+        val created =
+            repository.save(
+                CreateProductCommand(
+                    brandId = 1L,
+                    categoryId = 1L,
+                    sku = "SKU-DETAILS-001",
+                    name = "Original Name",
+                    slug = "original-name",
+                    description = null,
+                    status = "ACTIVE",
+                    priceAmount = BigDecimal("10.00"),
+                    currency = "BRL",
+                    inventoryQuantity = 0,
+                ),
+            )
+
+        val updated =
+            repository.updateDetails(
+                created.id,
+                UpdateProductDetailsCommand(
+                    id = created.id,
+                    name = "Renamed Product",
+                    slug = "renamed-product",
+                    description = "Updated description",
+                    brandId = 2L,
+                    categoryId = 3L,
+                ),
+            )
+
+        assertNotNull(updated)
+        assertEquals("Renamed Product", updated!!.name)
+        assertEquals("renamed-product", updated.slug)
+        assertEquals("Updated description", updated.description)
+        assertEquals(2L, updated.brandId)
+        assertEquals(3L, updated.categoryId)
+    }
+
+    @Test
+    fun `updateDetails returns null when product does not exist`() {
+        assertNull(
+            repository.updateDetails(
+                999999999L,
+                UpdateProductDetailsCommand(
+                    id = 999999999L,
+                    name = "x",
+                    slug = "x",
+                    description = null,
+                    brandId = 1L,
+                    categoryId = 1L,
+                ),
+            ),
+        )
     }
 
     private fun saveProduct(

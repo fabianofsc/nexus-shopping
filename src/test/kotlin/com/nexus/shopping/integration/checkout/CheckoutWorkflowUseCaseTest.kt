@@ -6,6 +6,7 @@ import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPayme
 import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPaymentResultCommand
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCartSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
+import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerResolution
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutItemSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderSnapshot
@@ -19,6 +20,8 @@ import com.nexus.shopping.integration.checkout.application.model.PaymentProcessi
 import com.nexus.shopping.integration.checkout.application.model.PaymentResultStatus
 import com.nexus.shopping.integration.checkout.application.model.PaymentValidationCommand
 import com.nexus.shopping.integration.checkout.application.port.outbound.CheckoutCartGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.CheckoutCustomerGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.InventoryGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderCreationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
@@ -31,6 +34,7 @@ import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertSame
 
 class CheckoutWorkflowUseCaseTest {
@@ -52,12 +56,14 @@ class CheckoutWorkflowUseCaseTest {
         assertEquals(
             listOf(
                 "fingerprint",
+                "customer",
                 "transaction:start",
                 "replay",
                 "reserve",
                 "replay",
                 "validate",
                 "create",
+                "decrement",
                 "confirm",
                 "transaction:end",
                 "payment",
@@ -81,7 +87,7 @@ class CheckoutWorkflowUseCaseTest {
         val result = workflow(carts, orders, ImmediateTransaction, events).execute(command())
 
         assertEquals(replay, result)
-        assertEquals(listOf("fingerprint", "replay", "payment"), events)
+        assertEquals(listOf("fingerprint", "customer", "replay", "payment"), events)
     }
 
     @Test
@@ -94,7 +100,7 @@ class CheckoutWorkflowUseCaseTest {
         val result = workflow(carts, orders, ImmediateTransaction, events).execute(command())
 
         assertEquals(replay, result)
-        assertEquals(listOf("fingerprint", "replay", "reserve", "replay", "validate", "create", "payment"), events)
+        assertEquals(listOf("fingerprint", "customer", "replay", "reserve", "replay", "validate", "create", "payment"), events)
     }
 
     @Test
@@ -123,17 +129,93 @@ class CheckoutWorkflowUseCaseTest {
 
         assertSame(failure, thrown)
         assertEquals(
-            listOf("fingerprint", "transaction:start", "replay", "reserve", "replay", "validate", "create", "transaction:rollback"),
+            listOf(
+                "fingerprint",
+                "customer",
+                "transaction:start",
+                "replay",
+                "reserve",
+                "replay",
+                "validate",
+                "create",
+                "transaction:rollback",
+            ),
             events,
         )
+    }
+
+    @Test
+    fun `does not notify when payment is rejected and leaves the stock release to reconciliation`() {
+        val events = mutableListOf<String>()
+        val rejectedOrder = order(replayed = false).copy(status = "PAYMENT_FAILED", awaitingPayment = false)
+        val checkout =
+            CheckoutWorkflowUseCase(
+                carts = RecordingCartGateway(events),
+                customers = RecordingCustomerGateway(events),
+                orders = RecordingOrderGateway(events),
+                paymentAuthorizationFingerprints =
+                    object : PaymentAuthorizationFingerprintGateway {
+                        override fun fingerprint(command: PaymentAuthorizationCommand): String {
+                            events += "fingerprint"
+                            return "opaque-payment-authorization-fingerprint"
+                        }
+                    },
+                paymentValidation =
+                    object : PaymentValidationGateway {
+                        override fun validate(command: PaymentValidationCommand) {
+                            events += "validate"
+                        }
+                    },
+                payments =
+                    object : PaymentProcessingGateway {
+                        override fun process(command: PaymentProcessingCommand): PaymentProcessingResult {
+                            events += "payment"
+                            return PaymentProcessingResult("pay-rejected", PaymentResultStatus.REJECTED, null, replayed = false)
+                        }
+                    },
+                orderPaymentResults =
+                    object : OrderPaymentResultGateway {
+                        override fun apply(command: ApplyOrderPaymentResultCommand): CheckoutOrderSnapshot {
+                            events += "apply"
+                            return rejectedOrder
+                        }
+
+                        override fun applyByOrderReference(command: ApplyOrderPaymentResultByReferenceCommand): AppliedOrderPaymentResult =
+                            error("Not used by the checkout workflow")
+                    },
+                notifications =
+                    object : NotificationGateway {
+                        override fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand) {
+                            events += "notify"
+                        }
+                    },
+                inventory = RecordingInventoryGateway(events),
+                transaction = ImmediateTransaction,
+            ).execute(command())
+
+        assertEquals(
+            listOf(
+                "fingerprint",
+                "customer",
+                "replay",
+                "reserve",
+                "replay",
+                "validate",
+                "create",
+                "decrement",
+                "confirm",
+                "payment",
+                "apply",
+            ),
+            events,
+        )
+        assertFalse(events.contains("notify"))
+        assertEquals("PAYMENT_FAILED", rejectedOrder.status)
     }
 
     private fun command() =
         CheckoutCommand(
             customerId = 10L,
-            customerSnapshot = CheckoutCustomerSnapshot(10L, "Ana Silva", "12345678900", "CPF", "ana@example.com", null),
-            shippingAddressSnapshot =
-                CheckoutShippingAddressSnapshot("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
             paymentToken = "approved",
             idempotencyKey = "checkout-1",
         )
@@ -143,8 +225,11 @@ class CheckoutWorkflowUseCaseTest {
         orders: OrderCreationGateway,
         transactions: TransactionPort,
         events: MutableList<String>,
+        inventory: InventoryGateway = RecordingInventoryGateway(events),
+        customers: CheckoutCustomerGateway = RecordingCustomerGateway(events),
     ) = CheckoutWorkflowUseCase(
         carts = carts,
+        customers = customers,
         orders = orders,
         paymentAuthorizationFingerprints =
             object : PaymentAuthorizationFingerprintGateway {
@@ -177,10 +262,17 @@ class CheckoutWorkflowUseCaseTest {
             object : NotificationGateway {
                 override fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand) = error("Not used for REQUESTED")
             },
+        inventory = inventory,
         transaction = transactions,
     )
 
     private fun item() = CheckoutItemSnapshot(1L, "Produto A", BigDecimal("19.90"), "BRL", 2)
+
+    private fun customer() = CheckoutCustomerSnapshot(10L, "Ana Silva", "12345678900", "CPF", "ana@example.com", null)
+
+    private fun shippingAddress() = CheckoutShippingAddressSnapshot("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR")
+
+    private fun resolution() = CheckoutCustomerResolution(customer(), shippingAddress())
 
     private fun order(replayed: Boolean) =
         CheckoutOrderSnapshot(
@@ -189,8 +281,8 @@ class CheckoutWorkflowUseCaseTest {
             customerId = 10L,
             cartId = 100L,
             recipientEmail = "ana@example.com",
-            customerSnapshot = command().customerSnapshot,
-            shippingAddressSnapshot = command().shippingAddressSnapshot,
+            customerSnapshot = customer(),
+            shippingAddressSnapshot = shippingAddress(),
             items = listOf(item()),
             totalAmount = BigDecimal("39.80"),
             status = "WAITING_PAYMENT",
@@ -231,6 +323,33 @@ class CheckoutWorkflowUseCaseTest {
             createdCommand = command
             creationFailure?.let { throw it }
             return createdOrder
+        }
+    }
+
+    private class RecordingInventoryGateway(
+        private val events: MutableList<String>,
+    ) : InventoryGateway {
+        override fun decrement(
+            orderReference: String,
+            items: List<CheckoutItemSnapshot>,
+        ) {
+            events += "decrement"
+        }
+
+        override fun release(
+            orderReference: String,
+            items: List<CheckoutItemSnapshot>,
+        ) {
+            events += "release"
+        }
+    }
+
+    private inner class RecordingCustomerGateway(
+        private val events: MutableList<String>,
+    ) : CheckoutCustomerGateway {
+        override fun resolve(customerId: Long): CheckoutCustomerResolution {
+            events += "customer"
+            return resolution()
         }
     }
 

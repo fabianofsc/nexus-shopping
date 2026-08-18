@@ -4,6 +4,8 @@ import com.nexus.shopping.order.application.exception.OrderNotFoundException
 import com.nexus.shopping.order.application.exception.OrderValidationException
 import com.nexus.shopping.order.application.port.outbound.OrderPersistenceResult
 import com.nexus.shopping.order.application.port.outbound.OrderRepositoryPort
+import com.nexus.shopping.order.application.port.outbound.ReleaseStockPort
+import com.nexus.shopping.order.application.port.outbound.ReleasedStockItem
 import com.nexus.shopping.order.application.usecase.CancelOrderUseCase
 import com.nexus.shopping.order.application.usecase.GetOrderByIdUseCase
 import com.nexus.shopping.order.application.usecase.ListOrdersByCustomerUseCase
@@ -106,6 +108,27 @@ class OrderUseCasesTest {
 
         assertEquals(OrderStatus.CANCELLED, cancelled.status)
         assertEquals(created.cartId, cancelled.cartId)
+    }
+
+    @Test
+    fun `cancelling an order releases the reserved stock by order reference`() {
+        val repository = FakeOrderRepository()
+        val created = persistWaitingOrder(repository)
+        val released = mutableListOf<Pair<String, List<ReleasedStockItem>>>()
+        val releaseStock =
+            object : ReleaseStockPort {
+                override fun release(
+                    orderReference: String,
+                    items: List<ReleasedStockItem>,
+                ) {
+                    released += orderReference to items
+                }
+            }
+
+        CancelOrderUseCase(repository, releaseStock = releaseStock).execute(requireNotNull(created.id))
+
+        assertEquals("checkout:${created.id}", released.single().first)
+        assertEquals(created.items.map { ReleasedStockItem(it.productId, it.quantity) }, released.single().second)
     }
 
     private fun persistWaitingOrder(repository: FakeOrderRepository): Order =

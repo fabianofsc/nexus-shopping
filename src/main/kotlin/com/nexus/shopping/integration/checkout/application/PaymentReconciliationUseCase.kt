@@ -4,6 +4,7 @@ import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPayme
 import com.nexus.shopping.integration.checkout.application.model.EnsureOrderConfirmationCommand
 import com.nexus.shopping.integration.checkout.application.model.PaymentReconciliationOutcome
 import com.nexus.shopping.integration.checkout.application.model.PaymentResultStatus
+import com.nexus.shopping.integration.checkout.application.port.outbound.InventoryGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentReconciliationGateway
@@ -15,6 +16,7 @@ class PaymentReconciliationUseCase(
     private val reconciliation: PaymentReconciliationGateway,
     private val orderPaymentResults: OrderPaymentResultGateway,
     private val notifications: NotificationGateway,
+    private val inventory: InventoryGateway,
 ) {
     fun reconcile() {
         reconciliation.reconcile().forEach { outcome ->
@@ -38,6 +40,12 @@ class PaymentReconciliationUseCase(
                     providerTransactionId = outcome.providerTransactionId,
                 ),
             )
+        if (applied.transitioned && outcome.status == PaymentResultStatus.REJECTED) {
+            // The stock was reserved when the order was created; the provider only rejects it later,
+            // so this is the single place that gives it back. Guarded by `transitioned` because
+            // ReleaseStockUseCase increments unconditionally and this runs on every polling cycle.
+            inventory.release(outcome.referenceId, applied.items)
+        }
         if (applied.transitioned && outcome.status == PaymentResultStatus.APPROVED) {
             notifications.ensureOrderConfirmation(
                 EnsureOrderConfirmationCommand(

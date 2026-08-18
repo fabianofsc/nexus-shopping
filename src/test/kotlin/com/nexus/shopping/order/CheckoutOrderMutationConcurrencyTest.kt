@@ -18,17 +18,18 @@ import com.nexus.shopping.integration.checkout.adapter.outbound.acl.CartCheckout
 import com.nexus.shopping.integration.checkout.adapter.outbound.acl.OrderCreationGatewayAdapter
 import com.nexus.shopping.integration.checkout.application.CheckoutWorkflowUseCase
 import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
-import com.nexus.shopping.integration.checkout.application.model.CheckoutCustomerSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderSnapshot
-import com.nexus.shopping.integration.checkout.application.model.CheckoutShippingAddressSnapshot
 import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingCommand
 import com.nexus.shopping.integration.checkout.application.model.PaymentProcessingResult
 import com.nexus.shopping.integration.checkout.application.model.PaymentResultStatus
+import com.nexus.shopping.integration.checkout.application.port.outbound.CheckoutCustomerGateway
+import com.nexus.shopping.integration.checkout.application.port.outbound.InventoryGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentAuthorizationFingerprintGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentProcessingGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentValidationGateway
+import com.nexus.shopping.integration.checkout.seedStockedProduct
 import com.nexus.shopping.order.adapter.outbound.jpa.OrderJpaRepositoryAdapter
 import com.nexus.shopping.order.application.usecase.CreateOrderUseCase
 import org.springframework.beans.factory.annotation.Autowired
@@ -79,6 +80,12 @@ class CheckoutOrderMutationConcurrencyTest {
     private lateinit var notifications: NotificationGateway
 
     @Autowired
+    private lateinit var inventory: InventoryGateway
+
+    @Autowired
+    private lateinit var customers: CheckoutCustomerGateway
+
+    @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
 
     @Test
@@ -116,12 +123,14 @@ class CheckoutOrderMutationConcurrencyTest {
                         CartCheckoutGatewayAdapter(
                             BlockingCartCheckout(CartCheckoutUseCase(carts), checkoutLocked, releaseCheckout),
                         ),
+                    customers = customers,
                     orders = OrderCreationGatewayAdapter(orderUseCase, orderUseCase),
                     paymentAuthorizationFingerprints = paymentAuthorizationFingerprints,
                     paymentValidation = paymentValidation,
                     payments = FakeRequestedPaymentGateway,
                     orderPaymentResults = orderPaymentResults,
                     notifications = notifications,
+                    inventory = inventory,
                     transaction = transactions,
                 )
             }
@@ -160,6 +169,7 @@ class CheckoutOrderMutationConcurrencyTest {
     }
 
     private fun prepareCart(customerId: Long) {
+        jdbcTemplate.seedStockedProduct()
         val cart = carts.getOrCreateActiveByCustomerId(customerId)
         carts.updateCart(requireNotNull(cart.id)) {
             it.copy(
@@ -176,9 +186,6 @@ class CheckoutOrderMutationConcurrencyTest {
         idempotencyKey: String,
     ) = CheckoutCommand(
         customerId = customerId,
-        customerSnapshot = CheckoutCustomerSnapshot(customerId, "Ana Silva", "12345678900", "CPF", "ana@example.com", null),
-        shippingAddressSnapshot =
-            CheckoutShippingAddressSnapshot("Rua A", "10", null, "Centro", "Sao Paulo", "SP", "01000-000", "BR"),
         paymentToken = "approved",
         idempotencyKey = idempotencyKey,
     )

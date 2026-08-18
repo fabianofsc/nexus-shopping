@@ -151,6 +151,43 @@ class PaymentCheckoutHttpTest {
         assertEquals("ACTIVE", scalar("SELECT status FROM carts WHERE customer_id = ?", customerId))
     }
 
+    @Test
+    fun `checkout with insufficient stock returns 409 and rolls back Order and Cart`() {
+        val port = environment.getRequiredProperty("local.server.port")
+        val customerId = createCustomer(port)
+        addItem(port, customerId)
+        jdbcTemplate.update("UPDATE products SET inventory_quantity = 1 WHERE id = 10")
+
+        // Stock is decremented inside the checkout transaction, before the provider dispatch,
+        // so this path never reaches WireMock and needs no stub.
+        val response = checkout(port, customerId, "insufficient-${UUID.randomUUID()}", "approved")
+
+        assertEquals(409, response.statusCode())
+        assertEquals(0, count("SELECT COUNT(*) FROM orders WHERE customer_id = ?", customerId))
+        assertEquals("ACTIVE", scalar("SELECT status FROM carts WHERE customer_id = ?", customerId))
+        assertEquals(1, jdbcTemplate.stockOf(10L))
+    }
+
+    @Test
+    fun `rejected payment releases the reserved stock back during reconciliation`() {
+        stubDispatch("provider-attempt-5")
+        val port = environment.getRequiredProperty("local.server.port")
+        val customerId = createCustomer(port)
+        addItem(port, customerId)
+
+        val dispatched = checkout(port, customerId, "rejected-release-${UUID.randomUUID()}", "rejected")
+        assertEquals(202, dispatched.statusCode())
+        val orderId = mapper.readTree(dispatched.body())["id"].asLong()
+        assertEquals(98, jdbcTemplate.stockOf(10L))
+
+        stubStatus("provider-attempt-5", "REJECTED")
+        reconciliation.reconcile()
+
+        val order = getOrder(port, customerId, orderId)
+        assertEquals("PAYMENT_FAILED", order["status"].asText())
+        assertEquals(100, jdbcTemplate.stockOf(10L))
+    }
+
     private fun stubDispatch(providerAttemptReference: String) {
         wireMock.stubFor(
             post(urlEqualTo("/v1/payments"))
@@ -228,6 +265,7 @@ class PaymentCheckoutHttpTest {
         unitPriceAmount: String = "19.90",
         quantity: Int = 2,
     ) {
+        jdbcTemplate.seedStockedProduct()
         val response =
             post(
                 port,
@@ -256,23 +294,6 @@ class PaymentCheckoutHttpTest {
             "/customers/$customerId/cart/checkout",
             """
             {
-              "customerSnapshot": {
-                "name": "Payment Customer",
-                "document": "12345678900",
-                "documentType": "CPF",
-                "email": "payment@example.com",
-                "phone": null
-              },
-              "shippingAddressSnapshot": {
-                "street": "Rua Teste",
-                "number": "1",
-                "complement": null,
-                "neighborhood": "Centro",
-                "city": "Sao Paulo",
-                "state": "SP",
-                "zipCode": "01001000",
-                "country": "BR"
-              },
               "paymentToken": "$paymentToken"
             }
             """.trimIndent(),

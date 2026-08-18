@@ -2,6 +2,7 @@ package com.nexus.shopping.product.application.usecase
 
 import com.nexus.shopping.platform.domain.PageResult
 import com.nexus.shopping.product.application.command.CreateProductCommand
+import com.nexus.shopping.product.application.command.UpdateProductDetailsCommand
 import com.nexus.shopping.product.application.exception.ProductNotFoundException
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.domain.Currency
@@ -55,6 +56,13 @@ class ProductGetByIdUseCaseTest {
                 id: Long,
                 priceAmount: BigDecimal,
             ): Product? = throw UnsupportedOperationException()
+
+            override fun archive(id: Long): Product? = throw UnsupportedOperationException()
+
+            override fun updateDetails(
+                id: Long,
+                command: UpdateProductDetailsCommand,
+            ): Product? = throw UnsupportedOperationException()
         }
 
     private val useCase = ProductGetByIdUseCase(fakeRepo)
@@ -71,6 +79,15 @@ class ProductGetByIdUseCaseTest {
     @Test
     fun `throws ProductNotFoundException when product does not exist`() {
         repoReturn = null
+
+        assertFailsWith<ProductNotFoundException> {
+            useCase.execute(1L)
+        }
+    }
+
+    @Test
+    fun `throws ProductNotFoundException when product is ARCHIVED`() {
+        repoReturn = aProduct().copy(status = ProductStatus.ARCHIVED)
 
         assertFailsWith<ProductNotFoundException> {
             useCase.execute(1L)

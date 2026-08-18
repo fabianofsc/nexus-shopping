@@ -4,10 +4,12 @@ import com.nexus.shopping.integration.checkout.application.PaymentReconciliation
 import com.nexus.shopping.integration.checkout.application.model.AppliedOrderPaymentResult
 import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPaymentResultByReferenceCommand
 import com.nexus.shopping.integration.checkout.application.model.ApplyOrderPaymentResultCommand
+import com.nexus.shopping.integration.checkout.application.model.CheckoutItemSnapshot
 import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderSnapshot
 import com.nexus.shopping.integration.checkout.application.model.EnsureOrderConfirmationCommand
 import com.nexus.shopping.integration.checkout.application.model.PaymentReconciliationOutcome
 import com.nexus.shopping.integration.checkout.application.model.PaymentResultStatus
+import com.nexus.shopping.integration.checkout.application.port.outbound.InventoryGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
 import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentReconciliationGateway
@@ -33,18 +35,39 @@ class PaymentReconciliationUseCaseTest {
     }
 
     @Test
-    fun `a rejected outcome marks the order payment failed without sending a notification`() {
+    fun `a rejected outcome releases the reserved stock without sending a notification`() {
         val notifications = mutableListOf<EnsureOrderConfirmationCommand>()
+        val releases = mutableListOf<Pair<String, List<CheckoutItemSnapshot>>>()
         val useCase =
             useCase(
                 outcomes = listOf(outcome(referenceId = "checkout:2", status = PaymentResultStatus.REJECTED)),
                 applyResults = mapOf("checkout:2" to appliedResult(orderId = 2L, status = "PAYMENT_FAILED", transitioned = true)),
                 notifications = notifications,
+                releases = releases,
             )
 
         useCase.reconcile()
 
         assertEquals(0, notifications.size)
+        assertEquals(1, releases.size)
+        assertEquals("checkout:2", releases.single().first)
+        assertEquals(listOf(10L), releases.single().second.map { it.productId })
+    }
+
+    @Test
+    fun `a rejected outcome that did not actually transition the order does not release stock twice`() {
+        val releases = mutableListOf<Pair<String, List<CheckoutItemSnapshot>>>()
+        val useCase =
+            useCase(
+                outcomes = listOf(outcome(referenceId = "checkout:5", status = PaymentResultStatus.REJECTED)),
+                applyResults = mapOf("checkout:5" to appliedResult(orderId = 5L, status = "PAYMENT_FAILED", transitioned = false)),
+                notifications = mutableListOf(),
+                releases = releases,
+            )
+
+        useCase.reconcile()
+
+        assertEquals(0, releases.size)
     }
 
     @Test
@@ -86,10 +109,12 @@ class PaymentReconciliationUseCaseTest {
         outcomes: List<PaymentReconciliationOutcome>,
         applyResults: Map<String, AppliedOrderPaymentResult>,
         notifications: MutableList<EnsureOrderConfirmationCommand>,
+        releases: MutableList<Pair<String, List<CheckoutItemSnapshot>>> = mutableListOf(),
     ) = PaymentReconciliationUseCase(
         reconciliation = FakePaymentReconciliationGateway(outcomes),
         orderPaymentResults = FakeOrderPaymentResultGateway(applyResults),
         notifications = RecordingNotificationGateway(notifications),
+        inventory = RecordingInventoryGateway(releases),
     )
 
     private fun outcome(
@@ -111,6 +136,7 @@ class PaymentReconciliationUseCaseTest {
         orderId = orderId,
         customerId = 10L,
         recipientEmail = "customer-$orderId@example.com",
+        items = listOf(CheckoutItemSnapshot(10L, "Product 10", BigDecimal("19.90"), "BRL", 2)),
         totalAmount = BigDecimal("39.80"),
         status = status,
         transitioned = transitioned,
@@ -129,6 +155,22 @@ class PaymentReconciliationUseCaseTest {
 
         override fun applyByOrderReference(command: ApplyOrderPaymentResultByReferenceCommand): AppliedOrderPaymentResult =
             applyResults[command.orderReference] ?: throw NoSuchElementException("No order for reference ${command.orderReference}")
+    }
+
+    private class RecordingInventoryGateway(
+        private val releases: MutableList<Pair<String, List<CheckoutItemSnapshot>>>,
+    ) : InventoryGateway {
+        override fun decrement(
+            orderReference: String,
+            items: List<CheckoutItemSnapshot>,
+        ) = error("Reconciliation never decrements stock.")
+
+        override fun release(
+            orderReference: String,
+            items: List<CheckoutItemSnapshot>,
+        ) {
+            releases += orderReference to items
+        }
     }
 
     private class RecordingNotificationGateway(

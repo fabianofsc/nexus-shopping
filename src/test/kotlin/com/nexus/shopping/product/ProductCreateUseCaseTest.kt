@@ -1,13 +1,22 @@
 package com.nexus.shopping.product.application.usecase
 
 import com.nexus.shopping.platform.domain.PageResult
+import com.nexus.shopping.product.application.command.CreateBrandCommand
+import com.nexus.shopping.product.application.command.CreateCategoryCommand
 import com.nexus.shopping.product.application.command.CreateProductCommand
+import com.nexus.shopping.product.application.command.UpdateProductDetailsCommand
 import com.nexus.shopping.product.application.exception.ProductValidationException
+import com.nexus.shopping.product.application.port.outbound.BrandRepositoryPort
+import com.nexus.shopping.product.application.port.outbound.CategoryRepositoryPort
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
+import com.nexus.shopping.product.domain.Brand
+import com.nexus.shopping.product.domain.Category
+import com.nexus.shopping.product.domain.CategoryStatus
 import com.nexus.shopping.product.domain.Currency
 import com.nexus.shopping.product.domain.Product
 import com.nexus.shopping.product.domain.ProductStatus
 import java.math.BigDecimal
+import java.time.LocalDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -42,17 +51,64 @@ class ProductCreateUseCaseTest {
                     priceAmount = command.priceAmount,
                     currency = Currency.valueOf(command.currency),
                     inventoryQuantity = command.inventoryQuantity,
-                    createdAt = java.time.LocalDateTime.now(),
-                    updatedAt = java.time.LocalDateTime.now(),
+                    createdAt = LocalDateTime.now(),
+                    updatedAt = LocalDateTime.now(),
                 )
 
             override fun updatePrice(
                 id: Long,
                 priceAmount: BigDecimal,
             ): Product? = throw UnsupportedOperationException()
+
+            override fun archive(id: Long): Product? = throw UnsupportedOperationException()
+
+            override fun updateDetails(
+                id: Long,
+                command: UpdateProductDetailsCommand,
+            ): Product? = throw UnsupportedOperationException()
         }
 
-    private val useCase = ProductCreateUseCase(fakeRepo)
+    private val brands =
+        object : BrandRepositoryPort {
+            override fun findById(id: Long): Brand? =
+                if (id ==
+                    1L
+                ) {
+                    Brand(1L, "Brand 1", null, LocalDateTime.now(), LocalDateTime.now())
+                } else {
+                    null
+                }
+
+            override fun findAll(): List<Brand> = emptyList()
+
+            override fun save(command: CreateBrandCommand): Brand = throw UnsupportedOperationException()
+        }
+
+    private val categories =
+        object : CategoryRepositoryPort {
+            override fun findById(id: Long): Category? =
+                when (id) {
+                    1L -> category(1L, CategoryStatus.ACTIVE)
+                    2L -> category(2L, CategoryStatus.INACTIVE)
+                    else -> null
+                }
+
+            override fun findAll(): List<Category> = emptyList()
+
+            override fun save(command: CreateCategoryCommand): Category = throw UnsupportedOperationException()
+
+            override fun updateStatus(
+                id: Long,
+                status: CategoryStatus,
+            ): Category? = throw UnsupportedOperationException()
+        }
+
+    private val useCase = ProductCreateUseCase(fakeRepo, brands, categories)
+
+    private fun category(
+        id: Long,
+        status: CategoryStatus,
+    ) = Category(id, null, "Category $id", "category-$id", status, LocalDateTime.now(), LocalDateTime.now())
 
     private fun validCommand() =
         CreateProductCommand(
@@ -151,6 +207,27 @@ class ProductCreateUseCaseTest {
     fun `create with zero categoryId throws`() {
         assertFailsWith<ProductValidationException> {
             useCase.create(validCommand().copy(categoryId = 0L))
+        }
+    }
+
+    @Test
+    fun `create with non-existent brand throws`() {
+        assertFailsWith<ProductValidationException> {
+            useCase.create(validCommand().copy(brandId = 999L))
+        }
+    }
+
+    @Test
+    fun `create with non-existent category throws`() {
+        assertFailsWith<ProductValidationException> {
+            useCase.create(validCommand().copy(categoryId = 999L))
+        }
+    }
+
+    @Test
+    fun `create with an inactive category throws`() {
+        assertFailsWith<ProductValidationException> {
+            useCase.create(validCommand().copy(categoryId = 2L))
         }
     }
 }

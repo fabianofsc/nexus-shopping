@@ -2,8 +2,10 @@ package com.nexus.shopping.product.adapter.outbound.jpa
 
 import com.nexus.shopping.platform.domain.PageResult
 import com.nexus.shopping.product.application.command.CreateProductCommand
+import com.nexus.shopping.product.application.command.UpdateProductDetailsCommand
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.domain.Product
+import com.nexus.shopping.product.domain.ProductStatus
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.cache.annotation.Caching
@@ -34,6 +36,7 @@ class ProductJpaRepositoryAdapter(
         val products =
             repository.findByCategoryId(
                 categoryId = categoryId,
+                status = ProductStatus.ACTIVE,
                 pageable = PageRequest.of(page, size),
             )
 
@@ -57,6 +60,7 @@ class ProductJpaRepositoryAdapter(
                 name = name,
                 upperBound = upperBound,
                 prefix = "$name%",
+                status = ProductStatus.ACTIVE,
                 pageable = PageRequest.of(page, size),
             )
 
@@ -81,6 +85,39 @@ class ProductJpaRepositoryAdapter(
         val updated = repository.updatePriceById(id, priceAmount)
         if (updated == 0) return null
         return repository.findById(id).orElse(null)?.toDomain()
+    }
+
+    @Transactional
+    @Caching(
+        evict = [
+            CacheEvict(cacheNames = [ProductCacheConfig.PRODUCT_DETAIL_CACHE], key = "#id"),
+            CacheEvict(cacheNames = [ProductCacheConfig.PRODUCT_SEARCH_CACHE], allEntries = true),
+        ],
+    )
+    override fun archive(id: Long): Product? {
+        val entity = repository.findById(id).orElse(null) ?: return null
+        entity.status = ProductStatus.ARCHIVED
+        return repository.saveAndFlush(entity).toDomain()
+    }
+
+    @Transactional
+    @Caching(
+        evict = [
+            CacheEvict(cacheNames = [ProductCacheConfig.PRODUCT_DETAIL_CACHE], key = "#id"),
+            CacheEvict(cacheNames = [ProductCacheConfig.PRODUCT_SEARCH_CACHE], allEntries = true),
+        ],
+    )
+    override fun updateDetails(
+        id: Long,
+        command: UpdateProductDetailsCommand,
+    ): Product? {
+        val entity = repository.findById(id).orElse(null) ?: return null
+        entity.name = command.name
+        entity.slug = command.slug
+        entity.description = command.description
+        entity.brandId = command.brandId
+        entity.categoryId = command.categoryId
+        return repository.saveAndFlush(entity).toDomain()
     }
 
     private fun Slice<ProductEntity>.toProductPage(

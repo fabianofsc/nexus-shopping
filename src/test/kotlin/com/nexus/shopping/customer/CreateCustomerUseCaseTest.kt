@@ -19,6 +19,11 @@ class CreateCustomerUseCaseTest {
         object : CustomerRepositoryPort {
             override fun findById(id: Long): Customer? = throw UnsupportedOperationException()
 
+            override fun updateAddress(
+                customerId: Long,
+                address: Address,
+            ): Customer? = throw UnsupportedOperationException()
+
             override fun save(command: CreateCustomerCommand): Customer =
                 Customer(
                     id = 1L,

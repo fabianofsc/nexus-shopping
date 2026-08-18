@@ -2,6 +2,7 @@ package com.nexus.shopping.product.application.port.outbound
 
 import com.nexus.shopping.platform.domain.PageResult
 import com.nexus.shopping.product.application.command.CreateProductCommand
+import com.nexus.shopping.product.application.command.UpdateProductDetailsCommand
 import com.nexus.shopping.product.domain.Product
 import java.math.BigDecimal
 
@@ -25,5 +26,12 @@ interface ProductRepositoryPort {
     fun updatePrice(
         id: Long,
         priceAmount: BigDecimal,
+    ): Product?
+
+    fun archive(id: Long): Product?
+
+    fun updateDetails(
+        id: Long,
+        command: UpdateProductDetailsCommand,
     ): Product?
 }

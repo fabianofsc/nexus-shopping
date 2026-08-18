@@ -20,6 +20,11 @@ class GetCustomerByIdUseCaseTest {
         object : CustomerRepositoryPort {
             override fun findById(id: Long): Customer? = repoReturn
 
+            override fun updateAddress(
+                customerId: Long,
+                address: Address,
+            ): Customer? = throw UnsupportedOperationException()
+
             override fun save(command: CreateCustomerCommand): Customer = throw UnsupportedOperationException()
         }
 

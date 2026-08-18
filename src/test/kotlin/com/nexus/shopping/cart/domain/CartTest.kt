@@ -3,6 +3,7 @@ package com.nexus.shopping.cart.domain
 import java.math.BigDecimal
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class CartTest {
     private fun emptyCart() =
@@ -73,5 +74,29 @@ class CartTest {
 
         assertEquals(emptyList(), cart.items)
         assertEquals(CartStatus.ACTIVE, cart.status)
+    }
+
+    @Test
+    fun `withItemQuantity sets the absolute quantity of the matching item`() {
+        val cart = emptyCart().withItemAdded(summary(), 2).withItemQuantity(10L, 5)
+
+        assertEquals(1, cart.items.size)
+        assertEquals(5, cart.items[0].quantity)
+    }
+
+    @Test
+    fun `withItemQuantity zero removes the matching item`() {
+        val cart = emptyCart().withItemAdded(summary(), 2).withItemQuantity(10L, 0)
+
+        assertEquals(emptyList(), cart.items)
+    }
+
+    @Test
+    fun `withItemQuantity rejects a negative quantity`() {
+        val cart = emptyCart().withItemAdded(summary(), 2)
+
+        assertFailsWith<IllegalArgumentException> {
+            cart.withItemQuantity(10L, -1)
+        }
     }
 }

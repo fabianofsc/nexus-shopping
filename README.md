@@ -344,3 +344,5 @@ Relatorios HTML do JMeter: `docs/jmeter-reports/`.
 - `docs/scalability-and-load-balancer/` - setup e roteiro de load balancing local
 - `docs/assets/bounded-contexts/` - mapa visual dos Bounded Contexts planejados
 - `docs/agents/api-endpoints.md` - contratos e comportamento dos endpoints
+- `docs/agents/monolith-baseline.md` - manual do aluno do monolito (baseline reproduzivel)
+- `docs/api/openapi.yaml` - contrato canonico da API (fonte de verdade para replicacao em outras linguagens)

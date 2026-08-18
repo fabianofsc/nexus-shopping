@@ -50,6 +50,7 @@ class OrderPaymentResultGatewayAdapter(
             orderId = requireNotNull(updated.id),
             customerId = updated.customerId,
             recipientEmail = updated.customerSnapshot.email,
+            items = updated.toCheckoutSnapshot(replayed = false).items,
             totalAmount = updated.totalAmount,
             status = updated.status.name,
             transitioned = transitioned,

@@ -2,6 +2,7 @@ package com.nexus.shopping.product.application.usecase
 
 import com.nexus.shopping.platform.domain.PageResult
 import com.nexus.shopping.product.application.command.CreateProductCommand
+import com.nexus.shopping.product.application.command.UpdateProductDetailsCommand
 import com.nexus.shopping.product.application.exception.ProductValidationException
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.domain.Product
@@ -40,6 +41,13 @@ class ProductSearchUseCaseTest {
             override fun updatePrice(
                 id: Long,
                 priceAmount: BigDecimal,
+            ): Product? = throw UnsupportedOperationException()
+
+            override fun archive(id: Long): Product? = throw UnsupportedOperationException()
+
+            override fun updateDetails(
+                id: Long,
+                command: UpdateProductDetailsCommand,
             ): Product? = throw UnsupportedOperationException()
         }
 
