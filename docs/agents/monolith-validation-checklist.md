@@ -98,7 +98,7 @@ docker compose up -d        # postgres, redis, nexus-payment-service, dummypay
 | --- | --- | --- |
 | CO1 | Checkout aprovado | `POST /customers/{id}/cart/checkout {paymentToken:"card_processing_approved"}` + `Idempotency-Key` -> `202`, pedido `WAITING_PAYMENT`, estoque ja baixado. Apos a reconciliacao: `CONFIRMED` e notificacao `SENT` |
 | CO2 | Checkout recusado | token `card_declined` -> `202`, pedido `WAITING_PAYMENT`. Apos a reconciliacao: `PAYMENT_FAILED`, estoque liberado, sem notificacao |
-| CO3 | Replay | Mesma `Idempotency-Key` e payload -> `200` (mesmo pedido, sem novo dispatch/baixa/notificacao) |
+| CO3 | Replay | Mesma `Idempotency-Key` e payload -> mesmo pedido, sem novo dispatch/baixa/notificacao. `202` enquanto o pedido estiver em `WAITING_PAYMENT`; `200` depois que a reconciliacao o levou a um status terminal |
 | CO4 | Conflito | Mesma chave com token diferente -> `409` |
 | CO5 | Estoque insuficiente | -> `409`, sem pedido/carrinho alterado |
 | CO6 | Carrinho vazio / ja fechado | -> `400` |

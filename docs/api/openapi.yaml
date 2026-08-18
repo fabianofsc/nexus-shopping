@@ -16,9 +16,11 @@ info:
     - Paginacao usa Slice sem COUNT(*): o campo `count` e o numero de linhas da
       pagina atual e `hasNext` indica se ha mais paginas.
     - Escritas no carrinho retornam o estado atualizado do carrinho (200).
-    - O checkout exige o cabecalho `Idempotency-Key` e devolve 200 (replay),
-      202 (pagamento despachado, caminho normal) ou 201 (resultado terminal ja
-      conhecido na resposta, hoje inalcancavel com o `nexus-payment-service`).
+    - O checkout exige o cabecalho `Idempotency-Key`. Devolve 202 (pagamento
+      despachado, caminho normal), 200 (replay de um pedido que ja chegou a um
+      status terminal) ou 201 (resultado terminal conhecido ja na primeira
+      resposta, hoje inalcancavel com o `nexus-payment-service`). O replay de um
+      pedido ainda em `WAITING_PAYMENT` tambem responde 202, nao 200.
     - Apos um 202, o cliente deve consultar
       `GET /customers/{customerId}/orders/{orderId}` ate o pedido sair de
       `WAITING_PAYMENT`.
@@ -425,7 +427,10 @@ paths:
               $ref: "#/components/schemas/CheckoutRequest"
       responses:
         "200":
-          description: Replay idempotente (mesma Idempotency-Key e payload)
+          description: |
+            Replay idempotente (mesma Idempotency-Key e payload) de um pedido que ja
+            saiu de `WAITING_PAYMENT`. Enquanto o pagamento estiver pendente, o replay
+            responde 202.
           content:
             application/json:
               schema:
