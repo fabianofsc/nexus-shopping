@@ -3,6 +3,7 @@ package com.nexus.shopping
 import com.tngtech.archunit.core.importer.ClassFileImporter
 import com.tngtech.archunit.core.importer.ImportOption
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses
+import com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices
 import org.springframework.stereotype.Service
 import kotlin.test.Test
 import kotlin.test.assertFalse
@@ -10,39 +11,74 @@ import kotlin.test.assertTrue
 
 class PackageStructureArchitectureTest {
     @Test
-    fun `Cart does not depend on Order or Integration`() {
+    fun `checkout is an application process exposed through an input port`() {
+        val inputPort =
+            Class.forName("com.nexus.shopping.checkout.application.port.inbound.ExecuteCheckoutInputPort")
+        val useCase =
+            Class.forName("com.nexus.shopping.checkout.application.usecase.ExecuteCheckoutUseCase")
+        val controller =
+            Class.forName("com.nexus.shopping.checkout.adapter.inbound.http.CheckoutController")
+
+        assertTrue(inputPort.isAssignableFrom(useCase))
+        assertTrue(
+            inputPort.isAssignableFrom(
+                controller.declaredConstructors
+                    .single()
+                    .parameterTypes
+                    .single(),
+            ),
+        )
+        assertFalse(useCase.annotations.any { it.annotationClass.qualifiedName?.startsWith("org.springframework") == true })
+    }
+
+    @Test
+    fun `Cart does not depend on Order or Checkout`() {
         assertNoDependencies(
             sourcePackage = "..cart..",
-            forbiddenPackages = arrayOf("..order..", "..integration.."),
+            forbiddenPackages = arrayOf("..order..", "..checkout.."),
         )
     }
 
     @Test
-    fun `Order does not depend on Cart or Integration`() {
+    fun `Order does not depend on Cart or Checkout`() {
         assertNoDependencies(
             sourcePackage = "..order..",
-            forbiddenPackages = arrayOf("..cart..", "..integration.."),
+            forbiddenPackages = arrayOf("..cart..", "..checkout.."),
         )
     }
 
     @Test
-    fun `checkout application does not depend on bounded contexts or its adapters`() {
+    fun `bounded contexts do not depend on Checkout`() {
+        listOf("product", "customer", "cart", "inventory", "order", "payment", "notification").forEach { context ->
+            assertNoDependencies(
+                sourcePackage = "..$context..",
+                forbiddenPackages = arrayOf("..checkout.."),
+            )
+        }
+    }
+
+    @Test
+    fun `checkout application does not depend on bounded contexts, adapters, or frameworks`() {
         assertNoDependencies(
-            sourcePackage = "..integration.checkout.application..",
+            sourcePackage = "..checkout.application..",
             forbiddenPackages =
                 arrayOf(
                     "..cart..",
+                    "..customer..",
                     "..inventory..",
                     "..order..",
                     "..payment..",
                     "..notification..",
-                    "..integration.checkout.adapter..",
+                    "..checkout.adapter..",
+                    "org.springframework..",
+                    "jakarta.persistence..",
+                    "org.hibernate..",
                 ),
         )
     }
 
     @Test
-    fun `Inventory does not depend on other bounded contexts or Integration`() {
+    fun `Inventory does not depend on other bounded contexts or Checkout`() {
         assertNoDependencies(
             sourcePackage = "..inventory..",
             forbiddenPackages =
@@ -52,13 +88,13 @@ class PackageStructureArchitectureTest {
                     "..order..",
                     "..payment..",
                     "..notification..",
-                    "..integration..",
+                    "..checkout..",
                 ),
         )
     }
 
     @Test
-    fun `Payment does not depend on other bounded contexts or Integration`() {
+    fun `Payment does not depend on other bounded contexts or Checkout`() {
         assertNoDependencies(
             sourcePackage = "..payment..",
             forbiddenPackages =
@@ -67,13 +103,13 @@ class PackageStructureArchitectureTest {
                     "..customer..",
                     "..order..",
                     "..notification..",
-                    "..integration..",
+                    "..checkout..",
                 ),
         )
     }
 
     @Test
-    fun `only bounded contexts and Integration adapters depend on their input ports`() {
+    fun `only bounded contexts and Checkout ACL adapters depend on context input ports`() {
         noClasses()
             .that()
             .resideOutsideOfPackages(
@@ -82,7 +118,7 @@ class PackageStructureArchitectureTest {
                 "..order..",
                 "..payment..",
                 "..notification..",
-                "..integration..adapter..",
+                "..checkout.adapter.outbound.acl..",
             ).should()
             .dependOnClassesThat()
             .resideInAnyPackage(
@@ -92,6 +128,23 @@ class PackageStructureArchitectureTest {
                 "..payment.application.port.inbound..",
                 "..notification.application.port.inbound..",
             ).check(productionClasses)
+    }
+
+    @Test
+    fun `Checkout inbound adapters do not depend on outbound adapters`() {
+        assertNoDependencies(
+            sourcePackage = "..checkout.adapter.inbound..",
+            forbiddenPackages = arrayOf("..checkout.adapter.outbound.."),
+        )
+    }
+
+    @Test
+    fun `top level components are free of dependency cycles`() {
+        slices()
+            .matching("com.nexus.shopping.(*)..")
+            .should()
+            .beFreeOfCycles()
+            .check(productionClasses)
     }
 
     private fun assertNoDependencies(

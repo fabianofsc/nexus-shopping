@@ -13,20 +13,20 @@ import com.nexus.shopping.cart.application.usecase.RemoveCartItemUseCase
 import com.nexus.shopping.cart.domain.Cart
 import com.nexus.shopping.cart.domain.CartItem
 import com.nexus.shopping.cart.domain.ProductSummary
-import com.nexus.shopping.integration.checkout.adapter.outbound.CheckoutJpaTransactionAdapter
-import com.nexus.shopping.integration.checkout.adapter.outbound.acl.CartCheckoutGatewayAdapter
-import com.nexus.shopping.integration.checkout.adapter.outbound.acl.OrderCreationGatewayAdapter
-import com.nexus.shopping.integration.checkout.application.CheckoutWorkflowUseCase
-import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
-import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderSnapshot
-import com.nexus.shopping.integration.checkout.application.port.outbound.CheckoutCustomerGateway
-import com.nexus.shopping.integration.checkout.application.port.outbound.InventoryGateway
-import com.nexus.shopping.integration.checkout.application.port.outbound.NotificationGateway
-import com.nexus.shopping.integration.checkout.application.port.outbound.OrderPaymentResultGateway
-import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentAuthorizationFingerprintGateway
-import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentProcessingGateway
-import com.nexus.shopping.integration.checkout.application.port.outbound.PaymentValidationGateway
-import com.nexus.shopping.integration.checkout.seedStockedProduct
+import com.nexus.shopping.checkout.adapter.outbound.CheckoutJpaTransactionAdapter
+import com.nexus.shopping.checkout.adapter.outbound.acl.CartCheckoutGatewayAdapter
+import com.nexus.shopping.checkout.adapter.outbound.acl.OrderCreationGatewayAdapter
+import com.nexus.shopping.checkout.application.model.CheckoutCommand
+import com.nexus.shopping.checkout.application.model.CheckoutOrderSnapshot
+import com.nexus.shopping.checkout.application.port.outbound.CheckoutCustomerGateway
+import com.nexus.shopping.checkout.application.port.outbound.InventoryGateway
+import com.nexus.shopping.checkout.application.port.outbound.NotificationGateway
+import com.nexus.shopping.checkout.application.port.outbound.OrderPaymentResultGateway
+import com.nexus.shopping.checkout.application.port.outbound.PaymentAuthorizationFingerprintGateway
+import com.nexus.shopping.checkout.application.port.outbound.PaymentProcessingGateway
+import com.nexus.shopping.checkout.application.port.outbound.PaymentValidationGateway
+import com.nexus.shopping.checkout.application.usecase.ExecuteCheckoutUseCase
+import com.nexus.shopping.checkout.seedStockedProduct
 import com.nexus.shopping.order.adapter.outbound.jpa.OrderJpaRepositoryAdapter
 import com.nexus.shopping.order.application.usecase.CreateOrderUseCase
 import org.springframework.beans.factory.annotation.Autowired
@@ -117,7 +117,7 @@ class CheckoutOrderMutationConcurrencyTest {
         val mutationReadActiveCart = CountDownLatch(1)
         val checkout =
             CreateOrderUseCase(orders).let { orderUseCase ->
-                CheckoutWorkflowUseCase(
+                ExecuteCheckoutUseCase(
                     carts =
                         CartCheckoutGatewayAdapter(
                             BlockingCartCheckout(CartCheckoutUseCase(carts), checkoutLocked, releaseCheckout),

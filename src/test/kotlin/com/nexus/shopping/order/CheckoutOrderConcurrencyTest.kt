@@ -3,10 +3,10 @@ package com.nexus.shopping.order
 import com.nexus.shopping.cart.adapter.outbound.jpa.CartJpaRepositoryAdapter
 import com.nexus.shopping.cart.domain.CartItem
 import com.nexus.shopping.cart.domain.ProductSummary
-import com.nexus.shopping.integration.checkout.application.CheckoutWorkflowUseCase
-import com.nexus.shopping.integration.checkout.application.model.CheckoutCommand
-import com.nexus.shopping.integration.checkout.application.model.CheckoutOrderSnapshot
-import com.nexus.shopping.integration.checkout.seedStockedProduct
+import com.nexus.shopping.checkout.application.model.CheckoutCommand
+import com.nexus.shopping.checkout.application.model.CheckoutOrderSnapshot
+import com.nexus.shopping.checkout.application.usecase.ExecuteCheckoutUseCase
+import com.nexus.shopping.checkout.seedStockedProduct
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.jdbc.core.JdbcTemplate
@@ -35,7 +35,7 @@ class CheckoutOrderConcurrencyTest {
     private lateinit var carts: CartJpaRepositoryAdapter
 
     @Autowired
-    private lateinit var checkout: CheckoutWorkflowUseCase
+    private lateinit var checkout: ExecuteCheckoutUseCase
 
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
