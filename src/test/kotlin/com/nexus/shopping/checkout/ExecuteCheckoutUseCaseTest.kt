@@ -5,9 +5,11 @@ import com.nexus.shopping.checkout.application.model.CheckoutCartSnapshot
 import com.nexus.shopping.checkout.application.model.CheckoutCommand
 import com.nexus.shopping.checkout.application.model.CheckoutCustomerResolution
 import com.nexus.shopping.checkout.application.model.CheckoutCustomerSnapshot
+import com.nexus.shopping.checkout.application.model.CheckoutInvoiceCommand
 import com.nexus.shopping.checkout.application.model.CheckoutItemSnapshot
 import com.nexus.shopping.checkout.application.model.CheckoutOrderSnapshot
 import com.nexus.shopping.checkout.application.model.CheckoutShippingAddressSnapshot
+import com.nexus.shopping.checkout.application.model.CheckoutShippingCommand
 import com.nexus.shopping.checkout.application.model.CreateCheckoutOrderCommand
 import com.nexus.shopping.checkout.application.model.EnsureOrderConfirmationCommand
 import com.nexus.shopping.checkout.application.model.FindCheckoutOrderReplayCommand
@@ -18,6 +20,7 @@ import com.nexus.shopping.checkout.application.model.PaymentResultStatus
 import com.nexus.shopping.checkout.application.model.PaymentValidationCommand
 import com.nexus.shopping.checkout.application.port.outbound.CheckoutCartGateway
 import com.nexus.shopping.checkout.application.port.outbound.CheckoutCustomerGateway
+import com.nexus.shopping.checkout.application.port.outbound.BillingGateway
 import com.nexus.shopping.checkout.application.port.outbound.InventoryGateway
 import com.nexus.shopping.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.checkout.application.port.outbound.OrderCreationGateway
@@ -25,6 +28,7 @@ import com.nexus.shopping.checkout.application.port.outbound.OrderPaymentResultG
 import com.nexus.shopping.checkout.application.port.outbound.PaymentAuthorizationFingerprintGateway
 import com.nexus.shopping.checkout.application.port.outbound.PaymentProcessingGateway
 import com.nexus.shopping.checkout.application.port.outbound.PaymentValidationGateway
+import com.nexus.shopping.checkout.application.port.outbound.ShippingGateway
 import com.nexus.shopping.checkout.application.port.outbound.TransactionPort
 import com.nexus.shopping.checkout.application.usecase.ExecuteCheckoutUseCase
 import java.math.BigDecimal
@@ -178,6 +182,14 @@ class ExecuteCheckoutUseCaseTest {
                             return rejectedOrder
                         }
                     },
+                billing =
+                    object : BillingGateway {
+                        override fun issueInvoice(command: CheckoutInvoiceCommand) = Unit
+                    },
+                shipping =
+                    object : ShippingGateway {
+                        override fun process(command: CheckoutShippingCommand) = Unit
+                    },
                 notifications =
                     object : NotificationGateway {
                         override fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand) {
@@ -207,6 +219,64 @@ class ExecuteCheckoutUseCaseTest {
         )
         assertFalse(events.contains("notify"))
         assertEquals("PAYMENT_FAILED", rejectedOrder.status)
+    }
+
+    @Test
+    fun issuesInvoiceAndProcessesShippingBeforeNotificationForApprovedPayment() {
+        val events = mutableListOf<String>()
+        val confirmedOrder = order(replayed = false).copy(status = "CONFIRMED", awaitingPayment = false)
+        val checkout =
+            ExecuteCheckoutUseCase(
+                carts = RecordingCartGateway(events),
+                customers = RecordingCustomerGateway(events),
+                orders = RecordingOrderGateway(events),
+                paymentAuthorizationFingerprints =
+                    object : PaymentAuthorizationFingerprintGateway {
+                        override fun fingerprint(command: PaymentAuthorizationCommand) = "opaque-payment-authorization-fingerprint"
+                    },
+                paymentValidation =
+                    object : PaymentValidationGateway {
+                        override fun validate(command: PaymentValidationCommand) = Unit
+                    },
+                payments =
+                    object : PaymentProcessingGateway {
+                        override fun process(command: PaymentProcessingCommand): PaymentProcessingResult {
+                            events += "payment"
+                            return PaymentProcessingResult("pay-approved", PaymentResultStatus.APPROVED, "provider-1", replayed = false)
+                        }
+                    },
+                orderPaymentResults =
+                    object : OrderPaymentResultGateway {
+                        override fun apply(command: ApplyOrderPaymentResultCommand): CheckoutOrderSnapshot {
+                            events += "apply"
+                            return confirmedOrder
+                        }
+                    },
+                billing =
+                    object : BillingGateway {
+                        override fun issueInvoice(command: CheckoutInvoiceCommand) {
+                            events += "invoice"
+                        }
+                    },
+                shipping =
+                    object : ShippingGateway {
+                        override fun process(command: CheckoutShippingCommand) {
+                            events += "shipping"
+                        }
+                    },
+                notifications =
+                    object : NotificationGateway {
+                        override fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand) {
+                            events += "notify"
+                        }
+                    },
+                inventory = RecordingInventoryGateway(events),
+                transaction = ImmediateTransaction,
+            )
+
+        checkout.execute(command())
+
+        assertEquals(listOf("payment", "apply", "invoice", "shipping", "notify"), events.takeLast(5))
     }
 
     private fun command() =
@@ -250,6 +320,14 @@ class ExecuteCheckoutUseCaseTest {
         orderPaymentResults =
             object : OrderPaymentResultGateway {
                 override fun apply(command: ApplyOrderPaymentResultCommand): CheckoutOrderSnapshot = error("Not used for REQUESTED")
+            },
+        billing =
+            object : BillingGateway {
+                override fun issueInvoice(command: CheckoutInvoiceCommand) = Unit
+            },
+        shipping =
+            object : ShippingGateway {
+                override fun process(command: CheckoutShippingCommand) = Unit
             },
         notifications =
             object : NotificationGateway {

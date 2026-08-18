@@ -98,6 +98,48 @@ data class CheckoutOrderSnapshot(
     val replayed: Boolean,
 )
 
+data class CheckoutInvoiceCommand(
+    val orderId: Long,
+    val orderReference: String,
+    val customer: CheckoutCustomerSnapshot,
+    val shippingAddress: CheckoutShippingAddressSnapshot,
+    val items: List<CheckoutItemSnapshot>,
+    val totalAmount: BigDecimal,
+) {
+    companion object {
+        fun from(order: CheckoutOrderSnapshot) =
+            CheckoutInvoiceCommand(
+                orderId = order.id,
+                orderReference = order.orderReference,
+                customer = order.customerSnapshot,
+                shippingAddress = order.shippingAddressSnapshot,
+                items = order.items,
+                totalAmount = order.totalAmount,
+            )
+    }
+}
+
+data class CheckoutShippingCommand(
+    val orderId: Long,
+    val orderReference: String,
+    val customer: CheckoutCustomerSnapshot,
+    val shippingAddress: CheckoutShippingAddressSnapshot,
+    val items: List<CheckoutItemSnapshot>,
+    val totalAmount: BigDecimal,
+) {
+    companion object {
+        fun from(order: CheckoutOrderSnapshot) =
+            CheckoutShippingCommand(
+                orderId = order.id,
+                orderReference = order.orderReference,
+                customer = order.customerSnapshot,
+                shippingAddress = order.shippingAddressSnapshot,
+                items = order.items,
+                totalAmount = order.totalAmount,
+            )
+    }
+}
+
 data class PaymentValidationCommand(
     val amount: BigDecimal,
     val currency: String,
