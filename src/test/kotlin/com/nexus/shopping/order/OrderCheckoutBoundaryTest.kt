@@ -1,6 +1,6 @@
 package com.nexus.shopping.order
 
-import com.nexus.shopping.integration.checkout.application.CheckoutWorkflowUseCase
+import com.nexus.shopping.checkout.application.usecase.ExecuteCheckoutUseCase
 import com.nexus.shopping.order.application.usecase.CreateOrderUseCase
 import kotlin.test.Test
 import kotlin.test.assertFalse
@@ -20,7 +20,7 @@ class OrderCheckoutBoundaryTest {
             )
 
         assertFalse(
-            CheckoutWorkflowUseCase::class.java
+            ExecuteCheckoutUseCase::class.java
                 .boundaryTypes()
                 .any { type -> forbiddenContexts.any(type.name::startsWith) },
         )

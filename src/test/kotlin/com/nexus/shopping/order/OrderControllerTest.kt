@@ -1,7 +1,7 @@
 package com.nexus.shopping.order
 
 import com.fasterxml.jackson.databind.json.JsonMapper
-import com.nexus.shopping.integration.checkout.seedStockedProduct
+import com.nexus.shopping.checkout.seedStockedProduct
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.core.env.Environment
