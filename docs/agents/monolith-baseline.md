@@ -22,6 +22,8 @@ compartilhado:
 | Payment | Processar pagamento (abstrai o PSP) | PaymentAttempt |
 | Notification | Comunicar eventos ao cliente | Notification |
 | Inventory | Disponibilidade e baixa de estoque | StockMovement, products.inventory_quantity |
+| Billing | Emitir documentos comerciais | Invoice futura; neste baseline apenas registra a emissao |
+| Shipping | Calcular frete e despachar remessa | Shipment futura; neste baseline apenas registra os efeitos |
 
 Regras de fronteira:
 
@@ -31,6 +33,19 @@ Regras de fronteira:
 - `Order` nao consulta `Customer` na criacao do pedido: o checkout envia os snapshots.
 - `Payment` nao importa `Order`; usa `referenceId` opaco (`checkout:<orderId>`).
 - `Inventory` nao importa os demais contextos; opera `products.inventory_quantity`.
+- `Billing` e `Shipping` nao importam os outros contextos; recebem snapshots por ACLs de Checkout.
+
+## Billing e Shipping no caminho aprovado
+
+Depois de Payment aprovado e Order confirmado, Checkout chama Billing para
+registrar a emissao da Invoice e depois chama Shipping para registrar o calculo
+do frete e o despacho. A confirmacao por Notification continua sendo a etapa
+seguinte do processo.
+
+Os adapters de Billing e Shipping apenas registram esses efeitos no baseline.
+Nao ha Invoice ou Shipment persistidos, migration, endpoint, integracao fiscal,
+transportadora, rastreio ou custo de frete no pedido. Como esses contextos ainda
+nao tem persistencia ou idempotencia, um replay aprovado pode repetir seus logs.
 
 ## Estados do pedido e pagamento
 

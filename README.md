@@ -29,7 +29,7 @@ Veja tambem [REFERENCE_POINTS.md](REFERENCE_POINTS.md) para as tags imutaveis de
 
 ## Evolucao para E-commerce
 
-O codigo atual e um monolito modular com seis Bounded Contexts implementados: `Product`, `Customer`, `Cart`, `Order`, `Payment` e `Notification`. O checkout e um processo de aplicacao intercontextual no modulo `checkout/`.
+O codigo atual e um monolito modular com nove Bounded Contexts implementados: `Product`, `Customer`, `Cart`, `Inventory`, `Order`, `Payment`, `Notification`, `Billing` e `Shipping`. O checkout e um processo de aplicacao intercontextual no modulo `checkout/`.
 
 ![Mapa de Bounded Contexts do Nexus Shopping](docs/assets/bounded-contexts/nexus-shopping-bounded-context-map-preview.png)
 
@@ -55,9 +55,10 @@ flowchart LR
 
 Estado atual:
 
-- Implementados: `Product`, `Customer`, `Cart`, `Order`, `Payment` e `Notification`.
+- Implementados: `Product`, `Customer`, `Cart`, `Inventory`, `Order`, `Payment`, `Notification`, `Billing` e `Shipping`.
 - Checkout: processo de aplicacao entre Cart, Order, Payment e Notification; nao e um Bounded Context.
-- Fora de escopo nesta etapa: `Inventory` e `Auth/Identity`.
+- Billing registra a emissao de Invoice, e Shipping registra calculo de frete e despacho apos Payment aprovado.
+- Fora de escopo nesta etapa: `Auth/Identity`, Invoice/Shipment persistidos e integracoes reais.
 
 Decisoes principais:
 
