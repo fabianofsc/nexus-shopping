@@ -2,10 +2,14 @@ openapi: 3.0.3
 info:
   title: Nexus Shopping Backend
   description: |
-    Contrato canonico do monolito de e-commerce (baseline `monolith-first`). E a
-    fonte de verdade do contrato HTTP para replicacao em outras linguagens
-    (Node/TypeScript, Java, Python): o Kotlin e a implementacao de referencia e
-    deve seguir este arquivo.
+    Contrato canonico do e-commerce Nexus Shopping. E a fonte de verdade do
+    contrato HTTP para replicacao em outras linguagens (Node/TypeScript, Java,
+    Python): o Kotlin e a implementacao de referencia e deve seguir este arquivo.
+
+    O Payment ja foi extraido para o servico externo `nexus-payment-service`,
+    entao o pagamento e ASSINCRONO: o checkout despacha e responde 202 com o
+    pedido em `WAITING_PAYMENT`; o resultado terminal (`CONFIRMED` ou
+    `PAYMENT_FAILED`) chega depois, por reconciliacao.
 
     Convencoes:
     - Erros seguem RFC 7807 (application/problem+json).
@@ -13,14 +17,18 @@ info:
       pagina atual e `hasNext` indica se ha mais paginas.
     - Escritas no carrinho retornam o estado atualizado do carrinho (200).
     - O checkout exige o cabecalho `Idempotency-Key` e devolve 200 (replay),
-      201 (criado) ou 202 (pagamento pendente).
+      202 (pagamento despachado, caminho normal) ou 201 (resultado terminal ja
+      conhecido na resposta, hoje inalcancavel com o `nexus-payment-service`).
+    - Apos um 202, o cliente deve consultar
+      `GET /customers/{customerId}/orders/{orderId}` ate o pedido sair de
+      `WAITING_PAYMENT`.
     - O checkout resolve cliente e endereco a partir do `customerId` do path;
       o corpo envia apenas `paymentToken`.
 
     > NOTA DE MANUTENCAO: este contrato deve ser atualizado junto com qualquer
     > evolucao da API (novos endpoints, campos ou comportamentos) no mesmo lote,
     > para permanecer a fonte de verdade para a replicacao em outras linguagens.
-  version: 1.1.0
+  version: 1.2.0
 servers:
   - url: http://localhost:8080
 tags:
@@ -393,11 +401,19 @@ paths:
   /customers/{customerId}/cart/checkout:
     post:
       tags: [Checkout]
-      summary: Fecha o carrinho, cria o pedido, paga e notifica (com baixa de estoque)
+      summary: Fecha o carrinho, cria o pedido e despacha o pagamento (com baixa de estoque)
       description: |
         Requer o cabecalho `Idempotency-Key`. Resolve cliente e endereco do cadastro,
-        baixa estoque (409 se insuficiente), cria a Order com snapshots historicos,
-        processa o pagamento (approved/rejected) e notifica em caso de aprovacao.
+        baixa estoque (409 se insuficiente), cria a Order com snapshots historicos e
+        despacha o pagamento para o `nexus-payment-service`.
+
+        O pagamento e assincrono: a resposta normal e 202 com o pedido em
+        `WAITING_PAYMENT`. A reconciliacao aplica depois o resultado terminal, envia a
+        notificacao de confirmacao quando aprovado e devolve o estoque quando recusado.
+        Acompanhe por `GET /customers/{customerId}/orders/{orderId}`.
+
+        O `nexus-payment-service` e dependencia obrigatoria de runtime: com ele
+        indisponivel o checkout falha apos a reserva de estoque.
       parameters:
         - $ref: "#/components/parameters/CustomerId"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -415,13 +431,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/CheckoutResponse"
         "201":
-          description: Checkout criado (pedido CONFIRMED ou PAYMENT_FAILED)
+          description: |
+            Checkout criado com resultado terminal na propria resposta (pedido CONFIRMED
+            ou PAYMENT_FAILED). Reservado para um provider sincrono; nao ocorre com o
+            `nexus-payment-service`.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/CheckoutResponse"
         "202":
-          description: Pagamento pendente (pedido WAITING_PAYMENT)
+          description: |
+            Caminho normal: pagamento despachado, pedido em `WAITING_PAYMENT`. O status
+            terminal chega pela reconciliacao.
           content:
             application/json:
               schema:

@@ -1,8 +1,15 @@
-# Checklist de validacao e aceite (monolith-first)
+# Checklist de validacao e aceite
 
-Checklist end-to-end de toda a estrutura atual do monolito (branch `monolith-first`).
+Checklist end-to-end de toda a estrutura atual do Nexus Shopping.
 Organizado por dominio para permitir teste/validacao em paralelo. Cada dominio tem um
 conjunto de verificacoes com **criterio de aceite**.
+
+> **Pagamento assincrono.** O Payment foi extraido para o `nexus-payment-service`. O
+> checkout responde `202` com o pedido em `WAITING_PAYMENT`; o resultado terminal
+> (`CONFIRMED` / `PAYMENT_FAILED`), a notificacao e a devolucao de estoque acontecem
+> depois, pela reconciliacao (`PaymentReconciliationScheduler`, ~2s de intervalo, com o
+> DummyPay levando ~3s para processar). Todo criterio de aceite de checkout abaixo
+> pressupoe **aguardar o pedido sair de `WAITING_PAYMENT`** antes de conferir efeitos.
 
 Duas camadas de validacao:
 
@@ -15,7 +22,8 @@ Duas camadas de validacao:
 Execucao ao vivo:
 
 ```bash
-docker compose up -d postgres redis
+docker compose down -v      # bases antigas quebram: V9/V10/V11 mudaram
+docker compose up -d        # postgres, redis, nexus-payment-service, dummypay
 ./gradlew bootRun           # aplicacao em http://localhost:8080
 ./scripts/e2e-monolith-demo.sh
 ```
@@ -27,11 +35,12 @@ docker compose up -d postgres redis
 | # | Verificacao | Criterio de aceite |
 | --- | --- | --- |
 | G1 | Health do Actuator | `GET /actuator/health` -> `200` com `"status":"UP"` |
-| G2 | Flyway / migrations | App sobe sem erro; migrations portaveis H2+Postgres (testes passam) |
+| G2 | Flyway / migrations | App sobe sem erro; migrations portaveis H2+Postgres (testes passam). Base preexistente do baseline **precisa** de `docker compose down -v`: V9 mudou de checksum, V10 mudou de nome e a V11 antiga saiu |
 | G3 | Arquitetura (ArchUnit) | Regras hexagonais + isolamento de contextos passam |
 | G4 | Contrato OpenAPI | `docs/api/openapi.yaml` parseia e cobre os endpoints atuais |
 | G5 | Erros RFC 7807 | Erros retornam `application/problem+json` com type/title/status/detail/instance |
 | G6 | Correlation-id / logs | Filtro de correlation-id ativo (ECS logging) |
+| G7 | Dependencia externa | `nexus-payment-service` e `dummypay` no ar (`docker compose ps`); sem eles o checkout falha apos reservar estoque |
 
 ---
 
@@ -87,8 +96,8 @@ docker compose up -d postgres redis
 
 | # | Verificacao | Criterio de aceite |
 | --- | --- | --- |
-| CO1 | Checkout aprovado | `POST /customers/{id}/cart/checkout {paymentToken:"approved"}` + `Idempotency-Key` -> `201`, pedido `CONFIRMED`, estoque baixado, notificacao `SENT` |
-| CO2 | Checkout rejeitado | token `rejected` -> `201`, pedido `PAYMENT_FAILED`, estoque liberado, sem notificacao |
+| CO1 | Checkout aprovado | `POST /customers/{id}/cart/checkout {paymentToken:"card_processing_approved"}` + `Idempotency-Key` -> `202`, pedido `WAITING_PAYMENT`, estoque ja baixado. Apos a reconciliacao: `CONFIRMED` e notificacao `SENT` |
+| CO2 | Checkout recusado | token `card_declined` -> `202`, pedido `WAITING_PAYMENT`. Apos a reconciliacao: `PAYMENT_FAILED`, estoque liberado, sem notificacao |
 | CO3 | Replay | Mesma `Idempotency-Key` e payload -> `200` (mesmo pedido, sem novo dispatch/baixa/notificacao) |
 | CO4 | Conflito | Mesma chave com token diferente -> `409` |
 | CO5 | Estoque insuficiente | -> `409`, sem pedido/carrinho alterado |
@@ -109,9 +118,9 @@ docker compose up -d postgres redis
 
 | # | Verificacao | Criterio de aceite |
 | --- | --- | --- |
-| PA1 | Aprovado | Via checkout `approved`, `payment_attempts.status = APPROVED` |
-| PA2 | Rejeitado | Via checkout `rejected`, `payment_attempts.status = REJECTED` |
-| PA3 | Idempotencia | Replay nao cria novo dispatch/payment_attempt (contagem = 1) |
+| PA1 | Aprovado | Via checkout `card_processing_approved`, `payment_attempts.status` e `REQUESTED` de imediato e **eventualmente** `APPROVED`, apos a reconciliacao |
+| PA2 | Recusado | Via checkout `card_declined`, `payment_attempts.status` eventualmente `REJECTED` |
+| PA3 | Idempotencia | Replay nao cria novo `payment_attempt` (contagem = 1) e nao gera segundo `POST /v1/payments` no provider (verificar por WireMock nos testes; a tabela `payment_provider_dispatches` nao existe mais — a dedup vive no header `Idempotency-Key` enviado ao servico) |
 | PA4 | Token opaco | Nenhum log/coluna expoe o `paymentToken` |
 
 ## Notification
@@ -121,14 +130,14 @@ docker compose up -d postgres redis
 | N1 | Enviar | `POST /notifications` -> `201`, idempotente por `notificationKey` |
 | N2 | Listar | `GET /notifications?customerId=` -> `200` slice paginado |
 | N3 | Detalhe | `GET /notifications/{id}` -> `200`; inexistente -> `404` |
-| N4 | Confirmacao de checkout | Checkout aprovado gera notificacao `SENT`; rejeitado nao gera |
+| N4 | Confirmacao de checkout | Apos a reconciliacao, checkout aprovado gera notificacao `SENT`; recusado nao gera |
 
 ## Inventory
 
 | # | Verificacao | Criterio de aceite |
 | --- | --- | --- |
-| I1 | Baixa no checkout | Checkout aprovado decrementa `products.inventory_quantity` |
-| I2 | Liberacao em rejected | Checkout rejeitado devolve o estoque |
+| I1 | Baixa no checkout | O checkout decrementa `products.inventory_quantity` de forma **sincrona**, dentro da transacao que cria o pedido (antes do dispatch do pagamento) |
+| I2 | Liberacao em recusa | A devolucao do estoque e **assincrona**: acontece em `PaymentReconciliationUseCase` quando o outcome recusado transiciona o pedido. Repetir o ciclo de polling nao pode liberar duas vezes |
 | I3 | Liberacao em cancelamento | Cancelar devolve o estoque |
 | I4 | Insuficiente | Checkout com estoque insuficiente -> `409`, estoque nunca negativo (concorrencia) |
 | I5 | Ledger | `stock_movements` registra DECREASE/RELEASE por referencia |
@@ -138,5 +147,8 @@ docker compose up -d postgres redis
 ## Fluxo E2E completo (scripts/e2e-monolith-demo.sh)
 
 O script cobre o caminho feliz e o de falha de ponta a ponta (cliente -> produto ->
-carrinho -> checkout aprovado -> estoque/notificacao; checkout rejeitado -> estoque
-liberado). Criterio: **todas as linhas terminam com "ok" e exit 0**.
+carrinho -> checkout despachado `202` -> espera a reconciliacao -> estoque/notificacao;
+checkout recusado -> espera a reconciliacao -> estoque liberado). Ele faz polling em
+`GET /customers/{id}/orders/{orderId}` com `POLL_TIMEOUT` (default 30s) e usa os tokens
+de cenario do DummyPay (`TOKEN_APPROVED`, `TOKEN_DECLINED`).
+Criterio: **todas as linhas terminam com "ok" e exit 0**.

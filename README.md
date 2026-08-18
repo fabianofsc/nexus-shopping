@@ -29,7 +29,7 @@ Veja tambem [REFERENCE_POINTS.md](REFERENCE_POINTS.md) para as tags imutaveis de
 
 ## Evolucao para E-commerce
 
-O codigo atual e um monolito modular com seis Bounded Contexts implementados: `Product`, `Customer`, `Cart`, `Order`, `Payment` e `Notification`. O checkout e orquestrado pela camada `integration/checkout`.
+O codigo atual tem sete Bounded Contexts implementados: `Product`, `Customer`, `Cart`, `Inventory`, `Order`, `Payment` e `Notification`. O checkout e orquestrado pela camada `integration/checkout`. `Payment` ja foi extraido para o servico externo `nexus-payment-service`, o que torna o pagamento assincrono: o checkout responde `202` com o pedido em `WAITING_PAYMENT` e a reconciliacao aplica o resultado terminal depois.
 
 ![Mapa de Bounded Contexts do Nexus Shopping](docs/assets/bounded-contexts/nexus-shopping-bounded-context-map-preview.png)
 
@@ -186,7 +186,7 @@ docker compose up -d postgres redis
 Aplicacao local com uma instancia:
 
 ```bash
-docker compose up -d postgres redis
+docker compose up -d
 ./gradlew bootRun
 ```
 
@@ -234,7 +234,11 @@ Principais recursos HTTP:
 - Carrinho ativo: consulta e mutacao de itens em `/customers/{customerId}/cart`.
 - Notificacoes: envio, detalhe e listagem paginada em `/notifications`.
 - Pedidos: detalhe, listagem e cancelamento em `/customers/{customerId}/orders`.
-- Checkout: `POST /customers/{customerId}/cart/checkout`, com `Idempotency-Key` e token de pagamento.
+- Marcas e categorias: `/brands` e `/categories`, com `PATCH /categories/{id}/status`.
+- Endereco do cliente: `GET`/`PUT` em `/customers/{customerId}/address`.
+- Checkout: `POST /customers/{customerId}/cart/checkout`, com `Idempotency-Key` e token de pagamento. Responde `202` com o pedido em `WAITING_PAYMENT`; acompanhe por `GET /customers/{customerId}/orders/{orderId}` ate o status terminal.
+
+O contrato HTTP canonico e [docs/api/openapi.yaml](docs/api/openapi.yaml).
 
 O contrato detalhado das consultas de catalogo esta em [docs/agents/api-endpoints.md](docs/agents/api-endpoints.md).
 

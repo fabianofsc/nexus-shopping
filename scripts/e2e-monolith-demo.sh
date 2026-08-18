@@ -1,28 +1,43 @@
 #!/usr/bin/env bash
 #
-# e2e-monolith-demo.sh - Demonstra o fluxo completo do monolito de e-commerce
-# (baseline monolith-first) via HTTP, com asserts.
+# e2e-monolith-demo.sh - Demonstra o fluxo completo de e-commerce do Nexus Shopping
+# via HTTP, com asserts.
 #
 # Uso:
 #   ./scripts/e2e-monolith-demo.sh [BASE_URL]
 #
 # Parametros (opcionais):
-#   BASE_URL   base da API   (default: http://localhost:8080)
-#              tambem pode ser definido via variavel de ambiente BASE_URL.
+#   BASE_URL       base da API   (default: http://localhost:8080)
+#   TOKEN_APPROVED token de cenario aprovado do PSP (default: card_processing_approved)
+#   TOKEN_DECLINED token de cenario recusado do PSP (default: card_declined)
+#   POLL_TIMEOUT   segundos de espera pela reconciliacao (default: 30)
+#              todos tambem podem ser definidos via variavel de ambiente.
 #
 # Fluxo validado:
 #   1. Criar cliente e produto com estoque.
 #   2. Adicionar item ao carrinho.
-#   3. Checkout aprovado -> Order CONFIRMED, estoque baixado, notificacao SENT.
-#   4. Checkout rejeitado (outro cliente/produto) -> PAYMENT_FAILED e estoque liberado.
+#   3. Checkout aprovado -> 202 WAITING_PAYMENT; apos a reconciliacao, Order CONFIRMED,
+#      estoque baixado e notificacao SENT.
+#   4. Checkout recusado (outro cliente/produto) -> 202 WAITING_PAYMENT; apos a
+#      reconciliacao, PAYMENT_FAILED e estoque liberado.
 #
-# Depende de bash + curl + jq. Para subir a API localmente:
-#   docker compose up -d postgres redis
+# O pagamento e ASSINCRONO: o Nexus despacha para o nexus-payment-service, que fala com
+# o DummyPay, e o resultado terminal chega depois por polling do
+# PaymentReconciliationScheduler. Por isso o checkout responde 202 e este script espera
+# o pedido sair de WAITING_PAYMENT antes de conferir estoque e notificacao.
+#
+# Depende de bash + curl + jq. Para subir a stack completa localmente:
+#   docker compose up -d          # postgres, redis, nexus-payment-service, dummypay
 #   ./gradlew bootRun
+#
+# Se o banco ja tiver migrations antigas aplicadas, recriar com: docker compose down -v
 
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-${1:-http://localhost:8080}}"
+TOKEN_APPROVED="${TOKEN_APPROVED:-card_processing_approved}"
+TOKEN_DECLINED="${TOKEN_DECLINED:-card_declined}"
+POLL_TIMEOUT="${POLL_TIMEOUT:-30}"
 TMP_BODY="$(mktemp)"
 trap 'rm -f "$TMP_BODY"' EXIT
 
@@ -69,6 +84,30 @@ assert_field() {
 
 json() { jq -r "$1" <<<"$BODY"; }
 
+# await_order_settled CUSTOMER_ID ORDER_ID LABEL
+# O checkout devolve 202/WAITING_PAYMENT; o status terminal chega pela reconciliacao.
+await_order_settled() {
+    local customer_id="$1" order_id="$2" label="$3"
+    local waited=0 status=""
+    while [ "$waited" -lt "$POLL_TIMEOUT" ]; do
+        request GET "/customers/$customer_id/orders/$order_id"
+        status="$(json '.status')"
+        if [ "$status" != "WAITING_PAYMENT" ] && [ "$status" != "PAYMENT_PROCESSING" ]; then
+            PASS=$((PASS + 1))
+            echo "ok   - $label (reconciliado em ~${waited}s: $status)"
+            ORDER_STATUS="$status"
+            return 0
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+    FAIL=$((FAIL + 1))
+    echo "FAIL - $label: pedido $order_id continua '$status' apos ${POLL_TIMEOUT}s"
+    echo "      dica: o nexus-payment-service e o dummypay estao no ar? (docker compose ps)"
+    ORDER_STATUS="$status"
+    return 0
+}
+
 # --- 1. Cliente e produto com estoque --------------------------------------
 request POST /customers '{
   "name": "E2E Demo User",
@@ -104,10 +143,13 @@ assert_status 200 "$STATUS" "adiciona 2 itens ao carrinho"
 
 # --- 3. Checkout aprovado ---------------------------------------------------
 KEY_A="e2e-approved-$(date +%s)"
-request POST "/customers/$CUSTOMER_ID/cart/checkout" '{"paymentToken":"approved"}' "$KEY_A"
-assert_status 201 "$STATUS" "checkout aprovado"
-assert_field "CONFIRMED" "$(json '.status')" "pedido CONFIRMED"
+request POST "/customers/$CUSTOMER_ID/cart/checkout" "{\"paymentToken\":\"$TOKEN_APPROVED\"}" "$KEY_A"
+assert_status 202 "$STATUS" "checkout despachado para o Payment Service"
+assert_field "WAITING_PAYMENT" "$(json '.status')" "pedido WAITING_PAYMENT"
 ORDER_ID="$(json '.id')"
+
+await_order_settled "$CUSTOMER_ID" "$ORDER_ID" "reconciliacao do pedido aprovado"
+assert_field "CONFIRMED" "$ORDER_STATUS" "pedido CONFIRMED"
 
 request GET "/products/$PRODUCT_ID"
 assert_field "8" "$(json '.inventoryQuantity')" "estoque baixado de 10 para 8"
@@ -115,7 +157,7 @@ assert_field "8" "$(json '.inventoryQuantity')" "estoque baixado de 10 para 8"
 request GET "/notifications?customerId=$CUSTOMER_ID"
 assert_field "SENT" "$(json '.content[0].status')" "notificacao SENT"
 
-# --- 4. Checkout rejeitado libera o estoque --------------------------------
+# --- 4. Checkout recusado libera o estoque na reconciliacao ----------------
 request POST /customers '{
   "name": "E2E Rejected User",
   "document": "55566677788",
@@ -148,12 +190,22 @@ request POST "/customers/$CUSTOMER2_ID/cart/items" "{\"productId\":$PRODUCT2_ID,
 assert_status 200 "$STATUS" "adiciona 2 itens (cliente 2)"
 
 KEY_R="e2e-rejected-$(date +%s)"
-request POST "/customers/$CUSTOMER2_ID/cart/checkout" '{"paymentToken":"rejected"}' "$KEY_R"
-assert_status 201 "$STATUS" "checkout rejeitado"
-assert_field "PAYMENT_FAILED" "$(json '.status')" "pedido PAYMENT_FAILED"
+request POST "/customers/$CUSTOMER2_ID/cart/checkout" "{\"paymentToken\":\"$TOKEN_DECLINED\"}" "$KEY_R"
+assert_status 202 "$STATUS" "checkout recusado despachado"
+assert_field "WAITING_PAYMENT" "$(json '.status')" "pedido WAITING_PAYMENT"
+ORDER2_ID="$(json '.id')"
+
+request GET "/products/$PRODUCT2_ID"
+assert_field "3" "$(json '.inventoryQuantity')" "estoque reservado no checkout (5 -> 3)"
+
+await_order_settled "$CUSTOMER2_ID" "$ORDER2_ID" "reconciliacao do pedido recusado"
+assert_field "PAYMENT_FAILED" "$ORDER_STATUS" "pedido PAYMENT_FAILED"
 
 request GET "/products/$PRODUCT2_ID"
 assert_field "5" "$(json '.inventoryQuantity')" "estoque liberado de volta para 5"
+
+request GET "/notifications?customerId=$CUSTOMER2_ID"
+assert_field "0" "$(json '.content | length')" "recusa nao gera notificacao"
 
 # --- Resumo ----------------------------------------------------------------
 echo

@@ -1,9 +1,14 @@
 # Monolith Baseline (manual do aluno)
 
-Este documento descreve o **baseline monolito de e-commerce** (branch
-`monolith-first`) do Nexus Shopping: o mapa de contextos, os estados, as regras de
-idempotencia, como rodar e a trilha de evolucao para sistemas distribuidos. E a
-referencia para replicar o mesmo comportamento em Node/TypeScript, Java ou Python.
+Este documento descreve o **e-commerce Nexus Shopping**: o mapa de contextos, os
+estados, as regras de idempotencia, como rodar e a trilha de evolucao para sistemas
+distribuidos. E a referencia para replicar o mesmo comportamento em Node/TypeScript,
+Java ou Python.
+
+> **Onde o baseline ja saiu do monolito.** O contexto Payment **ja foi extraido** para o
+> servico `nexus-payment-service` (que por sua vez fala com o PSP DummyPay). No Nexus ele
+> sobrevive como ACL: ports + adapter HTTP. Isso torna o pagamento **assincrono** e muda o
+> contrato do checkout — leia a secao "Estados do pedido e pagamento" antes de replicar.
 
 O contrato HTTP canonico e o [`docs/api/openapi.yaml`](../../docs/api/openapi.yaml);
 o Kotlin e a implementacao de referencia e deve seguir esse contrato.
@@ -11,7 +16,8 @@ o Kotlin e a implementacao de referencia e deve seguir esse contrato.
 ## Mapa de contextos e fronteiras
 
 Monolito modular hexagonal (`adapter -> application -> domain`), com um banco
-compartilhado:
+compartilhado para os contextos que seguem no monolito (Payment tem banco proprio, no
+servico extraido):
 
 | Contexto | Responsabilidade | Modelo |
 | --- | --- | --- |
@@ -19,7 +25,7 @@ compartilhado:
 | Customer | Dados cadastrais do comprador | Customer, Contact, Address |
 | Cart | Intencao temporaria de compra | Cart, CartItem, ProductSummary |
 | Order | Compromisso comercial (snapshot historico) | Order, CustomerSnapshot, ShippingAddressSnapshot, OrderItemSnapshot |
-| Payment | Processar pagamento (abstrai o PSP) | PaymentAttempt |
+| Payment | ACL para o `nexus-payment-service` (abstrai o PSP) | PaymentAttempt, `provider_attempt_reference` |
 | Notification | Comunicar eventos ao cliente | Notification |
 | Inventory | Disponibilidade e baixa de estoque | StockMovement, products.inventory_quantity |
 
@@ -39,8 +45,15 @@ Order:  WAITING_PAYMENT -> PAYMENT_PROCESSING -> CONFIRMED
                           \-> PAYMENT_FAILED (recuperavel) -> CANCELLED
 ```
 
+- O checkout **termina** em `WAITING_PAYMENT` e responde `202`. O `nexus-payment-service`
+  sempre aceita o dispatch como `REQUESTED`; o resultado terminal chega depois.
+- A transicao terminal e feita pela reconciliacao: `PaymentReconciliationScheduler`
+  (`nexus.payment-service.polling-interval`, default 2s) -> `PaymentReconciliationUseCase`,
+  que aplica o resultado no pedido, envia a notificacao quando aprovado e **libera o
+  estoque quando recusado**.
 - Cancelamento so e permitido a partir de `WAITING_PAYMENT`.
-- `PaymentAttempt`: `REQUESTED -> APPROVED | REJECTED`.
+- `PaymentAttempt`: `REQUESTED -> APPROVED | REJECTED`, com a transicao acontecendo fora
+  do request do checkout.
 - `Notification`: `PENDING -> SENDING -> SENT | FAILED`.
 
 ## Idempotencia e replay
@@ -50,17 +63,23 @@ Order:  WAITING_PAYMENT -> PAYMENT_PROCESSING -> CONFIRMED
   pagamento, sem nova baixa de estoque e sem nova notificacao.
 - Mesma chave com payload diferente -> `409 Conflict`.
 - O fingerprint da autorizacao de pagamento (HMAC do token + chave) protege o replay.
-- O estoque e baixado uma unica vez na criacao do pedido; e liberado em `PAYMENT_FAILED`
-  ou no cancelamento (nao ha double-release, pois rejected nao e cancelavel).
+- O estoque e baixado uma unica vez na criacao do pedido, de forma sincrona e dentro da
+  mesma transacao. A liberacao e assincrona: acontece na reconciliacao quando o resultado
+  recusado transiciona o pedido, ou no cancelamento (nao ha double-release, pois rejected
+  nao e cancelavel, e a reconciliacao so libera na transicao efetiva).
 
 ## Como rodar e validar
 
 Requisitos: Java 21, Docker, Gradle Wrapper.
 
 ```bash
-docker compose up -d postgres redis
+docker compose down -v   # bases do baseline antigo nao validam mais (V9/V10/V11 mudaram)
+docker compose up -d     # postgres, redis, nexus-payment-service, dummypay
 ./gradlew bootRun
 ```
+
+O `nexus-payment-service` e **dependencia obrigatoria de runtime**: sem ele o checkout
+falha depois de reservar o estoque.
 
 Health:
 
@@ -121,8 +140,9 @@ Detalhes e schemas em [`docs/api/openapi.yaml`](../../docs/api/openapi.yaml).
 
 Ordem recomendada para os alunos implementarem, escolhendo a stack que dominam:
 
-1. **Extrair Payment** como servico (o DummyPay ja existe; Payment vira o servico que o
-   consome). O Nexus chama por HTTP/ACL; retry e reconciliation entram aqui.
+1. ~~**Extrair Payment** como servico (o DummyPay ja existe; Payment vira o servico que o
+   consome). O Nexus chama por HTTP/ACL; retry e reconciliation entram aqui.~~ **Feito** —
+   ver `docs/agents/external-services.md`.
 2. **Event-driven**: introduzir um broker; `Notification` vira o primeiro consumidor
    assincrono (outbox para garantir entrega).
 3. **API Gateway** + propagacao de identidade (Auth).

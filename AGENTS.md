@@ -75,6 +75,7 @@ Branches atuais:
 - Migrations: `src/main/resources/db/migration`.
 - Tabelas: `brands`, `categories`, `products`. Seed: `PRODUCT_SEED_COUNT` (default `1000`; usar `10000000` explicitamente nas aulas de performance).
 - Manter migrations portaveis entre PostgreSQL e H2 salvo instrucao explicita do usuario.
+- Bases criadas antes da extracao de Payment **nao validam mais** (V9 mudou de checksum, V10 mudou de nome, a V11 antiga saiu): recriar com `docker compose down -v`.
 - Evitar tipos/funcoes exclusivos do PostgreSQL em migrations usadas por testes.
 - Indexes atuais:
 
