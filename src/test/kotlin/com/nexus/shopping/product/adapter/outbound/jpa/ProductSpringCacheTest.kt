@@ -1,5 +1,7 @@
 package com.nexus.shopping.product.adapter.outbound.jpa
 
+import com.nexus.shopping.inventory.application.port.outbound.ProductStockPort
+import com.nexus.shopping.inventory.application.port.outbound.TransactionPort
 import com.nexus.shopping.product.application.command.CreateProductCommand
 import com.nexus.shopping.product.application.port.outbound.ProductRepositoryPort
 import com.nexus.shopping.product.domain.Currency
@@ -46,6 +48,13 @@ class ProductSpringCacheTest {
     @Autowired
     private lateinit var cacheManager: CacheManager
 
+    @Autowired
+    private lateinit var productStock: ProductStockPort
+
+    // As escritas de estoque sao @Modifying: exigem a transacao que o use case abre em producao.
+    @Autowired
+    private lateinit var inventoryTransaction: TransactionPort
+
     @MockitoBean
     private lateinit var springDataRepository: SpringDataProductRepository
 
@@ -59,6 +68,32 @@ class ProductSpringCacheTest {
     @Test
     fun `disabled Redis cache uses an explicit in-memory cache manager`() {
         assertIs<ConcurrentMapCacheManager>(cacheManager)
+    }
+
+    @Test
+    fun `a stock movement evicts detail so the next findById reads the updated stock`() {
+        // The payment reconciliation releases stock outside the checkout request; without eviction
+        // the catalog would keep serving the reserved quantity forever.
+        `when`(springDataRepository.findById(1L))
+            .thenReturn(Optional.of(productEntity(inventoryQuantity = 3)), Optional.of(productEntity(inventoryQuantity = 5)))
+
+        assertEquals(3, productRepository.findById(1L)?.inventoryQuantity)
+        inventoryTransaction.inTransaction { productStock.increment(1L, 2) }
+
+        assertNull(cacheManager.getCache("products:detail")?.get(1L))
+        assertEquals(5, productRepository.findById(1L)?.inventoryQuantity)
+    }
+
+    @Test
+    fun `a stock decrement evicts the search cache`() {
+        `when`(springDataRepository.findByCategoryId(1L, ProductStatus.ACTIVE, PageRequest.of(0, 2)))
+            .thenReturn(productSlice(productEntity()))
+        productRepository.findByCategoryId(categoryId = 1L, page = 0, size = 2)
+
+        inventoryTransaction.inTransaction { productStock.decrementIfAvailable(1L, 1) }
+        productRepository.findByCategoryId(categoryId = 1L, page = 0, size = 2)
+
+        verify(springDataRepository, times(2)).findByCategoryId(1L, ProductStatus.ACTIVE, PageRequest.of(0, 2))
     }
 
     @Test
@@ -314,6 +349,7 @@ class ProductSpringCacheTest {
         id: Long = 1L,
         name: String = "Product 1",
         price: BigDecimal = BigDecimal("19.90"),
+        inventoryQuantity: Int = 1,
     ) = ProductEntity(
         id = id,
         brandId = 1L,
@@ -324,7 +360,7 @@ class ProductSpringCacheTest {
         status = ProductStatus.ACTIVE,
         priceAmount = price,
         currency = Currency.BRL,
-        inventoryQuantity = 1,
+        inventoryQuantity = inventoryQuantity,
         createdAt = LocalDateTime.of(2026, 1, 1, 0, 0),
         updatedAt = LocalDateTime.of(2026, 1, 1, 0, 0),
     )
