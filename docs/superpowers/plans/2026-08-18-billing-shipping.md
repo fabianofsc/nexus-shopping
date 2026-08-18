@@ -12,6 +12,11 @@
 
 ## Global Constraints
 
+- Criar a branch de implementacao a partir de monolith-first, nunca de main.
+- Validar Billing e Shipping no monolito modular antes de qualquer tentativa de
+  integracao com main.
+- Tratar a futura promocao para main como trabalho separado: reconciliar com o
+  Payment extraido, sem descartar nem sobrescrever sua evolucao.
 - Manter adapter -> application -> domain.
 - Nao criar entidades, JPA, migrations, endpoints, OpenAPI ou alteracoes em Notification.
 - Nao usar Fake, Mock, Simulated ou Logging em nomes de producao.

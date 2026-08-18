@@ -4,6 +4,18 @@
 **Data:** 2026-08-18
 **Branch de referencia:** `monolith-first`
 
+## Estrategia de branch
+
+Billing e Shipping serao implementados, testados e validados a partir de
+`monolith-first`, pois sao uma evolucao do monolito modular. Esta evolucao nao
+deve ser iniciada em `main`.
+
+A promocao para `main` somente sera avaliada depois que o fluxo estiver
+funcional e validado nessa linhagem. Ela sera um trabalho separado de
+integracao, preservando a evolucao de `main`, que ja contem o modulo Payment
+extraido e suas integracoes mais recentes. Nenhuma estrategia de merge e
+decidida por esta spec.
+
 ## Contexto
 
 O Nexus Shopping e um e-commerce didatico organizado como monolito modular
