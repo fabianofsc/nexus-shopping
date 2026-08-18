@@ -29,7 +29,7 @@ Veja tambem [REFERENCE_POINTS.md](REFERENCE_POINTS.md) para as tags imutaveis de
 
 ## Evolucao para E-commerce
 
-O codigo atual e um monolito modular com seis Bounded Contexts implementados: `Product`, `Customer`, `Cart`, `Order`, `Payment` e `Notification`. O checkout e orquestrado pela camada `integration/checkout`.
+O codigo atual e um monolito modular com seis Bounded Contexts implementados: `Product`, `Customer`, `Cart`, `Order`, `Payment` e `Notification`. O checkout e um processo de aplicacao intercontextual no modulo `checkout/`.
 
 ![Mapa de Bounded Contexts do Nexus Shopping](docs/assets/bounded-contexts/nexus-shopping-bounded-context-map-preview.png)
 
@@ -56,7 +56,7 @@ flowchart LR
 Estado atual:
 
 - Implementados: `Product`, `Customer`, `Cart`, `Order`, `Payment` e `Notification`.
-- Checkout: fluxo de integracao entre Cart, Order, Payment e Notification.
+- Checkout: processo de aplicacao entre Cart, Order, Payment e Notification; nao e um Bounded Context.
 - Fora de escopo nesta etapa: `Inventory` e `Auth/Identity`.
 
 Decisoes principais:
@@ -68,7 +68,7 @@ Decisoes principais:
 - `Payment` continua sendo a primeira fronteira de extracao. O PSP DummyPay ja existe como servico externo; o proximo passo e criar o Payment Service que o consome antes de refatorar o Nexus.
 - Redis e usado como cache distribuido das consultas de produto; nao e um Bounded Context.
 
-ADRs: [Bounded Contexts](docs/decisions/2026-07-17-prd-commerce-bounded-contexts.md) e [servicos externos autonomos](docs/decisions/2026-08-12-prd-autonomous-external-services.md).
+ADRs: [Bounded Contexts](docs/decisions/2026-07-17-prd-commerce-bounded-contexts.md), [processo de Checkout](docs/decisions/2026-08-17-prd-checkout-process-module.md) e [servicos externos autonomos](docs/decisions/2026-08-12-prd-autonomous-external-services.md).
 
 ### Servicos externos autonomos
 
@@ -103,7 +103,7 @@ com/nexus/shopping/
       outbound/jpa/   -> entidades JPA e adapters de persistencia
   platform/           -> excecoes e handlers compartilhados
   infra/              -> detalhes tecnicos transversais (HTTP, correlation-id)
-  integration/checkout/ -> workflow e ACLs entre os contextos
+  checkout/             -> processo de aplicacao e ACLs entre os contextos; sem domain/
 ```
 
 Restricoes de design:

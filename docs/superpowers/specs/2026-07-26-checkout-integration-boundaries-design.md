@@ -4,6 +4,10 @@
 **Data:** 2026-07-26
 **Pre-requisito para:** `2026-07-26-payment-context-design.md`
 
+> Nota historica: `integration/checkout` era o nome aprovado nesta data. A estrutura
+> atual usa `checkout/` como processo de aplicacao intercontextual, conforme
+> `docs/decisions/2026-08-17-prd-checkout-process-module.md`.
+
 ## Objetivo
 
 Remover o acoplamento atual em que `CartJpaRepositoryAdapter` implementa a porta

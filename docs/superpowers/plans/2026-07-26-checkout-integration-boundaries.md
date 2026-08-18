@@ -1,5 +1,9 @@
 # Checkout Integration Boundaries Implementation Plan
 
+> Nota historica: este plano usa a nomenclatura original `integration/checkout`.
+> Consulte `docs/decisions/2026-08-17-prd-checkout-process-module.md` para a
+> estrutura atual `checkout/`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Remover o acoplamento Cart -> porta de Order e mover o checkout para um workflow de integracao com ACL, preservando HTTP, atomicidade local e idempotencia.
@@ -123,4 +127,3 @@ git push origin <branch>
 ```
 
 **Stop condition:** Abrir PR e aguardar revisao/merge humano. Nao iniciar Payment antes de atualizar a worktree com a `main` que contem esse merge.
-
