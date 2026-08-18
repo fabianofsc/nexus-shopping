@@ -35,7 +35,7 @@ Contexts em um banco compartilhado (11 migrations Flyway portaveis PostgreSQL/H2
 | Payment | `PaymentAttempt` idempotente, journal de dispatch, lease de processamento, provider simulado (logging), replay via mesma `Idempotency-Key` |
 | Notification | Registro idempotente por `notification_key`, envio por email simulado, acionado no checkout |
 
-Checkout orquestrado em `integration/checkout` por ports/ACLs (`CheckoutWorkflowUseCase`)
+Checkout orquestrado em `checkout` por ports/ACLs (`ExecuteCheckoutUseCase`)
 com replay idempotente e `Idempotency-Key` no HTTP. Infra com correlation-id (ECS),
 Problem Details (RFC 7807) e NGINX LB com 3 instancias.
 
@@ -82,7 +82,7 @@ didatico para o baseline.
 
 - `POST /customers/{customerId}/cart/checkout` passa a receber `{ paymentToken }`,
   sem snapshots inline.
-- O workflow (camada `integration/checkout`) resolve o snapshot do cliente e do endereco
+- O workflow (camada `checkout`) resolve o snapshot do cliente e do endereco
   consultando Customer por uma porta propria (`CustomerSnapshotPort`), validando que o
   cliente existe e possui endereco cadastrado, e passa os snapshots resolvidos para Order.
 - `Order` continua persistindo os snapshots como fato historico imutavel e continua nao

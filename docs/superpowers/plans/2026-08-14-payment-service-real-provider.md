@@ -49,13 +49,13 @@ before starting.
 - Delete: `payment/adapter/outbound/provider/PaymentProviderDispatchEntity.kt`
 - Delete: `payment/adapter/outbound/provider/SpringDataPaymentProviderDispatchRepository.kt`
 - Delete: `src/test/kotlin/com/nexus/shopping/payment/adapter/outbound/provider/LoggingPaymentProviderGatewayTest.kt`
-- Delete: `src/test/kotlin/com/nexus/shopping/integration/checkout/PaymentCheckoutReconciliationHttpTest.kt`
+- Delete: `src/test/kotlin/com/nexus/shopping/checkout/PaymentCheckoutReconciliationHttpTest.kt`
 - Modify: `payment/domain/PaymentProvider.kt` (single value: `PAYMENT_SERVICE`)
 - Rename+Modify: `payment/adapter/outbound/provider/NexusPaymentServiceProviderGateway.kt` ->
   `PaymentServiceProviderGateway.kt` (class rename, remove `@ConditionalOnProperty`)
 - Rename+Modify: `src/test/kotlin/.../NexusPaymentServiceProviderGatewayTest.kt` ->
   `PaymentServiceProviderGatewayTest.kt`
-- Modify: `integration/checkout/adapter/inbound/scheduler/PaymentReconciliationScheduler.kt`
+- Modify: `checkout/adapter/inbound/scheduler/PaymentReconciliationScheduler.kt`
   (remove `@ConditionalOnProperty`)
 - Modify: `src/main/resources/application.yml` (remove `enabled` key)
 - Modify: `src/test/resources/application.yml` (+`nexus.payment-service.polling-interval:
@@ -73,9 +73,9 @@ before starting.
 - Modify: `src/test/kotlin/com/nexus/shopping/payment/ProcessPaymentUseCaseTest.kt` (enum rename)
 - Modify: `src/test/kotlin/com/nexus/shopping/payment/ReconcilePendingPaymentAttemptsUseCaseTest.kt`
   (enum rename)
-- Rewrite: `src/test/kotlin/com/nexus/shopping/integration/checkout/PaymentCheckoutHttpTest.kt`
-- Rewrite: `src/test/kotlin/com/nexus/shopping/integration/checkout/PaymentCheckoutConcurrencyHttpTest.kt`
-- Rewrite: `src/test/kotlin/com/nexus/shopping/integration/checkout/PaymentRequestedCheckoutHttpTest.kt`
+- Rewrite: `src/test/kotlin/com/nexus/shopping/checkout/PaymentCheckoutHttpTest.kt`
+- Rewrite: `src/test/kotlin/com/nexus/shopping/checkout/PaymentCheckoutConcurrencyHttpTest.kt`
+- Rewrite: `src/test/kotlin/com/nexus/shopping/checkout/PaymentRequestedCheckoutHttpTest.kt`
 
 **Interfaces:**
 
@@ -111,7 +111,7 @@ rm src/main/kotlin/com/nexus/shopping/payment/adapter/outbound/provider/LoggingP
 rm src/main/kotlin/com/nexus/shopping/payment/adapter/outbound/provider/PaymentProviderDispatchEntity.kt
 rm src/main/kotlin/com/nexus/shopping/payment/adapter/outbound/provider/SpringDataPaymentProviderDispatchRepository.kt
 rm src/test/kotlin/com/nexus/shopping/payment/adapter/outbound/provider/LoggingPaymentProviderGatewayTest.kt
-rm src/test/kotlin/com/nexus/shopping/integration/checkout/PaymentCheckoutReconciliationHttpTest.kt
+rm src/test/kotlin/com/nexus/shopping/checkout/PaymentCheckoutReconciliationHttpTest.kt
 ```
 
 - [ ] **Step 4: Rename the `PaymentProvider` enum to a single value.**
@@ -265,12 +265,12 @@ setup are unaffected by the rename.
 
 - [ ] **Step 7: Remove the toggle from the scheduler.**
 
-Edit `src/main/kotlin/com/nexus/shopping/integration/checkout/adapter/inbound/scheduler/PaymentReconciliationScheduler.kt`:
+Edit `src/main/kotlin/com/nexus/shopping/checkout/adapter/inbound/scheduler/PaymentReconciliationScheduler.kt`:
 
 ```kotlin
-package com.nexus.shopping.integration.checkout.adapter.inbound.scheduler
+package com.nexus.shopping.checkout.adapter.inbound.scheduler
 
-import com.nexus.shopping.integration.checkout.application.PaymentReconciliationUseCase
+import com.nexus.shopping.checkout.application.usecase.PaymentReconciliationUseCase
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
@@ -460,10 +460,10 @@ already compile clean.
 
 - [ ] **Step 18: Rewrite `PaymentCheckoutHttpTest.kt`.**
 
-Replace the full content of `src/test/kotlin/com/nexus/shopping/integration/checkout/PaymentCheckoutHttpTest.kt`:
+Replace the full content of `src/test/kotlin/com/nexus/shopping/checkout/PaymentCheckoutHttpTest.kt`:
 
 ```kotlin
-package com.nexus.shopping.integration.checkout
+package com.nexus.shopping.checkout
 
 import com.fasterxml.jackson.databind.json.JsonMapper
 import com.github.tomakehurst.wiremock.WireMockServer
@@ -472,7 +472,7 @@ import com.github.tomakehurst.wiremock.client.WireMock.get
 import com.github.tomakehurst.wiremock.client.WireMock.post
 import com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor
 import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
-import com.nexus.shopping.integration.checkout.application.PaymentReconciliationUseCase
+import com.nexus.shopping.checkout.application.usecase.PaymentReconciliationUseCase
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.core.env.Environment
@@ -769,10 +769,10 @@ class PaymentCheckoutHttpTest {
 The artificial `BlockingPaymentProvider` wrapper existed to force the `REQUESTED` path over a
 gateway that normally resolved synchronously. That's no longer needed — every checkout now
 enters `REQUESTED` naturally. Replace the full content of
-`src/test/kotlin/com/nexus/shopping/integration/checkout/PaymentRequestedCheckoutHttpTest.kt`:
+`src/test/kotlin/com/nexus/shopping/checkout/PaymentRequestedCheckoutHttpTest.kt`:
 
 ```kotlin
-package com.nexus.shopping.integration.checkout
+package com.nexus.shopping.checkout
 
 import com.fasterxml.jackson.databind.json.JsonMapper
 import com.github.tomakehurst.wiremock.WireMockServer
@@ -780,7 +780,7 @@ import com.github.tomakehurst.wiremock.client.WireMock.aResponse
 import com.github.tomakehurst.wiremock.client.WireMock.get
 import com.github.tomakehurst.wiremock.client.WireMock.post
 import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
-import com.nexus.shopping.integration.checkout.application.PaymentReconciliationUseCase
+import com.nexus.shopping.checkout.application.usecase.PaymentReconciliationUseCase
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.core.env.Environment
@@ -1001,10 +1001,10 @@ class PaymentRequestedCheckoutHttpTest {
 Dispatch always returns `REQUESTED` now, so every concurrent response ends up `202`/
 `WAITING_PAYMENT` (not a mix of `200`/`201` `CONFIRMED`). The `payment_provider_dispatches`
 assertion is replaced by a WireMock request-count verification. Replace the full content of
-`src/test/kotlin/com/nexus/shopping/integration/checkout/PaymentCheckoutConcurrencyHttpTest.kt`:
+`src/test/kotlin/com/nexus/shopping/checkout/PaymentCheckoutConcurrencyHttpTest.kt`:
 
 ```kotlin
-package com.nexus.shopping.integration.checkout
+package com.nexus.shopping.checkout
 
 import com.fasterxml.jackson.databind.json.JsonMapper
 import com.github.tomakehurst.wiremock.WireMockServer

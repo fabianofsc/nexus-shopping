@@ -44,7 +44,7 @@ pedido correspondente.
 
 ## Risco B: falha do provider depois do commit
 
-Em `CheckoutWorkflowUseCase`, `inventory.decrement(...)` e `carts.confirmCheckout(...)`
+Em `ExecuteCheckoutUseCase`, `inventory.decrement(...)` e `carts.confirmCheckout(...)`
 acontecem dentro de `transaction.inTransaction { ... }`, que **commita antes** do dispatch
 HTTP. `PaymentServiceProviderGateway` lanca `PaymentProviderGatewayException` quando o
 `nexus-payment-service` esta indisponivel.

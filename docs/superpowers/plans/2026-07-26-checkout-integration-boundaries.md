@@ -1,10 +1,14 @@
 # Checkout Integration Boundaries Implementation Plan
 
+> Nota historica: este plano usa a nomenclatura original `checkout`.
+> Consulte `docs/decisions/2026-08-17-prd-checkout-process-module.md` para a
+> estrutura atual `checkout/`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Remover o acoplamento Cart -> porta de Order e mover o checkout para um workflow de integracao com ACL, preservando HTTP, atomicidade local e idempotencia.
 
-**Architecture:** `integration/checkout/application` e puro e depende apenas de gateways e `TransactionPort` proprios. Adapters locais traduzem DTOs de Integration para portas inbound de Cart e Order; Cart e Order nao se importam mutuamente.
+**Architecture:** `checkout/application` e puro e depende apenas de gateways e `TransactionPort` proprios. Adapters locais traduzem DTOs de Integration para portas inbound de Cart e Order; Cart e Order nao se importam mutuamente.
 
 **Tech Stack:** Kotlin, Spring Boot, Spring Data JPA, H2, PostgreSQL, Flyway, Gradle Wrapper e kotlin-test.
 
@@ -63,16 +67,16 @@ git commit -m "refactor: expose cart and order checkout ports"
 
 **Files:**
 
-- Create: `integration/checkout/application/CheckoutWorkflowUseCase.kt`
-- Create: `integration/checkout/application/port/outbound/{CheckoutCartGateway,OrderCreationGateway,TransactionPort}.kt`
-- Create: `integration/checkout/adapter/outbound/local/{LocalCheckoutCartGateway,LocalOrderCreationGateway,JpaTransactionAdapter}.kt`
-- Create: `integration/checkout/adapter/inbound/http/{CheckoutController,dto/CheckoutRequest}.kt`
+- Create: `checkout/application/ExecuteCheckoutUseCase.kt`
+- Create: `checkout/application/port/outbound/{CheckoutCartGateway,OrderCreationGateway,TransactionPort}.kt`
+- Create: `checkout/adapter/outbound/local/{LocalCheckoutCartGateway,LocalOrderCreationGateway,JpaTransactionAdapter}.kt`
+- Create: `checkout/adapter/inbound/http/{CheckoutController,dto/CheckoutRequest}.kt`
 - Remove/move: `order/adapter/inbound/http/OrderCheckoutController.kt` e DTOs exclusivos.
 
 **Interfaces:**
 
 ```kotlin
-class CheckoutWorkflowUseCase(
+class ExecuteCheckoutUseCase(
     private val carts: CheckoutCartGateway,
     private val orders: OrderCreationGateway,
     private val transaction: TransactionPort,
@@ -102,10 +106,10 @@ git commit -m "refactor: orchestrate checkout through integration workflow"
 **Files:**
 
 - Modify: `PackageStructureArchitectureTest.kt`
-- Create: `integration/checkout/CheckoutWorkflowIntegrationTest.kt`
+- Create: `checkout/CheckoutWorkflowIntegrationTest.kt`
 - Modify: testes existentes de rollback e concorrencia.
 
-- [ ] **Step 1: Escrever teste de arquitetura vermelho.** Proibir `cart.. -> order..|integration..`, `order.. -> cart..|integration..` e `integration.checkout.application.. -> cart..|order..|integration.checkout.adapter..`.
+- [ ] **Step 1: Escrever teste de arquitetura vermelho.** Proibir `cart.. -> order..|integration..`, `order.. -> cart..|integration..` e `checkout.application.. -> cart..|order..|checkout.adapter..`.
 - [ ] **Step 2: Escrever teste de rollback real.** Forcar excecao apos reserva e conferir, no H2, que Cart continua ACTIVE e nao ha Order.
 - [ ] **Step 3: Implementar `TransactionPort` em adapter de Integration.** Usar `@Transactional` no adapter e propagacao `REQUIRED`.
 - [ ] **Step 4: Rodar a verificacao final.**
@@ -123,4 +127,3 @@ git push origin <branch>
 ```
 
 **Stop condition:** Abrir PR e aguardar revisao/merge humano. Nao iniciar Payment antes de atualizar a worktree com a `main` que contem esse merge.
-

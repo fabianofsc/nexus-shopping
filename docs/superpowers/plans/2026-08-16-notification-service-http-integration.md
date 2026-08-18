@@ -4,7 +4,7 @@
 
 **Objetivo:** Substituir o bounded context local `notification` por um journal duravel no Checkout, uma chamada HTTP sincrona de aceite ao Notification Service e recuperacao manual pelo backoffice.
 
-**Arquitetura:** `integration/checkout` e dono da intencao imutavel de submeter uma confirmacao de pedido. Aprovacao de Order e reserva de `NotificationSubmission` ocorrem na mesma transacao local; depois do commit, uma ACL HTTP tenta o aceite remoto. Notification Service continua como dono exclusivo da notificacao remota e de sua entrega.
+**Arquitetura:** `checkout` e dono da intencao imutavel de submeter uma confirmacao de pedido. Aprovacao de Order e reserva de `NotificationSubmission` ocorrem na mesma transacao local; depois do commit, uma ACL HTTP tenta o aceite remoto. Notification Service continua como dono exclusivo da notificacao remota e de sua entrega.
 
 **Tecnologias:** Kotlin, Java 21, Spring Boot 4, Spring Data JPA, Flyway, H2, PostgreSQL, `RestClient`, MockRestServiceServer, WireMock e Gradle Wrapper.
 
@@ -25,27 +25,27 @@
 
 | Caminho | Responsabilidade |
 |---|---|
-| `integration/checkout/application/model/NotificationSubmission.kt` | Estado e payload imutavel, sem framework. |
-| `integration/checkout/application/port/inbound/NotificationSubmissionBackofficeInputPort.kt` | Contrato do backoffice. |
-| `integration/checkout/application/port/outbound/NotificationSubmissionRepositoryPort.kt` | Persistencia, lease e pagina do journal. |
-| `integration/checkout/application/port/outbound/NotificationServiceClientPort.kt` | Seam pequena para aceitar uma submissao remota. |
-| `integration/checkout/application/usecase/NotificationSubmissionUseCase.kt` | Implementa `NotificationGateway` e o contrato do backoffice. |
-| `integration/checkout/adapter/outbound/jpa/*NotificationSubmission*` | Entity, JPQL repository e adapter JPA. |
-| `integration/checkout/adapter/outbound/notification/NotificationServiceHttpClient.kt` | ACL HTTP, Basic Auth e DTOs privados. |
-| `integration/checkout/adapter/outbound/notification/NotificationSubmissionConfiguration.kt` | Composicao Spring do use case puro. |
-| `integration/checkout/adapter/inbound/http/backoffice/*` | Controller e DTOs do backoffice. |
+| `checkout/application/model/NotificationSubmission.kt` | Estado e payload imutavel, sem framework. |
+| `checkout/application/port/inbound/NotificationSubmissionBackofficeInputPort.kt` | Contrato do backoffice. |
+| `checkout/application/port/outbound/NotificationSubmissionRepositoryPort.kt` | Persistencia, lease e pagina do journal. |
+| `checkout/application/port/outbound/NotificationServiceClientPort.kt` | Seam pequena para aceitar uma submissao remota. |
+| `checkout/application/usecase/NotificationSubmissionUseCase.kt` | Implementa `NotificationGateway` e o contrato do backoffice. |
+| `checkout/adapter/outbound/jpa/*NotificationSubmission*` | Entity, JPQL repository e adapter JPA. |
+| `checkout/adapter/outbound/notification/NotificationServiceHttpClient.kt` | ACL HTTP, Basic Auth e DTOs privados. |
+| `checkout/adapter/outbound/notification/NotificationSubmissionConfiguration.kt` | Composicao Spring do use case puro. |
+| `checkout/adapter/inbound/http/backoffice/*` | Controller e DTOs do backoffice. |
 | `V11__replace_local_notification_context_with_submission_journal.sql` | Cria journal e remove a tabela local sem consumidores. |
 
 ### Tarefa 1: Definir modelo e portas sem framework
 
 **Arquivos:**
 
-- Criar: `src/main/kotlin/com/nexus/shopping/integration/checkout/application/model/NotificationSubmission.kt`
-- Criar: `src/main/kotlin/com/nexus/shopping/integration/checkout/application/port/inbound/NotificationSubmissionBackofficeInputPort.kt`
-- Criar: `src/main/kotlin/com/nexus/shopping/integration/checkout/application/port/outbound/NotificationSubmissionRepositoryPort.kt`
-- Criar: `src/main/kotlin/com/nexus/shopping/integration/checkout/application/port/outbound/NotificationServiceClientPort.kt`
-- Modificar: `src/main/kotlin/com/nexus/shopping/integration/checkout/application/port/outbound/NotificationGateway.kt`
-- Testar: `src/test/kotlin/com/nexus/shopping/integration/checkout/NotificationSubmissionModelTest.kt`
+- Criar: `src/main/kotlin/com/nexus/shopping/checkout/application/model/NotificationSubmission.kt`
+- Criar: `src/main/kotlin/com/nexus/shopping/checkout/application/port/inbound/NotificationSubmissionBackofficeInputPort.kt`
+- Criar: `src/main/kotlin/com/nexus/shopping/checkout/application/port/outbound/NotificationSubmissionRepositoryPort.kt`
+- Criar: `src/main/kotlin/com/nexus/shopping/checkout/application/port/outbound/NotificationServiceClientPort.kt`
+- Modificar: `src/main/kotlin/com/nexus/shopping/checkout/application/port/outbound/NotificationGateway.kt`
+- Testar: `src/test/kotlin/com/nexus/shopping/checkout/NotificationSubmissionModelTest.kt`
 
 **Interfaces:**
 
@@ -114,7 +114,7 @@ Esperado: PASS.
 - [ ] **Passo 5: Commitar modelo e portas**
 
 ```bash
-rtk git add src/main/kotlin/com/nexus/shopping/integration/checkout/application src/test/kotlin/com/nexus/shopping/integration/checkout/NotificationSubmissionModelTest.kt
+rtk git add src/main/kotlin/com/nexus/shopping/checkout/application src/test/kotlin/com/nexus/shopping/checkout/NotificationSubmissionModelTest.kt
 rtk git commit -m "feat: define notification submission journal"
 ```
 
@@ -123,11 +123,11 @@ rtk git commit -m "feat: define notification submission journal"
 **Arquivos:**
 
 - Criar: `src/main/resources/db/migration/V11__replace_local_notification_context_with_submission_journal.sql`
-- Criar: `src/main/kotlin/com/nexus/shopping/integration/checkout/adapter/outbound/jpa/NotificationSubmissionEntity.kt`
-- Criar: `src/main/kotlin/com/nexus/shopping/integration/checkout/adapter/outbound/jpa/SpringDataNotificationSubmissionRepository.kt`
-- Criar: `src/main/kotlin/com/nexus/shopping/integration/checkout/adapter/outbound/jpa/NotificationSubmissionJpaRepositoryAdapter.kt`
-- Testar: `src/test/kotlin/com/nexus/shopping/integration/checkout/NotificationSubmissionMigrationContractTest.kt`
-- Testar: `src/test/kotlin/com/nexus/shopping/integration/checkout/adapter/outbound/jpa/NotificationSubmissionJpaRepositoryAdapterTest.kt`
+- Criar: `src/main/kotlin/com/nexus/shopping/checkout/adapter/outbound/jpa/NotificationSubmissionEntity.kt`
+- Criar: `src/main/kotlin/com/nexus/shopping/checkout/adapter/outbound/jpa/SpringDataNotificationSubmissionRepository.kt`
+- Criar: `src/main/kotlin/com/nexus/shopping/checkout/adapter/outbound/jpa/NotificationSubmissionJpaRepositoryAdapter.kt`
+- Testar: `src/test/kotlin/com/nexus/shopping/checkout/NotificationSubmissionMigrationContractTest.kt`
+- Testar: `src/test/kotlin/com/nexus/shopping/checkout/adapter/outbound/jpa/NotificationSubmissionJpaRepositoryAdapterTest.kt`
 
 **Interfaces:**
 
@@ -183,7 +183,7 @@ Esperado: PASS em H2.
 ```bash
 rtk git add src/main/resources/db/migration/V11__replace_local_notification_context_with_submission_journal.sql
 rtk git commit -m "db: add notification submission journal"
-rtk git add src/main/kotlin/com/nexus/shopping/integration/checkout/adapter/outbound/jpa src/test/kotlin/com/nexus/shopping/integration/checkout
+rtk git add src/main/kotlin/com/nexus/shopping/checkout/adapter/outbound/jpa src/test/kotlin/com/nexus/shopping/checkout
 rtk git commit -m "feat: persist notification submissions"
 ```
 
@@ -191,9 +191,9 @@ rtk git commit -m "feat: persist notification submissions"
 
 **Arquivos:**
 
-- Criar: `src/main/kotlin/com/nexus/shopping/integration/checkout/application/usecase/NotificationSubmissionUseCase.kt`
-- Criar: `src/main/kotlin/com/nexus/shopping/integration/checkout/adapter/outbound/notification/NotificationSubmissionConfiguration.kt`
-- Testar: `src/test/kotlin/com/nexus/shopping/integration/checkout/NotificationSubmissionUseCaseTest.kt`
+- Criar: `src/main/kotlin/com/nexus/shopping/checkout/application/usecase/NotificationSubmissionUseCase.kt`
+- Criar: `src/main/kotlin/com/nexus/shopping/checkout/adapter/outbound/notification/NotificationSubmissionConfiguration.kt`
+- Testar: `src/test/kotlin/com/nexus/shopping/checkout/NotificationSubmissionUseCaseTest.kt`
 
 **Interfaces:**
 
@@ -250,7 +250,7 @@ Esperado: PASS.
 - [ ] **Passo 5: Commitar use case e configuracao**
 
 ```bash
-rtk git add src/main/kotlin/com/nexus/shopping/integration/checkout/application/usecase/NotificationSubmissionUseCase.kt src/main/kotlin/com/nexus/shopping/integration/checkout/adapter/outbound/notification/NotificationSubmissionConfiguration.kt src/test/kotlin/com/nexus/shopping/integration/checkout/NotificationSubmissionUseCaseTest.kt
+rtk git add src/main/kotlin/com/nexus/shopping/checkout/application/usecase/NotificationSubmissionUseCase.kt src/main/kotlin/com/nexus/shopping/checkout/adapter/outbound/notification/NotificationSubmissionConfiguration.kt src/test/kotlin/com/nexus/shopping/checkout/NotificationSubmissionUseCaseTest.kt
 rtk git commit -m "feat: add manual notification submission recovery"
 ```
 
@@ -258,10 +258,10 @@ rtk git commit -m "feat: add manual notification submission recovery"
 
 **Arquivos:**
 
-- Criar: `src/main/kotlin/com/nexus/shopping/integration/checkout/adapter/outbound/notification/NotificationServiceHttpClient.kt`
+- Criar: `src/main/kotlin/com/nexus/shopping/checkout/adapter/outbound/notification/NotificationServiceHttpClient.kt`
 - Criar: `src/main/kotlin/com/nexus/shopping/infra/http/ConfigurableRestClientFactory.kt`
 - Modificar: `src/main/resources/application.yml`
-- Testar: `src/test/kotlin/com/nexus/shopping/integration/checkout/adapter/outbound/notification/NotificationServiceHttpClientTest.kt`
+- Testar: `src/test/kotlin/com/nexus/shopping/checkout/adapter/outbound/notification/NotificationServiceHttpClientTest.kt`
 
 **Interfaces:**
 
@@ -312,7 +312,7 @@ Esperado: PASS; o novo factory nao muda o gateway de pagamento atual.
 - [ ] **Passo 5: Commitar ACL HTTP**
 
 ```bash
-rtk git add src/main/kotlin/com/nexus/shopping/integration/checkout/adapter/outbound/notification src/main/kotlin/com/nexus/shopping/infra/http/ConfigurableRestClientFactory.kt src/main/resources/application.yml src/test/kotlin/com/nexus/shopping/integration/checkout/adapter/outbound/notification
+rtk git add src/main/kotlin/com/nexus/shopping/checkout/adapter/outbound/notification src/main/kotlin/com/nexus/shopping/infra/http/ConfigurableRestClientFactory.kt src/main/resources/application.yml src/test/kotlin/com/nexus/shopping/checkout/adapter/outbound/notification
 rtk git commit -m "feat: call notification service over http"
 ```
 
@@ -320,11 +320,11 @@ rtk git commit -m "feat: call notification service over http"
 
 **Arquivos:**
 
-- Modificar: `src/main/kotlin/com/nexus/shopping/integration/checkout/application/CheckoutWorkflowUseCase.kt`
-- Modificar: `src/main/kotlin/com/nexus/shopping/integration/checkout/application/PaymentReconciliationUseCase.kt`
-- Modificar: `src/test/kotlin/com/nexus/shopping/integration/checkout/CheckoutWorkflowUseCaseTest.kt`
-- Modificar: `src/test/kotlin/com/nexus/shopping/integration/checkout/PaymentReconciliationUseCaseTest.kt`
-- Criar: `src/test/kotlin/com/nexus/shopping/integration/checkout/NotificationSubmissionCheckoutIntegrationTest.kt`
+- Modificar: `src/main/kotlin/com/nexus/shopping/checkout/application/ExecuteCheckoutUseCase.kt`
+- Modificar: `src/main/kotlin/com/nexus/shopping/checkout/application/PaymentReconciliationUseCase.kt`
+- Modificar: `src/test/kotlin/com/nexus/shopping/checkout/ExecuteCheckoutUseCaseTest.kt`
+- Modificar: `src/test/kotlin/com/nexus/shopping/checkout/PaymentReconciliationUseCaseTest.kt`
+- Criar: `src/test/kotlin/com/nexus/shopping/checkout/NotificationSubmissionCheckoutIntegrationTest.kt`
 
 **Interfaces:**
 
@@ -354,13 +354,13 @@ fun `falha no dispatch nao muda resposta do checkout aprovado`() {
 
 - [ ] **Passo 2: Executar para confirmar a falha**
 
-Executar: `rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests '*CheckoutWorkflowUseCaseTest' --tests '*PaymentReconciliationUseCaseTest'`
+Executar: `rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests '*ExecuteCheckoutUseCaseTest' --tests '*PaymentReconciliationUseCaseTest'`
 
 Esperado: a reserva nao existe e a notificacao ainda e chamada diretamente apos aplicar pagamento.
 
 - [ ] **Passo 3: Refatorar os dois orquestradores**
 
-Em `CheckoutWorkflowUseCase`, envolver `orderPaymentResults.apply(...)` e
+Em `ExecuteCheckoutUseCase`, envolver `orderPaymentResults.apply(...)` e
 `notifications.reserveOrderConfirmation(...)` na mesma `transaction.inTransaction`
 quando o pagamento for aprovado. Depois do retorno, chamar
 `notifications.dispatch(submission.id)` fora do bloco. Manter sem mudanca os
@@ -372,7 +372,7 @@ Continuar isolando erro de um outcome para que o lote prossiga.
 
 - [ ] **Passo 4: Executar testes unitarios e integracao H2**
 
-Executar: `rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests '*NotificationSubmissionCheckoutIntegrationTest' --tests '*CheckoutWorkflowUseCaseTest' --tests '*PaymentReconciliationUseCaseTest'`
+Executar: `rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests '*NotificationSubmissionCheckoutIntegrationTest' --tests '*ExecuteCheckoutUseCaseTest' --tests '*PaymentReconciliationUseCaseTest'`
 
 Esperado: PASS; replay cria uma unica submissao e falha remota deixa Order
 `CONFIRMED` com journal `FAILED`.
@@ -380,7 +380,7 @@ Esperado: PASS; replay cria uma unica submissao e falha remota deixa Order
 - [ ] **Passo 5: Commitar orquestracao atomica**
 
 ```bash
-rtk git add src/main/kotlin/com/nexus/shopping/integration/checkout/application src/test/kotlin/com/nexus/shopping/integration/checkout
+rtk git add src/main/kotlin/com/nexus/shopping/checkout/application src/test/kotlin/com/nexus/shopping/checkout
 rtk git commit -m "feat: journal notification submissions with approved orders"
 ```
 
@@ -388,10 +388,10 @@ rtk git commit -m "feat: journal notification submissions with approved orders"
 
 **Arquivos:**
 
-- Criar: `src/main/kotlin/com/nexus/shopping/integration/checkout/adapter/inbound/http/backoffice/NotificationSubmissionBackofficeController.kt`
-- Criar: `src/main/kotlin/com/nexus/shopping/integration/checkout/adapter/inbound/http/backoffice/dto/NotificationSubmissionBackofficeResponse.kt`
-- Criar: `src/main/kotlin/com/nexus/shopping/integration/checkout/adapter/inbound/http/backoffice/dto/DiscardNotificationSubmissionRequest.kt`
-- Testar: `src/test/kotlin/com/nexus/shopping/integration/checkout/adapter/inbound/http/backoffice/NotificationSubmissionBackofficeControllerTest.kt`
+- Criar: `src/main/kotlin/com/nexus/shopping/checkout/adapter/inbound/http/backoffice/NotificationSubmissionBackofficeController.kt`
+- Criar: `src/main/kotlin/com/nexus/shopping/checkout/adapter/inbound/http/backoffice/dto/NotificationSubmissionBackofficeResponse.kt`
+- Criar: `src/main/kotlin/com/nexus/shopping/checkout/adapter/inbound/http/backoffice/dto/DiscardNotificationSubmissionRequest.kt`
+- Testar: `src/test/kotlin/com/nexus/shopping/checkout/adapter/inbound/http/backoffice/NotificationSubmissionBackofficeControllerTest.kt`
 
 **Interfaces:**
 
@@ -444,7 +444,7 @@ Esperado: PASS, incluindo request malformado, ID inexistente e transicao em conf
 - [ ] **Passo 5: Commitar adapter do backoffice**
 
 ```bash
-rtk git add src/main/kotlin/com/nexus/shopping/integration/checkout/adapter/inbound/http/backoffice src/test/kotlin/com/nexus/shopping/integration/checkout/adapter/inbound/http/backoffice
+rtk git add src/main/kotlin/com/nexus/shopping/checkout/adapter/inbound/http/backoffice src/test/kotlin/com/nexus/shopping/checkout/adapter/inbound/http/backoffice
 rtk git commit -m "feat: add notification submission backoffice"
 ```
 

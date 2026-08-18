@@ -1,16 +1,16 @@
 package com.nexus.shopping.order
 
-import com.nexus.shopping.integration.checkout.adapter.inbound.scheduler.PaymentReconciliationScheduler
-import com.nexus.shopping.integration.checkout.adapter.outbound.acl.CartCheckoutGatewayAdapter
-import com.nexus.shopping.integration.checkout.adapter.outbound.acl.NotificationGatewayAdapter
-import com.nexus.shopping.integration.checkout.adapter.outbound.acl.OrderCreationGatewayAdapter
-import com.nexus.shopping.integration.checkout.adapter.outbound.acl.OrderPaymentResultGatewayAdapter
-import com.nexus.shopping.integration.checkout.adapter.outbound.acl.PaymentAuthorizationFingerprintGatewayAdapter
-import com.nexus.shopping.integration.checkout.adapter.outbound.acl.PaymentProcessingGatewayAdapter
-import com.nexus.shopping.integration.checkout.adapter.outbound.acl.PaymentReconciliationGatewayAdapter
-import com.nexus.shopping.integration.checkout.adapter.outbound.acl.PaymentValidationGatewayAdapter
-import com.nexus.shopping.integration.checkout.application.CheckoutWorkflowUseCase
-import com.nexus.shopping.integration.checkout.application.PaymentReconciliationUseCase
+import com.nexus.shopping.checkout.adapter.inbound.scheduler.PaymentReconciliationScheduler
+import com.nexus.shopping.checkout.adapter.outbound.acl.CartCheckoutGatewayAdapter
+import com.nexus.shopping.checkout.adapter.outbound.acl.NotificationGatewayAdapter
+import com.nexus.shopping.checkout.adapter.outbound.acl.OrderCreationGatewayAdapter
+import com.nexus.shopping.checkout.adapter.outbound.acl.OrderPaymentResultGatewayAdapter
+import com.nexus.shopping.checkout.adapter.outbound.acl.PaymentAuthorizationFingerprintGatewayAdapter
+import com.nexus.shopping.checkout.adapter.outbound.acl.PaymentProcessingGatewayAdapter
+import com.nexus.shopping.checkout.adapter.outbound.acl.PaymentReconciliationGatewayAdapter
+import com.nexus.shopping.checkout.adapter.outbound.acl.PaymentValidationGatewayAdapter
+import com.nexus.shopping.checkout.application.usecase.ExecuteCheckoutUseCase
+import com.nexus.shopping.checkout.application.usecase.PaymentReconciliationUseCase
 import com.nexus.shopping.order.application.usecase.CreateOrderUseCase
 import kotlin.test.Test
 import kotlin.test.assertFalse
@@ -30,7 +30,7 @@ class OrderCheckoutBoundaryTest {
             )
 
         assertFalse(
-            CheckoutWorkflowUseCase::class.java
+            ExecuteCheckoutUseCase::class.java
                 .boundaryTypes()
                 .any { type -> forbiddenContexts.any(type.name::startsWith) },
         )

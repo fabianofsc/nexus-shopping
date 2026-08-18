@@ -35,7 +35,7 @@ exato usado para descobrir o status.
 
 O bounded context `payment` (`2026-07-26-payment-context-design.md`) ja foi desenhado
 prevendo um resultado nao-terminal: `PaymentStatus` inclui `REQUESTED`, `OrderStatus` ja tem
-`PAYMENT_PROCESSING`, e `CheckoutWorkflowUseCase.execute()` ja tem o desvio
+`PAYMENT_PROCESSING`, e `ExecuteCheckoutUseCase.execute()` ja tem o desvio
 `if (payment.status == PaymentResultStatus.REQUESTED) return order`, hoje um branch morto
 porque nenhum gateway real o alcanca. Este refactor ativa esse caminho e adiciona a peca que
 faltava: quem descobre, mais tarde, que um pagamento virou terminal, e aplica esse resultado
@@ -156,7 +156,7 @@ dessa consulta.
 
 A correlacao `referenceId ("checkout:$orderId") → orderId` e a orquestracao de duas
 escritas (attempt ja resolvido pelo `payment`, mais `Order` e notificacao) permanecem
-responsabilidade de `integration/checkout`, pela mesma razao de ser da ACL que ja existe
+responsabilidade de `checkout`, pela mesma razao de ser da ACL que ja existe
 para o caminho sincrono: nem `payment` nem `order` devem se conhecer.
 
 - Novo outbound port `PaymentReconciliationGateway` (`fun reconcile(): List<PaymentReconciliationOutcome>`),
@@ -172,10 +172,10 @@ para o caminho sincrono: nem `payment` nem `order` devem se conhecer.
 - Novo use case `PaymentReconciliationUseCase`: chama `PaymentReconciliationGateway.reconcile()`;
   para cada resultado, chama `OrderPaymentResultGateway.applyByOrderReference(...)` e, se
   houve transicao real para `APPROVED`, dispara `NotificationGateway.ensureOrderConfirmation(...)` —
-  espelha o fim de `CheckoutWorkflowUseCase.execute()`, mantendo paridade de comportamento
+  espelha o fim de `ExecuteCheckoutUseCase.execute()`, mantendo paridade de comportamento
   entre o caminho sincrono (Logging) e o assincrono (nexus-payment-service).
 - Novo scheduler `PaymentReconciliationScheduler`
-  (`integration/checkout/adapter/inbound/scheduler`): `@Scheduled(fixedDelayString =
+  (`checkout/adapter/inbound/scheduler`): `@Scheduled(fixedDelayString =
   "${nexus.payment-service.polling-interval:2000}")`, condicional ao mesmo
   `nexus.payment-service.enabled=true`, chama `PaymentReconciliationUseCase.reconcile()` a
   cada tick. Fica em `adapter/inbound` porque, em termos hexagonais, e um mecanismo que
@@ -228,7 +228,7 @@ no Logging) garante que os testes continuam offline e deterministicos sem qualqu
    resultado; notificacao dispara so uma vez por pedido; um `referenceId` sem pedido
    correspondente nao derruba o processamento dos demais itens do lote.
 5. Teste de arquitetura confirma que `payment` continua sem importar `order`/`integration`, e
-   que o novo scheduler/ACL de `integration/checkout` nao importa tipos de dominio de
+   que o novo scheduler/ACL de `checkout` nao importa tipos de dominio de
    `payment`/`order` diretamente (so via ports/ACL, como hoje).
 6. Testes HTTP existentes do checkout (`PaymentCheckoutHttpTest.kt` e afins) continuam verdes
    sem alteracao, com `nexus.payment-service.enabled=false` implicito.

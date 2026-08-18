@@ -10,7 +10,7 @@
 O Nexus Shopping ainda contem um bounded context `notification` local. Ele possui
 tipos de dominio, templates, casos de uso, controller `/notifications`, tabela
 `notifications`, adapter JPA e adapter de e-mail. O checkout chama esse contexto
-por meio de `integration/checkout/application/port/outbound/NotificationGateway`.
+por meio de `checkout/application/port/outbound/NotificationGateway`.
 
 O repositorio irmao `../notification-service` ja oferece o servico autonomo que
 deve assumir o ciclo de entrega. Seu contrato relevante e:
@@ -75,7 +75,7 @@ integracao.
 Adotar a alternativa 3.
 
 O bounded context `notification` sera removido do Nexus. A seam
-`NotificationGateway` permanece em `integration/checkout/application`: ela
+`NotificationGateway` permanece em `checkout/application`: ela
 expressa a intencao de confirmar a notificacao do pedido sem expor HTTP, JSON,
 Basic Auth, `202`, IDs externos ou estados de entrega ao workflow.
 
@@ -120,7 +120,7 @@ chave incompativel.
 
 ### Journal de submissao
 
-`NotificationSubmission` pertence a `integration/checkout`. Seus dados minimos
+`NotificationSubmission` pertence a `checkout`. Seus dados minimos
 sao:
 
 - identificador local opaco;

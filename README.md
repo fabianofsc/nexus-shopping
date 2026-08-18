@@ -29,7 +29,7 @@ Veja tambem [REFERENCE_POINTS.md](REFERENCE_POINTS.md) para as tags imutaveis de
 
 ## Evolucao para E-commerce
 
-O codigo atual tem sete Bounded Contexts implementados: `Product`, `Customer`, `Cart`, `Inventory`, `Order`, `Payment` e `Notification`. O checkout e orquestrado pela camada `integration/checkout`. `Payment` ja foi extraido para o servico externo `nexus-payment-service`, o que torna o pagamento assincrono: o checkout responde `202` com o pedido em `WAITING_PAYMENT` e a reconciliacao aplica o resultado terminal depois.
+O codigo atual tem sete Bounded Contexts implementados: `Product`, `Customer`, `Cart`, `Inventory`, `Order`, `Payment` e `Notification`. O checkout e um processo de aplicacao intercontextual no modulo `checkout/`, nao um Bounded Context. `Payment` ja foi extraido para o servico externo `nexus-payment-service`, o que torna o pagamento assincrono: o checkout responde `202` com o pedido em `WAITING_PAYMENT` e a reconciliacao aplica o resultado terminal depois.
 
 ![Mapa de Bounded Contexts do Nexus Shopping](docs/assets/bounded-contexts/nexus-shopping-bounded-context-map-preview.png)
 
@@ -55,9 +55,9 @@ flowchart LR
 
 Estado atual:
 
-- Implementados: `Product`, `Customer`, `Cart`, `Order`, `Payment` e `Notification`.
-- Checkout: fluxo de integracao entre Cart, Order, Payment e Notification.
-- Fora de escopo nesta etapa: `Inventory` e `Auth/Identity`.
+- Implementados: `Product`, `Customer`, `Cart`, `Inventory`, `Order`, `Payment` e `Notification`.
+- Checkout: processo de aplicacao entre Cart, Order, Payment e Notification; nao e um Bounded Context.
+- Fora de escopo nesta etapa: `Auth/Identity`.
 
 Decisoes principais:
 
@@ -68,7 +68,7 @@ Decisoes principais:
 - `Payment` foi extraido: o Nexus consome o `nexus-payment-service` real via HTTP (ports/ACL), unico provider de pagamento — o adapter simulado local foi removido. O `nexus-payment-service`, por sua vez, e quem fala com o PSP DummyPay; o Nexus nunca chama DummyPay diretamente.
 - Redis e usado como cache distribuido das consultas de produto; nao e um Bounded Context.
 
-ADRs: [Bounded Contexts](docs/decisions/2026-07-17-prd-commerce-bounded-contexts.md) e [servicos externos autonomos](docs/decisions/2026-08-12-prd-autonomous-external-services.md).
+ADRs: [Bounded Contexts](docs/decisions/2026-07-17-prd-commerce-bounded-contexts.md), [processo de Checkout](docs/decisions/2026-08-17-prd-checkout-process-module.md) e [servicos externos autonomos](docs/decisions/2026-08-12-prd-autonomous-external-services.md).
 
 ### Servicos externos autonomos
 
@@ -105,7 +105,7 @@ com/nexus/shopping/
       outbound/jpa/   -> entidades JPA e adapters de persistencia
   platform/           -> excecoes e handlers compartilhados
   infra/              -> detalhes tecnicos transversais (HTTP, correlation-id)
-  integration/checkout/ -> workflow e ACLs entre os contextos
+  checkout/             -> processo de aplicacao e ACLs entre os contextos; sem domain/
 ```
 
 Restricoes de design:

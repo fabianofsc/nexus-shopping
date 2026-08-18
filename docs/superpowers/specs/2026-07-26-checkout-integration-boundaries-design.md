@@ -4,6 +4,10 @@
 **Data:** 2026-07-26
 **Pre-requisito para:** `2026-07-26-payment-context-design.md`
 
+> Nota historica: `checkout` era o nome aprovado nesta data. A estrutura
+> atual usa `checkout/` como processo de aplicacao intercontextual, conforme
+> `docs/decisions/2026-08-17-prd-checkout-process-module.md`.
+
 ## Objetivo
 
 Remover o acoplamento atual em que `CartJpaRepositoryAdapter` implementa a porta
@@ -24,10 +28,10 @@ de extrair Cart ou Order em servicos separados.
 
 ## Desenho aprovado
 
-Criar o modulo tecnico `integration/checkout`, organizado em `application` e
-`adapter`. `integration/checkout/application` depende somente de seus gateways
+Criar o modulo tecnico `checkout`, organizado em `application` e
+`adapter`. `checkout/application` depende somente de seus gateways
 outbound e da sua `TransactionPort`; ele nao conhece adapters concretos nem tipos de
-Cart/Order. Os adapters locais em `integration/checkout/adapter/outbound` implementam
+Cart/Order. Os adapters locais em `checkout/adapter/outbound` implementam
 esses gateways e dependem das portas de entrada publicas de Cart e Order. Nenhum dos
 dois contextos pode importar `integration`.
 
@@ -43,15 +47,15 @@ locais desses gateways constituem uma Anti-Corruption Layer (ACL): traduzem os D
 workflow para os request/response models das portas de entrada de Cart e Order. O
 workflow nao importa casos de uso concretos.
 
-`integration/checkout/application` e dono da sua `TransactionPort`. O adapter Spring
-JPA tecnico fica em `integration/checkout/adapter/outbound` e abre uma unica transacao
+`checkout/application` e dono da sua `TransactionPort`. O adapter Spring
+JPA tecnico fica em `checkout/adapter/outbound` e abre uma unica transacao
 local com propagacao `REQUIRED` para `reservar carrinho -> criar pedido -> concluir
 carrinho`. As operacoes de Cart e Order participam da transacao existente, sem iniciar
 ou encerrar uma fronteira adicional. Isto preserva a atomicidade no monolito; nao e
 uma transacao distribuida e sera substituido por reserva/compensacao quando um desses
 contextos for remoto.
 
-O controller HTTP de checkout tambem pertence a `integration/checkout/adapter/inbound/http`.
+O controller HTTP de checkout tambem pertence a `checkout/adapter/inbound/http`.
 O endpoint, o header `Idempotency-Key` e o corpo `OrderResponse` permanecem
 inalterados. Sem Payment, a criacao/replay usam 201/200 como hoje. A spec de Payment
 estende o mesmo endpoint com 202 Accepted quando a tentativa reservada ainda esta
@@ -72,26 +76,26 @@ cart/application/port/inbound/CartCheckoutInputPort
 order/application/port/inbound/CreateOrderInputPort
   create(CreateOrderCommand) -> CreatedOrder
 
-integration/checkout/application/port/outbound/CheckoutCartGateway
+checkout/application/port/outbound/CheckoutCartGateway
   reserveActiveCart(customerId) -> CheckoutCartData
   confirmCheckout(reservationId)
 
-integration/checkout/application/port/outbound/OrderCreationGateway
+checkout/application/port/outbound/OrderCreationGateway
   create(CreateOrderData) -> CheckoutOrderData(replayed)
 
-integration/checkout/application/port/outbound/OrderPaymentResultGateway
+checkout/application/port/outbound/OrderPaymentResultGateway
   apply(OrderPaymentResultData) -> CheckoutOrderData
 
-integration/checkout/application/port/outbound/PaymentValidationGateway
+checkout/application/port/outbound/PaymentValidationGateway
   validate(PaymentValidationData)
 
-integration/checkout/application/port/outbound/PaymentProcessingGateway
+checkout/application/port/outbound/PaymentProcessingGateway
   process(PaymentProcessingData) -> PaymentProcessingData
 
-integration/checkout/application/port/outbound/NotificationGateway
+checkout/application/port/outbound/NotificationGateway
   ensure(NotificationData)
 
-integration/checkout/application/port/outbound/TransactionPort
+checkout/application/port/outbound/TransactionPort
   inTransaction(block)
 ```
 
@@ -131,8 +135,8 @@ controla a fronteira transacional local.
 
 1. Teste de arquitetura por dependencias de classe/pacote, nao por busca textual, que
    proibe `cart.. -> order..|integration..` e `order.. -> cart..|integration..`.
-   `integration/checkout/application..` tambem nao depende de
-   `integration/checkout/adapter..`, `cart..`, `order..`, `payment..` ou
+   `checkout/application..` tambem nao depende de
+   `checkout/adapter..`, `cart..`, `order..`, `payment..` ou
    `notification..`; somente adapters sob `integration..` podem depender de portas
    inbound dos contextos autorizados.
 2. Testes unitarios dos adapters locais verificam a ACL e a traducao sem JPA ou HTTP.
@@ -156,6 +160,6 @@ controla a fronteira transacional local.
 
 A spec esta concluida quando checkout conserva seu contrato e atomicidade locais, mas
 Cart e Order podem ser compilados sem depender um do outro. O unico componente que
-conhece ambos e `integration/checkout`. Esta entrega isola dependencias de codigo; a
+conhece ambos e `checkout`. Esta entrega isola dependencias de codigo; a
 FK atual `orders.cart_id` continua uma limitacao deliberada do schema compartilhado e
 sua remocao pertence a futura extracao para bancos independentes.

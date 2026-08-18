@@ -140,7 +140,7 @@ estavel `checkout:<orderId>`; Payment as trata como texto opaco.
 
 ## Integracao do checkout
 
-Depois que a spec de fronteiras for aplicada, `integration/checkout/application`
+Depois que a spec de fronteiras for aplicada, `checkout/application`
 coordena somente seus gateways. Os adapters locais de Integration traduzem cada DTO
 para as portas inbound de Order, Payment e Notification; o workflow nao importa
 commands, use cases ou tipos de dominio desses contextos:
@@ -235,6 +235,6 @@ confiavel ficam para a etapa de mensageria.
 
 ## Criterio de conclusao
 
-O checkout usa Payment e Notification apenas pela camada `integration/checkout`.
+O checkout usa Payment e Notification apenas pela camada `checkout`.
 `Payment` pode ser extraido como servico e trocar seu adapter de provider sem depender
 de classes, schema ou tabelas de Order.

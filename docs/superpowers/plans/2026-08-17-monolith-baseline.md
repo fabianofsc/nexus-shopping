@@ -73,7 +73,7 @@ git commit -m "feat: persist stock movements with atomic decrement"
 
 **Files:**
 
-- Modify: `integration/checkout` (gateway/ACL `InventoryGateway`, workflow)
+- Modify: `checkout` (gateway/ACL `InventoryGateway`, workflow)
 - Modify: `order` (use case `CancelOrderUseCase` chama `ReleaseStockPort`)
 - Create: adapter de composicao que implementa `ReleaseStockPort` via `StockLedgerPort`/JPA
 - Test: checkout HTTP (sem estoque -> 409, approved baixa, rejected libera), cancelamento devolve, replay nao decrementa duas vezes
@@ -110,7 +110,7 @@ git commit -m "feat: add customer address get and update"
 **Files:**
 
 - Create: porta inbound/outbound de resolucao de snapshot do Customer (valida cliente existente com endereco)
-- Modify: `integration/checkout` (`CheckoutRequest`, `CheckoutWorkflowUseCase`, gateways da ACL)
+- Modify: `checkout` (`CheckoutRequest`, `ExecuteCheckoutUseCase`, gateways da ACL)
 - Modify: testes HTTP de checkout (todos os cenarios removem snapshots inline)
 
 - [ ] **Step 1: Escrever testes HTTP vermelhos.** Checkout de cliente sem endereco -> 404/400; valido -> cria Order com snapshots resolvidos.

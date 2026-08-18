@@ -52,7 +52,7 @@ um teste unitario de mapeamento HTTP isolado, nao precisa de WireMock.
 - `payment/adapter/outbound/provider/LoggingPaymentProviderGatewayTest.kt`
 - `payment/adapter/outbound/provider/PaymentProviderDispatchEntity.kt`
 - `payment/adapter/outbound/provider/SpringDataPaymentProviderDispatchRepository.kt`
-- `integration/checkout/PaymentCheckoutReconciliationHttpTest.kt` — testava
+- `checkout/PaymentCheckoutReconciliationHttpTest.kt` — testava
   replay idempotente atraves de janelas de falha assumindo que Payment
   resolvia de forma sincrona (Payment -> Order -> Notification na mesma
   transacao HTTP). Essa premissa nao existe mais: o dispatch real sempre
@@ -98,7 +98,7 @@ comportamento observavel de `POST /customers/{id}/cart/checkout` **sempre**
 
 - A resposta imediata do checkout e sempre `202 Accepted` com o pedido em
   `WAITING_PAYMENT` (o branch que ja existia em
-  `CheckoutWorkflowUseCase.execute()` para `PaymentResultStatus.REQUESTED`
+  `ExecuteCheckoutUseCase.execute()` para `PaymentResultStatus.REQUESTED`
   deixa de ser um caso raro e passa a ser o unico caminho).
 - A confirmacao (`CONFIRMED`/`PAYMENT_FAILED`) so chega depois, via
   `PaymentReconciliationScheduler` rodando em background (ou, em teste,

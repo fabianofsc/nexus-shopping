@@ -15,7 +15,7 @@ duravel permite diagnostico e retry ou descarte manual no Nexus.
 
 - Preservar `NotificationGateway` como porta do Checkout.
 - Criar ACL HTTP com Basic Auth, `Idempotency-Key` e mapeamento de `202`.
-- Introduzir `NotificationSubmission` tecnico em `integration/checkout`.
+- Introduzir `NotificationSubmission` tecnico em `checkout`.
 - Criar backoffice para listar, retry e discard de submissao.
 - Remover todo o bounded context local `notification` e a API `/notifications`.
 - Atualizar compose e documentacao para declarar o Notification Service como
@@ -31,7 +31,7 @@ duravel permite diagnostico e retry ou descarte manual no Nexus.
 
 ## Arquitetura
 
-`integration/checkout/application` continua dependendo somente de portas. O
+`checkout/application` continua dependendo somente de portas. O
 workflow pede a confirmacao de notificacao por `NotificationGateway`, cuja
 implementacao combina o journal local com um client HTTP privado do adapter.
 

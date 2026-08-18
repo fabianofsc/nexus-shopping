@@ -4,7 +4,7 @@
 
 **Goal:** Implementar Payment autonomo com provider simulado, idempotencia/fencing e checkout que confirma Order e assegura Notification.
 
-**Architecture:** Payment possui tipos, ports e persistencia proprios; nenhum pacote Payment importa outros contextos. `integration/checkout` usa gateways/ACL para validar/processar Payment, aplicar resultado em Order e assegurar Notification. Provider e e-mail apenas registram envios.
+**Architecture:** Payment possui tipos, ports e persistencia proprios; nenhum pacote Payment importa outros contextos. `checkout` usa gateways/ACL para validar/processar Payment, aplicar resultado em Order e assegurar Notification. Provider e e-mail apenas registram envios.
 
 **Tech Stack:** Kotlin, Spring Boot, Spring Data JPA, Flyway, H2, PostgreSQL, Gradle Wrapper e kotlin-test.
 
@@ -104,7 +104,7 @@ git commit -m "feat: apply payment results and deduplicate notifications"
 
 **Files:**
 
-- Modify: gateways/workflow/adapters de `integration/checkout`.
+- Modify: gateways/workflow/adapters de `checkout`.
 - Modify: DTO HTTP de checkout para `paymentToken`.
 - Modify: `PackageStructureArchitectureTest.kt`.
 - Test: checkout HTTP, replay, 202 REQUESTED e concorrencia ponta a ponta.

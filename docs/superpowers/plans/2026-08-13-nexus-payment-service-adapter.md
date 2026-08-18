@@ -9,11 +9,11 @@ reconciliacao (polling) em vez de um webhook receiver.
 
 **Architecture:** `payment` ganha um segundo metodo no `PaymentProviderGateway`
 (`checkStatus`), um campo novo em `PaymentAttempt` (`providerAttemptReference`) e um novo
-caso de uso de reconciliacao (`ReconcilePendingPaymentAttemptsUseCase`). `integration/checkout`
+caso de uso de reconciliacao (`ReconcilePendingPaymentAttemptsUseCase`). `checkout`
 ganha um scheduler (`adapter/inbound/scheduler`) que dirige essa reconciliacao e aplica o
 resultado ao `Order` via ACL, exatamente como o workflow sincrono ja faz hoje. Nenhum pacote
 `payment` ou `order` importa o outro; toda travessia continua via ports + ACL de
-`integration/checkout`.
+`checkout`.
 
 **Tech Stack:** Kotlin, Spring Boot 4, Spring Data JPA, Flyway, H2 (testes), PostgreSQL,
 `org.springframework.web.client.RestClient`, Gradle Wrapper, kotlin-test.
@@ -31,7 +31,7 @@ nexus-payment-service ainda em definicao em sessao paralela).
   unica PR ao final e aguardar revisao/merge humano — nunca fazer merge sem confirmacao
   explicita do usuario.
 - `payment` continua sem importar `order`, `cart`, `customer`, `notification` ou
-  `integration`. `integration/checkout` continua sem importar tipos de dominio de `payment`
+  `integration`. `checkout` continua sem importar tipos de dominio de `payment`
   ou `order` fora de ports/ACL.
 - `LoggingPaymentProviderGateway` continua sendo o default (`enabled=false`/`matchIfMissing = true`);
   nenhum teste existente deve precisar de rede ou do nexus-payment-service real.
@@ -138,16 +138,16 @@ git commit -m "feat: reconcile pending payment attempts against provider status"
 
 **Files:**
 
-- Modify: `integration/checkout/application/port/outbound/OrderPaymentResultGateway.kt`
+- Modify: `checkout/application/port/outbound/OrderPaymentResultGateway.kt`
   (+`applyByOrderReference`)
-- Modify: `integration/checkout/adapter/outbound/acl/OrderPaymentResultGatewayAdapter.kt`
-- Modify: `integration/checkout/adapter/outbound/acl/OrderCreationGatewayAdapter.kt` (helper
+- Modify: `checkout/adapter/outbound/acl/OrderPaymentResultGatewayAdapter.kt`
+- Modify: `checkout/adapter/outbound/acl/OrderCreationGatewayAdapter.kt` (helper
   inverso de parse `"checkout:$orderId"`, ao lado de onde o formato e cunhado)
-- Modify: `integration/checkout/application/model/CheckoutModels.kt` (novos commands/results)
-- Create: `integration/checkout/application/port/outbound/PaymentReconciliationGateway.kt`
-- Create: `integration/checkout/adapter/outbound/acl/PaymentReconciliationGatewayAdapter.kt`
-- Create: `integration/checkout/application/PaymentReconciliationUseCase.kt`
-- Create: `integration/checkout/adapter/inbound/scheduler/PaymentReconciliationScheduler.kt`
+- Modify: `checkout/application/model/CheckoutModels.kt` (novos commands/results)
+- Create: `checkout/application/port/outbound/PaymentReconciliationGateway.kt`
+- Create: `checkout/adapter/outbound/acl/PaymentReconciliationGatewayAdapter.kt`
+- Create: `checkout/application/PaymentReconciliationUseCase.kt`
+- Create: `checkout/adapter/inbound/scheduler/PaymentReconciliationScheduler.kt`
 - Modify: `PackageStructureArchitectureTest.kt` / `OrderCheckoutBoundaryTest.kt` se necessario
   para cobrir o novo pacote `adapter/inbound/scheduler`
 - Test: `PaymentReconciliationUseCaseTest.kt`, teste de arquitetura
