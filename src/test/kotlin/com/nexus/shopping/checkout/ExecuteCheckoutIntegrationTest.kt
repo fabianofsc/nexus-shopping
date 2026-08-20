@@ -5,12 +5,15 @@ import com.nexus.shopping.checkout.application.model.ApplyOrderPaymentResultByRe
 import com.nexus.shopping.checkout.application.model.ApplyOrderPaymentResultCommand
 import com.nexus.shopping.checkout.application.model.CheckoutCartSnapshot
 import com.nexus.shopping.checkout.application.model.CheckoutCommand
+import com.nexus.shopping.checkout.application.model.CheckoutInvoiceCommand
+import com.nexus.shopping.checkout.application.model.CheckoutShippingCommand
 import com.nexus.shopping.checkout.application.model.EnsureOrderConfirmationCommand
 import com.nexus.shopping.checkout.application.model.PaymentAuthorizationCommand
 import com.nexus.shopping.checkout.application.model.PaymentProcessingCommand
 import com.nexus.shopping.checkout.application.model.PaymentProcessingResult
 import com.nexus.shopping.checkout.application.model.PaymentResultStatus
 import com.nexus.shopping.checkout.application.model.PaymentValidationCommand
+import com.nexus.shopping.checkout.application.port.outbound.BillingGateway
 import com.nexus.shopping.checkout.application.port.outbound.CheckoutCartGateway
 import com.nexus.shopping.checkout.application.port.outbound.CheckoutCustomerGateway
 import com.nexus.shopping.checkout.application.port.outbound.InventoryGateway
@@ -20,6 +23,7 @@ import com.nexus.shopping.checkout.application.port.outbound.OrderPaymentResultG
 import com.nexus.shopping.checkout.application.port.outbound.PaymentAuthorizationFingerprintGateway
 import com.nexus.shopping.checkout.application.port.outbound.PaymentProcessingGateway
 import com.nexus.shopping.checkout.application.port.outbound.PaymentValidationGateway
+import com.nexus.shopping.checkout.application.port.outbound.ShippingGateway
 import com.nexus.shopping.checkout.application.port.outbound.TransactionPort
 import com.nexus.shopping.checkout.application.usecase.ExecuteCheckoutUseCase
 import org.springframework.beans.factory.annotation.Autowired
@@ -170,6 +174,14 @@ class ExecuteCheckoutIntegrationTest {
 
                     override fun applyByOrderReference(command: ApplyOrderPaymentResultByReferenceCommand): AppliedOrderPaymentResult =
                         error("Not used")
+                },
+            billing =
+                object : BillingGateway {
+                    override fun issueInvoice(command: CheckoutInvoiceCommand) = Unit
+                },
+            shipping =
+                object : ShippingGateway {
+                    override fun process(command: CheckoutShippingCommand) = Unit
                 },
             notifications =
                 object : NotificationGateway {

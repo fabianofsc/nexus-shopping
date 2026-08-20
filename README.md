@@ -29,7 +29,7 @@ Veja tambem [REFERENCE_POINTS.md](REFERENCE_POINTS.md) para as tags imutaveis de
 
 ## Evolucao para E-commerce
 
-O codigo atual tem sete Bounded Contexts implementados: `Product`, `Customer`, `Cart`, `Inventory`, `Order`, `Payment` e `Notification`. O checkout e um processo de aplicacao intercontextual no modulo `checkout/`, nao um Bounded Context. `Payment` ja foi extraido para o servico externo `nexus-payment-service`, o que torna o pagamento assincrono: o checkout responde `202` com o pedido em `WAITING_PAYMENT` e a reconciliacao aplica o resultado terminal depois.
+O codigo atual tem nove Bounded Contexts implementados: `Product`, `Customer`, `Cart`, `Inventory`, `Order`, `Payment`, `Notification`, `Billing` e `Shipping`. O checkout e um processo de aplicacao intercontextual no modulo `checkout/`, nao um Bounded Context. `Payment` ja foi extraido para o servico externo `nexus-payment-service`, o que torna o pagamento assincrono: o checkout responde `202` com o pedido em `WAITING_PAYMENT` e a reconciliacao aplica o resultado terminal depois.
 
 ![Mapa de Bounded Contexts do Nexus Shopping](docs/assets/bounded-contexts/nexus-shopping-bounded-context-map-preview.png)
 
@@ -55,9 +55,10 @@ flowchart LR
 
 Estado atual:
 
-- Implementados: `Product`, `Customer`, `Cart`, `Inventory`, `Order`, `Payment` e `Notification`.
+- Implementados: `Product`, `Customer`, `Cart`, `Inventory`, `Order`, `Payment`, `Notification`, `Billing` e `Shipping`.
 - Checkout: processo de aplicacao entre Cart, Order, Payment e Notification; nao e um Bounded Context.
-- Fora de escopo nesta etapa: `Auth/Identity`.
+- Billing registra a emissao de Invoice, e Shipping registra calculo de frete e despacho apos o pagamento aprovado ser reconciliado.
+- Fora de escopo nesta etapa: `Auth/Identity`, Invoice/Shipment persistidos e integracoes reais.
 
 Decisoes principais:
 

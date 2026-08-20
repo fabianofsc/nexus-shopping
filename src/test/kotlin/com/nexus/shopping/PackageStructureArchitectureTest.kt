@@ -49,7 +49,7 @@ class PackageStructureArchitectureTest {
 
     @Test
     fun `bounded contexts do not depend on Checkout`() {
-        listOf("product", "customer", "cart", "inventory", "order", "payment", "notification").forEach { context ->
+        listOf("product", "customer", "cart", "inventory", "order", "payment", "notification", "billing", "shipping").forEach { context ->
             assertNoDependencies(
                 sourcePackage = "..$context..",
                 forbiddenPackages = arrayOf("..checkout.."),
@@ -69,6 +69,8 @@ class PackageStructureArchitectureTest {
                     "..order..",
                     "..payment..",
                     "..notification..",
+                    "..billing..",
+                    "..shipping..",
                     "..checkout.adapter..",
                     "org.springframework..",
                     "jakarta.persistence..",
@@ -118,6 +120,8 @@ class PackageStructureArchitectureTest {
                 "..order..",
                 "..payment..",
                 "..notification..",
+                "..billing..",
+                "..shipping..",
                 "..checkout.adapter.outbound.acl..",
             ).should()
             .dependOnClassesThat()
@@ -127,7 +131,32 @@ class PackageStructureArchitectureTest {
                 "..order.application.port.inbound..",
                 "..payment.application.port.inbound..",
                 "..notification.application.port.inbound..",
+                "..billing.application.port.inbound..",
+                "..shipping.application.port.inbound..",
             ).check(productionClasses)
+    }
+
+    @Test
+    fun billingAndShippingDoNotDependOnOtherContexts() {
+        val forbiddenContexts =
+            arrayOf(
+                "..cart..",
+                "..customer..",
+                "..inventory..",
+                "..notification..",
+                "..order..",
+                "..payment..",
+                "..shipping..",
+                "..checkout..",
+            )
+        assertNoDependencies(
+            sourcePackage = "..billing..",
+            forbiddenPackages = forbiddenContexts,
+        )
+        assertNoDependencies(
+            sourcePackage = "..shipping..",
+            forbiddenPackages = forbiddenContexts.filterNot { it == "..shipping.." }.toTypedArray() + "..billing..",
+        )
     }
 
     @Test

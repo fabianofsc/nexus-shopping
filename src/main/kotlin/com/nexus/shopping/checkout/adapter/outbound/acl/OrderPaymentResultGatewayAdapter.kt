@@ -46,14 +46,6 @@ class OrderPaymentResultGatewayAdapter(
                     providerTransactionId = command.providerTransactionId,
                 ),
             )
-        return AppliedOrderPaymentResult(
-            orderId = requireNotNull(updated.id),
-            customerId = updated.customerId,
-            recipientEmail = updated.customerSnapshot.email,
-            items = updated.toCheckoutSnapshot(replayed = false).items,
-            totalAmount = updated.totalAmount,
-            status = updated.status.name,
-            transitioned = transitioned,
-        )
+        return AppliedOrderPaymentResult(order = updated.toCheckoutSnapshot(replayed = false), transitioned = transitioned)
     }
 }

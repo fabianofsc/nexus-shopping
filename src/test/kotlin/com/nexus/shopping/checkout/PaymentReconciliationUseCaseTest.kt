@@ -3,33 +3,62 @@ package com.nexus.shopping.checkout
 import com.nexus.shopping.checkout.application.model.AppliedOrderPaymentResult
 import com.nexus.shopping.checkout.application.model.ApplyOrderPaymentResultByReferenceCommand
 import com.nexus.shopping.checkout.application.model.ApplyOrderPaymentResultCommand
+import com.nexus.shopping.checkout.application.model.CheckoutCustomerSnapshot
+import com.nexus.shopping.checkout.application.model.CheckoutInvoiceCommand
 import com.nexus.shopping.checkout.application.model.CheckoutItemSnapshot
 import com.nexus.shopping.checkout.application.model.CheckoutOrderSnapshot
+import com.nexus.shopping.checkout.application.model.CheckoutShippingAddressSnapshot
+import com.nexus.shopping.checkout.application.model.CheckoutShippingCommand
 import com.nexus.shopping.checkout.application.model.EnsureOrderConfirmationCommand
 import com.nexus.shopping.checkout.application.model.PaymentReconciliationOutcome
 import com.nexus.shopping.checkout.application.model.PaymentResultStatus
+import com.nexus.shopping.checkout.application.port.outbound.BillingGateway
 import com.nexus.shopping.checkout.application.port.outbound.InventoryGateway
 import com.nexus.shopping.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.checkout.application.port.outbound.OrderPaymentResultGateway
 import com.nexus.shopping.checkout.application.port.outbound.PaymentReconciliationGateway
+import com.nexus.shopping.checkout.application.port.outbound.ShippingGateway
 import com.nexus.shopping.checkout.application.usecase.PaymentReconciliationUseCase
 import java.math.BigDecimal
+import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class PaymentReconciliationUseCaseTest {
     @Test
-    fun `an approved outcome confirms the order and sends exactly one notification`() {
+    fun `payment reconciliation receives billing and shipping gateways`() {
+        val gatewayTypes =
+            PaymentReconciliationUseCase::class.java.constructors
+                .single()
+                .parameterTypes
+                .toSet()
+
+        assertTrue(BillingGateway::class.java in gatewayTypes)
+        assertTrue(ShippingGateway::class.java in gatewayTypes)
+    }
+
+    @Test
+    fun `an approved outcome issues invoice dispatches shipping and sends exactly one notification`() {
         val notifications = mutableListOf<EnsureOrderConfirmationCommand>()
+        val invoices = mutableListOf<CheckoutInvoiceCommand>()
+        val shipments = mutableListOf<CheckoutShippingCommand>()
+        val events = mutableListOf<String>()
         val useCase =
             useCase(
                 outcomes = listOf(outcome(referenceId = "checkout:1", status = PaymentResultStatus.APPROVED)),
                 applyResults = mapOf("checkout:1" to appliedResult(orderId = 1L, status = "CONFIRMED", transitioned = true)),
                 notifications = notifications,
+                invoices = invoices,
+                shipments = shipments,
+                events = events,
             )
 
         useCase.reconcile()
 
+        assertEquals(listOf("invoice", "shipping", "notification"), events)
+        assertEquals("checkout:1", invoices.single().orderReference)
+        assertEquals("checkout:1", shipments.single().orderReference)
         assertEquals(1, notifications.size)
         assertEquals(1L, notifications.single().orderId)
     }
@@ -110,10 +139,15 @@ class PaymentReconciliationUseCaseTest {
         applyResults: Map<String, AppliedOrderPaymentResult>,
         notifications: MutableList<EnsureOrderConfirmationCommand>,
         releases: MutableList<Pair<String, List<CheckoutItemSnapshot>>> = mutableListOf(),
+        invoices: MutableList<CheckoutInvoiceCommand> = mutableListOf(),
+        shipments: MutableList<CheckoutShippingCommand> = mutableListOf(),
+        events: MutableList<String> = mutableListOf(),
     ) = PaymentReconciliationUseCase(
         reconciliation = FakePaymentReconciliationGateway(outcomes),
         orderPaymentResults = FakeOrderPaymentResultGateway(applyResults),
-        notifications = RecordingNotificationGateway(notifications),
+        billing = RecordingBillingGateway(invoices, events),
+        shipping = RecordingShippingGateway(shipments, events),
+        notifications = RecordingNotificationGateway(notifications, events),
         inventory = RecordingInventoryGateway(releases),
     )
 
@@ -133,12 +167,24 @@ class PaymentReconciliationUseCaseTest {
         status: String,
         transitioned: Boolean,
     ) = AppliedOrderPaymentResult(
-        orderId = orderId,
-        customerId = 10L,
-        recipientEmail = "customer-$orderId@example.com",
-        items = listOf(CheckoutItemSnapshot(10L, "Product 10", BigDecimal("19.90"), "BRL", 2)),
-        totalAmount = BigDecimal("39.80"),
-        status = status,
+        order =
+            CheckoutOrderSnapshot(
+                id = orderId,
+                orderReference = "checkout:$orderId",
+                customerId = 10L,
+                cartId = 20L,
+                recipientEmail = "customer-$orderId@example.com",
+                customerSnapshot = CheckoutCustomerSnapshot(10L, "Customer", "12345678901", "CPF", "customer-$orderId@example.com", null),
+                shippingAddressSnapshot =
+                    CheckoutShippingAddressSnapshot("Street", "10", null, "Center", "Sao Paulo", "SP", "01000-000", "BR"),
+                items = listOf(CheckoutItemSnapshot(10L, "Product 10", BigDecimal("19.90"), "BRL", 2)),
+                totalAmount = BigDecimal("39.80"),
+                status = status,
+                awaitingPayment = false,
+                createdAt = Instant.EPOCH,
+                cancelledAt = null,
+                replayed = false,
+            ),
         transitioned = transitioned,
     )
 
@@ -175,9 +221,31 @@ class PaymentReconciliationUseCaseTest {
 
     private class RecordingNotificationGateway(
         private val notifications: MutableList<EnsureOrderConfirmationCommand>,
+        private val events: MutableList<String>,
     ) : NotificationGateway {
         override fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand) {
             notifications += command
+            events += "notification"
+        }
+    }
+
+    private class RecordingBillingGateway(
+        private val invoices: MutableList<CheckoutInvoiceCommand>,
+        private val events: MutableList<String>,
+    ) : BillingGateway {
+        override fun issueInvoice(command: CheckoutInvoiceCommand) {
+            invoices += command
+            events += "invoice"
+        }
+    }
+
+    private class RecordingShippingGateway(
+        private val shipments: MutableList<CheckoutShippingCommand>,
+        private val events: MutableList<String>,
+    ) : ShippingGateway {
+        override fun process(command: CheckoutShippingCommand) {
+            shipments += command
+            events += "shipping"
         }
     }
 }
