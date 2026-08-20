@@ -3,8 +3,10 @@ package com.nexus.shopping.checkout.application.usecase
 import com.nexus.shopping.checkout.application.exception.CheckoutValidationException
 import com.nexus.shopping.checkout.application.model.ApplyOrderPaymentResultCommand
 import com.nexus.shopping.checkout.application.model.CheckoutCommand
+import com.nexus.shopping.checkout.application.model.CheckoutInvoiceCommand
 import com.nexus.shopping.checkout.application.model.CheckoutItemSnapshot
 import com.nexus.shopping.checkout.application.model.CheckoutOrderSnapshot
+import com.nexus.shopping.checkout.application.model.CheckoutShippingCommand
 import com.nexus.shopping.checkout.application.model.CreateCheckoutOrderCommand
 import com.nexus.shopping.checkout.application.model.EnsureOrderConfirmationCommand
 import com.nexus.shopping.checkout.application.model.FindCheckoutOrderReplayCommand
@@ -13,6 +15,7 @@ import com.nexus.shopping.checkout.application.model.PaymentProcessingCommand
 import com.nexus.shopping.checkout.application.model.PaymentResultStatus
 import com.nexus.shopping.checkout.application.model.PaymentValidationCommand
 import com.nexus.shopping.checkout.application.port.inbound.ExecuteCheckoutInputPort
+import com.nexus.shopping.checkout.application.port.outbound.BillingGateway
 import com.nexus.shopping.checkout.application.port.outbound.CheckoutCartGateway
 import com.nexus.shopping.checkout.application.port.outbound.CheckoutCustomerGateway
 import com.nexus.shopping.checkout.application.port.outbound.InventoryGateway
@@ -22,6 +25,7 @@ import com.nexus.shopping.checkout.application.port.outbound.OrderPaymentResultG
 import com.nexus.shopping.checkout.application.port.outbound.PaymentAuthorizationFingerprintGateway
 import com.nexus.shopping.checkout.application.port.outbound.PaymentProcessingGateway
 import com.nexus.shopping.checkout.application.port.outbound.PaymentValidationGateway
+import com.nexus.shopping.checkout.application.port.outbound.ShippingGateway
 import com.nexus.shopping.checkout.application.port.outbound.TransactionPort
 
 class ExecuteCheckoutUseCase(
@@ -32,6 +36,8 @@ class ExecuteCheckoutUseCase(
     private val paymentValidation: PaymentValidationGateway,
     private val payments: PaymentProcessingGateway,
     private val orderPaymentResults: OrderPaymentResultGateway,
+    private val billing: BillingGateway,
+    private val shipping: ShippingGateway,
     private val notifications: NotificationGateway,
     private val inventory: InventoryGateway,
     private val transaction: TransactionPort,
@@ -112,6 +118,8 @@ class ExecuteCheckoutUseCase(
                 ),
             )
         if (payment.status == PaymentResultStatus.APPROVED) {
+            billing.issueInvoice(CheckoutInvoiceCommand.from(updatedOrder))
+            shipping.process(CheckoutShippingCommand.from(updatedOrder))
             notifications.ensureOrderConfirmation(
                 EnsureOrderConfirmationCommand(
                     orderId = updatedOrder.id,

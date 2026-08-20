@@ -1,19 +1,25 @@
 package com.nexus.shopping.checkout.application.usecase
 
 import com.nexus.shopping.checkout.application.model.ApplyOrderPaymentResultByReferenceCommand
+import com.nexus.shopping.checkout.application.model.CheckoutInvoiceCommand
+import com.nexus.shopping.checkout.application.model.CheckoutShippingCommand
 import com.nexus.shopping.checkout.application.model.EnsureOrderConfirmationCommand
 import com.nexus.shopping.checkout.application.model.PaymentReconciliationOutcome
 import com.nexus.shopping.checkout.application.model.PaymentResultStatus
 import com.nexus.shopping.checkout.application.port.inbound.ReconcilePaymentsInputPort
+import com.nexus.shopping.checkout.application.port.outbound.BillingGateway
 import com.nexus.shopping.checkout.application.port.outbound.InventoryGateway
 import com.nexus.shopping.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.checkout.application.port.outbound.OrderPaymentResultGateway
 import com.nexus.shopping.checkout.application.port.outbound.PaymentReconciliationGateway
+import com.nexus.shopping.checkout.application.port.outbound.ShippingGateway
 import org.slf4j.LoggerFactory
 
 class PaymentReconciliationUseCase(
     private val reconciliation: PaymentReconciliationGateway,
     private val orderPaymentResults: OrderPaymentResultGateway,
+    private val billing: BillingGateway,
+    private val shipping: ShippingGateway,
     private val notifications: NotificationGateway,
     private val inventory: InventoryGateway,
 ) : ReconcilePaymentsInputPort {
@@ -46,6 +52,8 @@ class PaymentReconciliationUseCase(
             inventory.release(outcome.referenceId, applied.items)
         }
         if (applied.transitioned && outcome.status == PaymentResultStatus.APPROVED) {
+            billing.issueInvoice(CheckoutInvoiceCommand.from(applied.order))
+            shipping.process(CheckoutShippingCommand.from(applied.order))
             notifications.ensureOrderConfirmation(
                 EnsureOrderConfirmationCommand(
                     orderId = applied.orderId,

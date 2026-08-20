@@ -28,6 +28,8 @@ servico extraido):
 | Payment | ACL para o `nexus-payment-service` (abstrai o PSP) | PaymentAttempt, `provider_attempt_reference` |
 | Notification | Comunicar eventos ao cliente | Notification |
 | Inventory | Disponibilidade e baixa de estoque | StockMovement, products.inventory_quantity |
+| Billing | Emitir documentos comerciais | Invoice futura; neste baseline apenas registra a emissao |
+| Shipping | Calcular frete e despachar remessa | Shipment futura; neste baseline apenas registra os efeitos |
 
 Regras de fronteira:
 
@@ -37,6 +39,19 @@ Regras de fronteira:
 - `Order` nao consulta `Customer` na criacao do pedido: o checkout envia os snapshots.
 - `Payment` nao importa `Order`; usa `referenceId` opaco (`checkout:<orderId>`).
 - `Inventory` nao importa os demais contextos; opera `products.inventory_quantity`.
+- `Billing` e `Shipping` nao importam os outros contextos; recebem snapshots por ACLs de Checkout.
+
+## Billing e Shipping no caminho aprovado
+
+Na `main`, a reconciliacao aplica o pagamento aprovado ao pedido e, somente se
+a transicao for efetiva, chama Billing para registrar a emissao da Invoice e
+depois Shipping para registrar o calculo do frete e o despacho. A confirmacao
+por Notification continua sendo a etapa seguinte do processo.
+
+Os adapters de Billing e Shipping apenas registram esses efeitos no baseline.
+Nao ha Invoice ou Shipment persistidos, migration, endpoint, integracao fiscal,
+transportadora, rastreio ou custo de frete no pedido. O guard `transitioned` da
+reconciliacao impede que um polling posterior repita esses logs.
 
 ## Estados do pedido e pagamento
 
@@ -49,8 +64,8 @@ Order:  WAITING_PAYMENT -> PAYMENT_PROCESSING -> CONFIRMED
   sempre aceita o dispatch como `REQUESTED`; o resultado terminal chega depois.
 - A transicao terminal e feita pela reconciliacao: `PaymentReconciliationScheduler`
   (`nexus.payment-service.polling-interval`, default 2s) -> `PaymentReconciliationUseCase`,
-  que aplica o resultado no pedido, envia a notificacao quando aprovado e **libera o
-  estoque quando recusado**.
+  que aplica o resultado no pedido, chama Billing e Shipping e envia a notificacao
+  quando aprovado, e **libera o estoque quando recusado**.
 - Cancelamento so e permitido a partir de `WAITING_PAYMENT`.
 - `PaymentAttempt`: `REQUESTED -> APPROVED | REJECTED`, com a transicao acontecendo fora
   do request do checkout.

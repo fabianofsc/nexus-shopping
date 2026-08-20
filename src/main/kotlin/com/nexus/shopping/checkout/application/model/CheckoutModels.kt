@@ -98,6 +98,48 @@ data class CheckoutOrderSnapshot(
     val replayed: Boolean,
 )
 
+data class CheckoutInvoiceCommand(
+    val orderId: Long,
+    val orderReference: String,
+    val customer: CheckoutCustomerSnapshot,
+    val shippingAddress: CheckoutShippingAddressSnapshot,
+    val items: List<CheckoutItemSnapshot>,
+    val totalAmount: BigDecimal,
+) {
+    companion object {
+        fun from(order: CheckoutOrderSnapshot) =
+            CheckoutInvoiceCommand(
+                orderId = order.id,
+                orderReference = order.orderReference,
+                customer = order.customerSnapshot,
+                shippingAddress = order.shippingAddressSnapshot,
+                items = order.items,
+                totalAmount = order.totalAmount,
+            )
+    }
+}
+
+data class CheckoutShippingCommand(
+    val orderId: Long,
+    val orderReference: String,
+    val customer: CheckoutCustomerSnapshot,
+    val shippingAddress: CheckoutShippingAddressSnapshot,
+    val items: List<CheckoutItemSnapshot>,
+    val totalAmount: BigDecimal,
+) {
+    companion object {
+        fun from(order: CheckoutOrderSnapshot) =
+            CheckoutShippingCommand(
+                orderId = order.id,
+                orderReference = order.orderReference,
+                customer = order.customerSnapshot,
+                shippingAddress = order.shippingAddressSnapshot,
+                items = order.items,
+                totalAmount = order.totalAmount,
+            )
+    }
+}
+
 data class PaymentValidationCommand(
     val amount: BigDecimal,
     val currency: String,
@@ -141,14 +183,27 @@ data class ApplyOrderPaymentResultByReferenceCommand(
 )
 
 data class AppliedOrderPaymentResult(
-    val orderId: Long,
-    val customerId: Long,
-    val recipientEmail: String,
-    val items: List<CheckoutItemSnapshot>,
-    val totalAmount: BigDecimal,
-    val status: String,
+    val order: CheckoutOrderSnapshot,
     val transitioned: Boolean,
-)
+) {
+    val orderId: Long
+        get() = order.id
+
+    val customerId: Long
+        get() = order.customerId
+
+    val recipientEmail: String
+        get() = order.recipientEmail
+
+    val items: List<CheckoutItemSnapshot>
+        get() = order.items
+
+    val totalAmount: BigDecimal
+        get() = order.totalAmount
+
+    val status: String
+        get() = order.status
+}
 
 data class PaymentReconciliationOutcome(
     val attemptReference: String,

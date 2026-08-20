@@ -17,10 +17,13 @@ import com.nexus.shopping.checkout.adapter.outbound.CheckoutJpaTransactionAdapte
 import com.nexus.shopping.checkout.adapter.outbound.acl.CartCheckoutGatewayAdapter
 import com.nexus.shopping.checkout.adapter.outbound.acl.OrderCreationGatewayAdapter
 import com.nexus.shopping.checkout.application.model.CheckoutCommand
+import com.nexus.shopping.checkout.application.model.CheckoutInvoiceCommand
 import com.nexus.shopping.checkout.application.model.CheckoutOrderSnapshot
+import com.nexus.shopping.checkout.application.model.CheckoutShippingCommand
 import com.nexus.shopping.checkout.application.model.PaymentProcessingCommand
 import com.nexus.shopping.checkout.application.model.PaymentProcessingResult
 import com.nexus.shopping.checkout.application.model.PaymentResultStatus
+import com.nexus.shopping.checkout.application.port.outbound.BillingGateway
 import com.nexus.shopping.checkout.application.port.outbound.CheckoutCustomerGateway
 import com.nexus.shopping.checkout.application.port.outbound.InventoryGateway
 import com.nexus.shopping.checkout.application.port.outbound.NotificationGateway
@@ -28,6 +31,7 @@ import com.nexus.shopping.checkout.application.port.outbound.OrderPaymentResultG
 import com.nexus.shopping.checkout.application.port.outbound.PaymentAuthorizationFingerprintGateway
 import com.nexus.shopping.checkout.application.port.outbound.PaymentProcessingGateway
 import com.nexus.shopping.checkout.application.port.outbound.PaymentValidationGateway
+import com.nexus.shopping.checkout.application.port.outbound.ShippingGateway
 import com.nexus.shopping.checkout.application.usecase.ExecuteCheckoutUseCase
 import com.nexus.shopping.checkout.seedStockedProduct
 import com.nexus.shopping.order.adapter.outbound.jpa.OrderJpaRepositoryAdapter
@@ -129,6 +133,14 @@ class CheckoutOrderMutationConcurrencyTest {
                     paymentValidation = paymentValidation,
                     payments = FakeRequestedPaymentGateway,
                     orderPaymentResults = orderPaymentResults,
+                    billing =
+                        object : BillingGateway {
+                            override fun issueInvoice(command: CheckoutInvoiceCommand) = Unit
+                        },
+                    shipping =
+                        object : ShippingGateway {
+                            override fun process(command: CheckoutShippingCommand) = Unit
+                        },
                     notifications = notifications,
                     inventory = inventory,
                     transaction = transactions,

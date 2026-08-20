@@ -590,6 +590,24 @@ Esses temas continuam importantes, mas entram melhor depois que o aluno enxergar
 
 ## Consequencias
 
+## Extensao posterior: Billing e Shipping
+
+O monolito modular evolui com dois contextos adicionais, sem antecipar
+persistencia ou integracoes reais:
+
+- Billing recebe o snapshot do pedido confirmado e registra a emissao de
+  Invoice. Receipt permanece futuro e sera emitido a partir de Payment aprovado,
+  sem transferir ownership do pagamento para Billing.
+- Shipping recebe outro snapshot, registra o calculo do frete e depois o
+  despacho. Cotacao real, preco no checkout, rastreio e Shipment persistida
+  permanecem futuros.
+
+Checkout coordena Billing, Shipping e a Notification existente por ACLs. Na
+`main`, a coordenacao acontece depois que `PaymentReconciliationUseCase`
+confirma uma transicao efetiva do pedido. Os novos contextos nao importam
+Order, Payment ou um ao outro; polling e replay posteriores nao repetem os logs
+quando nao ha nova transicao.
+
 Pontos positivos:
 
 - O projeto passa a representar um e-commerce mais completo.
