@@ -123,14 +123,14 @@ docker compose up -d        # postgres, redis, nexus-payment-service, dummypay
 | PA3 | Idempotencia | Replay nao cria novo `payment_attempt` (contagem = 1) e nao gera segundo `POST /v1/payments` no provider (verificar por WireMock nos testes; a tabela `payment_provider_dispatches` nao existe mais — a dedup vive no header `Idempotency-Key` enviado ao servico) |
 | PA4 | Token opaco | Nenhum log/coluna expoe o `paymentToken` |
 
-## Notification
+## Notification Service e journal
 
 | # | Verificacao | Criterio de aceite |
 | --- | --- | --- |
-| N1 | Enviar | `POST /notifications` -> `201`, idempotente por `notificationKey` |
-| N2 | Listar | `GET /notifications?customerId=` -> `200` slice paginado |
-| N3 | Detalhe | `GET /notifications/{id}` -> `200`; inexistente -> `404` |
-| N4 | Confirmacao de checkout | Apos a reconciliacao, checkout aprovado gera notificacao `SENT`; recusado nao gera |
+| N1 | Listar journal | `GET /backoffice/notification-submissions` -> `200` slice sem destinatario ou corpo |
+| N2 | Retry | `POST /backoffice/notification-submissions/{id}/retry` reutiliza payload e `Idempotency-Key` persistidos |
+| N3 | Descartar | `POST /backoffice/notification-submissions/{id}/discard` exige justificativa e encerra a submissao |
+| N4 | Confirmacao de checkout | Aprovacao reserva uma submissao; depois de Billing e Shipping, o dispatch remoto aceita ou registra `FAILED` sem desfazer o pedido |
 
 ## Inventory
 

@@ -125,6 +125,29 @@ Nesta etapa:
 
 ---
 
+## Atualizacao: Notification Service externo
+
+Em 2026-08, o contexto local `Notification` foi removido do Nexus. O
+`notification-service` e agora o unico dono da notificacao e da entrega remota,
+com banco, credenciais e ciclo de vida proprios. O Nexus nao expoe mais
+`/notifications` nem mantem a tabela `notifications`.
+
+O Checkout conserva somente o journal tecnico `notification_submissions` e o
+backoffice interno de recuperacao. A aprovacao de Order reserva a submissao na
+mesma transacao; apos o commit, o processo preserva a sequencia Billing ->
+Shipping -> Notification Service. O payload e a chave de idempotencia ficam
+imutaveis no journal para que retry reutilize a mesma solicitacao. Falha do
+servico remoto nao desfaz o pedido confirmado.
+
+```mermaid
+flowchart LR
+  Order -->|aprovacao| Checkout["Checkout / journal tecnico"]
+  Checkout --> Billing --> Shipping
+  Shipping -->|HTTP/ACL| NotificationService["Notification Service externo"]
+```
+
+---
+
 ## Bounded Contexts decididos
 
 ### Product / Catalogo

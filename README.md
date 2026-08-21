@@ -29,7 +29,7 @@ Veja tambem [REFERENCE_POINTS.md](REFERENCE_POINTS.md) para as tags imutaveis de
 
 ## Evolucao para E-commerce
 
-O codigo atual tem nove Bounded Contexts implementados: `Product`, `Customer`, `Cart`, `Inventory`, `Order`, `Payment`, `Notification`, `Billing` e `Shipping`. O checkout e um processo de aplicacao intercontextual no modulo `checkout/`, nao um Bounded Context. `Payment` ja foi extraido para o servico externo `nexus-payment-service`, o que torna o pagamento assincrono: o checkout responde `202` com o pedido em `WAITING_PAYMENT` e a reconciliacao aplica o resultado terminal depois.
+O codigo atual tem oito Bounded Contexts implementados: `Product`, `Customer`, `Cart`, `Inventory`, `Order`, `Payment`, `Billing` e `Shipping`. O checkout e um processo de aplicacao intercontextual no modulo `checkout/`, nao um Bounded Context. `Payment` e `Notification` sao servicos externos: o Checkout mantem apenas o journal tecnico de submissao para a notificacao, que e entregue pelo `notification-service` via HTTP.
 
 ![Mapa de Bounded Contexts do Nexus Shopping](docs/assets/bounded-contexts/nexus-shopping-bounded-context-map-preview.png)
 
@@ -42,7 +42,8 @@ flowchart LR
   Cart["Cart / Carrinho"]
   Order["Order / Pedido"]
   Payment["Payment / Pagamento"]
-  Notification["Notification / Notificacao"]
+  Checkout["Checkout / journal tecnico"]
+  Notification["Notification Service"]
 
   Product -->|"dados de exibicao"| Cart
   Customer -->|"customerId"| Cart
@@ -50,13 +51,14 @@ flowchart LR
   Customer -->|"snapshot escolhido"| Order
   Order -->|"payment request"| Payment
   Payment -->|"payment result"| Order
-  Order -->|"eventos"| Notification
+  Payment -->|"aprovacao"| Checkout
+  Checkout -->|"HTTP/ACL"| Notification
 ```
 
 Estado atual:
 
-- Implementados: `Product`, `Customer`, `Cart`, `Inventory`, `Order`, `Payment`, `Notification`, `Billing` e `Shipping`.
-- Checkout: processo de aplicacao entre Cart, Order, Payment e Notification; nao e um Bounded Context.
+- Implementados: `Product`, `Customer`, `Cart`, `Inventory`, `Order`, `Payment`, `Billing` e `Shipping`.
+- Checkout: processo de aplicacao entre Cart, Order, Payment, Billing, Shipping e Notification Service; nao e um Bounded Context.
 - Billing registra a emissao de Invoice, e Shipping registra calculo de frete e despacho apos o pagamento aprovado ser reconciliado.
 - Fora de escopo nesta etapa: `Auth/Identity`, Invoice/Shipment persistidos e integracoes reais.
 
@@ -67,6 +69,7 @@ Decisoes principais:
 - `Customer` e dono dos dados cadastrais, mas `Order` guarda snapshot historico.
 - `Product` no catalogo, `ProductSummary` no carrinho e `OrderItemSnapshot` no pedido nao sao o mesmo modelo global.
 - `Payment` foi extraido: o Nexus consome o `nexus-payment-service` real via HTTP (ports/ACL), unico provider de pagamento — o adapter simulado local foi removido. O `nexus-payment-service`, por sua vez, e quem fala com o PSP DummyPay; o Nexus nunca chama DummyPay diretamente.
+- `Notification` foi extraido: o Checkout reserva uma submissao duravel, preserva a chave de idempotencia e chama o `notification-service` por HTTP depois de Billing e Shipping. O backoffice recupera falhas pelo journal local.
 - Redis e usado como cache distribuido das consultas de produto; nao e um Bounded Context.
 
 ADRs: [Bounded Contexts](docs/decisions/2026-07-17-prd-commerce-bounded-contexts.md), [processo de Checkout](docs/decisions/2026-08-17-prd-checkout-process-module.md) e [servicos externos autonomos](docs/decisions/2026-08-12-prd-autonomous-external-services.md).
@@ -83,7 +86,7 @@ submodulo, tabela ou banco compartilhado entre os repositorios.
 | Servico | Papel | Estado de integracao com o Nexus |
 | --- | --- | --- |
 | DummyPay | PSP deterministico para vendas com cartao | Implementado; consumido pelo Payment Service, nunca diretamente pelo Nexus. |
-| Notification Service | Entrega generica de e-mail e SMS simulados | Implementado; sera consumido por um adapter/ACL quando a notificacao sair do monolito. |
+| Notification Service | Entrega generica de e-mail e SMS simulados | Integrado pelo Checkout via HTTP/ACL; o journal e o backoffice permanecem no Nexus. |
 
 Os limites, contratos e a sequencia de evolucao estao em
 [docs/agents/external-services.md](docs/agents/external-services.md).
@@ -94,7 +97,7 @@ O projeto segue arquitetura hexagonal (Ports and Adapters), aplicada de forma in
 
 ```
 com/nexus/shopping/
-  {product,customer,cart,order,payment,notification}/
+  {product,customer,cart,order,payment,billing,shipping}/
     domain/           -> tipos de negocio puros
     application/
       port/outbound/  -> portas outbound
@@ -163,7 +166,7 @@ O Flyway executa automaticamente ao iniciar a aplicacao e cria:
 
 - Catalogo: `brands`, `categories`, `products`
 - Clientes: `customers`, `customer_contacts`, `customer_addresses`
-- Notificacoes: `notifications`
+- Journal de notificacoes: `notification_submissions`
 - Carrinhos: `carts`, `cart_items`
 - Seed de produtos configuravel via `PRODUCT_SEED_COUNT`
 - Seeds reduzidos de clientes para desenvolvimento e testes
@@ -233,7 +236,7 @@ Principais recursos HTTP:
 - Produtos: busca, detalhe, criacao e atualizacao de preco em `/products`.
 - Clientes: criacao e detalhe em `/customers`.
 - Carrinho ativo: consulta e mutacao de itens em `/customers/{customerId}/cart`.
-- Notificacoes: envio, detalhe e listagem paginada em `/notifications`.
+- Notificacoes: journal e recuperacao interna em `/backoffice/notification-submissions`.
 - Pedidos: detalhe, listagem e cancelamento em `/customers/{customerId}/orders`.
 - Marcas e categorias: `/brands` e `/categories`, com `PATCH /categories/{id}/status`.
 - Endereco do cliente: `GET`/`PUT` em `/customers/{customerId}/address`.
@@ -306,7 +309,7 @@ Os testes automatizados validam:
 
 - Spring Boot inicia com o health endpoint do Actuator.
 - Flyway executa automaticamente.
-- Os contratos HTTP e de persistencia de Product, Customer, Cart e Notification.
+- Os contratos HTTP e de persistencia de Product, Customer, Cart e do journal de Notification.
 - Migrations portaveis entre PostgreSQL e H2.
 - Indexes de leitura presentes sem constraints UNIQUE indesejadas.
 - Cache de produtos com Redis e fallback em memoria nos cenarios que o desabilitam.
