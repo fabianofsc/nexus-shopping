@@ -84,6 +84,7 @@ class CheckoutConfiguration {
         shipping: ShippingGateway,
         notifications: NotificationGateway,
         inventory: InventoryGateway,
+        transaction: TransactionPort,
     ): ReconcilePaymentsInputPort =
         PaymentReconciliationUseCase(
             reconciliation = reconciliation,
@@ -92,5 +93,6 @@ class CheckoutConfiguration {
             shipping = shipping,
             notifications = notifications,
             inventory = inventory,
+            transaction = transaction,
         )
 }

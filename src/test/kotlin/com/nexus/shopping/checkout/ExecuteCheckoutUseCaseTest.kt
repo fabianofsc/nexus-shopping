@@ -15,6 +15,7 @@ import com.nexus.shopping.checkout.application.model.CheckoutShippingCommand
 import com.nexus.shopping.checkout.application.model.CreateCheckoutOrderCommand
 import com.nexus.shopping.checkout.application.model.EnsureOrderConfirmationCommand
 import com.nexus.shopping.checkout.application.model.FindCheckoutOrderReplayCommand
+import com.nexus.shopping.checkout.application.model.NotificationSubmission
 import com.nexus.shopping.checkout.application.model.PaymentAuthorizationCommand
 import com.nexus.shopping.checkout.application.model.PaymentProcessingCommand
 import com.nexus.shopping.checkout.application.model.PaymentProcessingResult
@@ -226,7 +227,7 @@ class ExecuteCheckoutUseCaseTest {
     }
 
     @Test
-    fun issuesInvoiceAndProcessesShippingBeforeNotificationForApprovedPayment() {
+    fun `approved checkout reserves in the transaction and dispatches after Billing and Shipping`() {
         val events = mutableListOf<String>()
         val confirmedOrder = order(replayed = false).copy(status = "CONFIRMED", awaitingPayment = false)
         val checkout =
@@ -271,19 +272,37 @@ class ExecuteCheckoutUseCaseTest {
                             events += "shipping"
                         }
                     },
-                notifications =
-                    object : NotificationGateway {
-                        override fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand) {
-                            events += "notify"
-                        }
-                    },
+                notifications = recordingNotificationGateway(events),
                 inventory = RecordingInventoryGateway(events),
-                transaction = ImmediateTransaction,
+                transaction = recordingTransaction(events),
             )
 
         checkout.execute(command())
 
-        assertEquals(listOf("payment", "apply", "invoice", "shipping", "notify"), events.takeLast(5))
+        assertEquals(
+            listOf(
+                "payment",
+                "transaction:start",
+                "apply",
+                "notification:reserve",
+                "transaction:commit",
+                "invoice",
+                "shipping",
+                "notification:dispatch",
+            ),
+            events.takeLast(8),
+        )
+    }
+
+    @Test
+    fun `billing failure leaves the reserved submission pending and does not dispatch`() {
+        val events = mutableListOf<String>()
+        val expectedFailure = IllegalStateException("issuer unavailable")
+        val checkout = approvedCheckout(events, billingFailure = expectedFailure)
+
+        assertSame(expectedFailure, assertFailsWith<IllegalStateException> { checkout.execute(command()) })
+
+        assertEquals(listOf("notification:reserve"), events.filter { it.startsWith("notification:") })
     }
 
     private fun command() =
@@ -291,6 +310,88 @@ class ExecuteCheckoutUseCaseTest {
             customerId = 10L,
             paymentToken = "approved",
             idempotencyKey = "checkout-1",
+        )
+
+    private fun recordingTransaction(events: MutableList<String>) =
+        object : TransactionPort {
+            override fun <T> inTransaction(block: () -> T): T {
+                events += "transaction:start"
+                return block().also { events += "transaction:commit" }
+            }
+        }
+
+    private fun recordingNotificationGateway(events: MutableList<String>) =
+        object : NotificationGateway {
+            override fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand) =
+                error("Legacy path not used")
+
+            override fun reserveOrderConfirmation(command: EnsureOrderConfirmationCommand): NotificationSubmission {
+                events += "notification:reserve"
+                return NotificationSubmission.forOrderConfirmation(command).copy(id = 42L)
+            }
+
+            override fun dispatch(submissionId: Long): NotificationSubmission {
+                events += "notification:dispatch"
+                return NotificationSubmission(
+                    id = submissionId,
+                    orderId = 1L,
+                    customerId = 10L,
+                    attemptReference = "pay-approved",
+                    recipientEmail = "ana@example.com",
+                    notificationKey = "order-confirmed:1:pay-approved",
+                    referenceId = "order:1",
+                    subject = "Pedido confirmado",
+                    body = "Confirmado",
+                )
+            }
+        }
+
+    private fun approvedCheckout(
+        events: MutableList<String>,
+        billingFailure: RuntimeException? = null,
+    ) =
+        ExecuteCheckoutUseCase(
+            carts = RecordingCartGateway(events),
+            customers = RecordingCustomerGateway(events),
+            orders = RecordingOrderGateway(events),
+            paymentAuthorizationFingerprints =
+                object : PaymentAuthorizationFingerprintGateway {
+                    override fun fingerprint(command: PaymentAuthorizationCommand) = "fingerprint"
+                },
+            paymentValidation =
+                object : PaymentValidationGateway {
+                    override fun validate(command: PaymentValidationCommand) = Unit
+                },
+            payments =
+                object : PaymentProcessingGateway {
+                    override fun process(command: PaymentProcessingCommand) =
+                        PaymentProcessingResult("pay-approved", PaymentResultStatus.APPROVED, "provider-1", false)
+                },
+            orderPaymentResults =
+                object : OrderPaymentResultGateway {
+                    override fun apply(command: ApplyOrderPaymentResultCommand): CheckoutOrderSnapshot {
+                        events += "apply"
+                        return order(false).copy(status = "CONFIRMED", awaitingPayment = false)
+                    }
+
+                    override fun applyByOrderReference(command: ApplyOrderPaymentResultByReferenceCommand) = error("Not used")
+                },
+            billing =
+                object : BillingGateway {
+                    override fun issueInvoice(command: CheckoutInvoiceCommand) {
+                        events += "invoice"
+                        billingFailure?.let { throw it }
+                    }
+                },
+            shipping =
+                object : ShippingGateway {
+                    override fun process(command: CheckoutShippingCommand) {
+                        events += "shipping"
+                    }
+                },
+            notifications = recordingNotificationGateway(events),
+            inventory = RecordingInventoryGateway(events),
+            transaction = recordingTransaction(events),
         )
 
     private fun workflow(

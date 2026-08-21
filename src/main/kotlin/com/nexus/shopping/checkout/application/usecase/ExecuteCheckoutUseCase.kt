@@ -110,26 +110,28 @@ class ExecuteCheckoutUseCase(
             )
         if (payment.status == PaymentResultStatus.REQUESTED) return order
 
-        val updatedOrder =
-            orderPaymentResults.apply(
-                ApplyOrderPaymentResultCommand(
-                    order = order,
-                    payment = payment,
-                ),
-            )
-        if (payment.status == PaymentResultStatus.APPROVED) {
-            billing.issueInvoice(CheckoutInvoiceCommand.from(updatedOrder))
-            shipping.process(CheckoutShippingCommand.from(updatedOrder))
-            notifications.ensureOrderConfirmation(
-                EnsureOrderConfirmationCommand(
-                    orderId = updatedOrder.id,
-                    customerId = updatedOrder.customerId,
-                    recipientEmail = updatedOrder.recipientEmail,
-                    amount = updatedOrder.totalAmount,
-                    attemptReference = payment.attemptReference,
-                ),
-            )
+        if (payment.status != PaymentResultStatus.APPROVED) {
+            return orderPaymentResults.apply(ApplyOrderPaymentResultCommand(order = order, payment = payment))
         }
+
+        val (updatedOrder, submission) =
+            transaction.inTransaction {
+                val applied = orderPaymentResults.apply(ApplyOrderPaymentResultCommand(order = order, payment = payment))
+                val reserved =
+                    notifications.reserveOrderConfirmation(
+                        EnsureOrderConfirmationCommand(
+                            orderId = applied.id,
+                            customerId = applied.customerId,
+                            recipientEmail = applied.recipientEmail,
+                            amount = applied.totalAmount,
+                            attemptReference = payment.attemptReference,
+                        ),
+                    )
+                applied to reserved
+            }
+        billing.issueInvoice(CheckoutInvoiceCommand.from(updatedOrder))
+        shipping.process(CheckoutShippingCommand.from(updatedOrder))
+        notifications.dispatch(requireNotNull(submission.id) { "reserved notification submission must have an id." })
         return updatedOrder
     }
 

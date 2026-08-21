@@ -10,6 +10,7 @@ import com.nexus.shopping.checkout.application.model.CheckoutOrderSnapshot
 import com.nexus.shopping.checkout.application.model.CheckoutShippingAddressSnapshot
 import com.nexus.shopping.checkout.application.model.CheckoutShippingCommand
 import com.nexus.shopping.checkout.application.model.EnsureOrderConfirmationCommand
+import com.nexus.shopping.checkout.application.model.NotificationSubmission
 import com.nexus.shopping.checkout.application.model.PaymentReconciliationOutcome
 import com.nexus.shopping.checkout.application.model.PaymentResultStatus
 import com.nexus.shopping.checkout.application.port.outbound.BillingGateway
@@ -18,6 +19,7 @@ import com.nexus.shopping.checkout.application.port.outbound.NotificationGateway
 import com.nexus.shopping.checkout.application.port.outbound.OrderPaymentResultGateway
 import com.nexus.shopping.checkout.application.port.outbound.PaymentReconciliationGateway
 import com.nexus.shopping.checkout.application.port.outbound.ShippingGateway
+import com.nexus.shopping.checkout.application.port.outbound.TransactionPort
 import com.nexus.shopping.checkout.application.usecase.PaymentReconciliationUseCase
 import java.math.BigDecimal
 import java.time.Instant
@@ -39,7 +41,7 @@ class PaymentReconciliationUseCaseTest {
     }
 
     @Test
-    fun `an approved outcome issues invoice dispatches shipping and sends exactly one notification`() {
+    fun `an approved outcome reserves in the transaction then invoices ships and dispatches`() {
         val notifications = mutableListOf<EnsureOrderConfirmationCommand>()
         val invoices = mutableListOf<CheckoutInvoiceCommand>()
         val shipments = mutableListOf<CheckoutShippingCommand>()
@@ -56,7 +58,18 @@ class PaymentReconciliationUseCaseTest {
 
         useCase.reconcile()
 
-        assertEquals(listOf("invoice", "shipping", "notification"), events)
+        assertEquals(
+            listOf(
+                "transaction:start",
+                "apply",
+                "notification:reserve",
+                "transaction:commit",
+                "invoice",
+                "shipping",
+                "notification:dispatch",
+            ),
+            events,
+        )
         assertEquals("checkout:1", invoices.single().orderReference)
         assertEquals("checkout:1", shipments.single().orderReference)
         assertEquals(1, notifications.size)
@@ -144,11 +157,18 @@ class PaymentReconciliationUseCaseTest {
         events: MutableList<String> = mutableListOf(),
     ) = PaymentReconciliationUseCase(
         reconciliation = FakePaymentReconciliationGateway(outcomes),
-        orderPaymentResults = FakeOrderPaymentResultGateway(applyResults),
+        orderPaymentResults = FakeOrderPaymentResultGateway(applyResults, events),
         billing = RecordingBillingGateway(invoices, events),
         shipping = RecordingShippingGateway(shipments, events),
         notifications = RecordingNotificationGateway(notifications, events),
         inventory = RecordingInventoryGateway(releases),
+        transaction =
+            object : TransactionPort {
+                override fun <T> inTransaction(block: () -> T): T {
+                    events += "transaction:start"
+                    return block().also { events += "transaction:commit" }
+                }
+            },
     )
 
     private fun outcome(
@@ -196,11 +216,14 @@ class PaymentReconciliationUseCaseTest {
 
     private class FakeOrderPaymentResultGateway(
         private val applyResults: Map<String, AppliedOrderPaymentResult>,
+        private val events: MutableList<String>,
     ) : OrderPaymentResultGateway {
         override fun apply(command: ApplyOrderPaymentResultCommand): CheckoutOrderSnapshot = error("Not used by this fake.")
 
-        override fun applyByOrderReference(command: ApplyOrderPaymentResultByReferenceCommand): AppliedOrderPaymentResult =
-            applyResults[command.orderReference] ?: throw NoSuchElementException("No order for reference ${command.orderReference}")
+        override fun applyByOrderReference(command: ApplyOrderPaymentResultByReferenceCommand): AppliedOrderPaymentResult {
+            events += "apply"
+            return applyResults[command.orderReference] ?: throw NoSuchElementException("No order for reference ${command.orderReference}")
+        }
     }
 
     private class RecordingInventoryGateway(
@@ -226,6 +249,17 @@ class PaymentReconciliationUseCaseTest {
         override fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand) {
             notifications += command
             events += "notification"
+        }
+
+        override fun reserveOrderConfirmation(command: EnsureOrderConfirmationCommand): NotificationSubmission {
+            notifications += command
+            events += "notification:reserve"
+            return NotificationSubmission.forOrderConfirmation(command).copy(id = 1L)
+        }
+
+        override fun dispatch(submissionId: Long): NotificationSubmission {
+            events += "notification:dispatch"
+            return error("Not needed")
         }
     }
 
