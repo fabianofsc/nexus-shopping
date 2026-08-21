@@ -164,6 +164,14 @@ rede, timeout ou resposta remota nao sao propagadas ao controller de checkout:
 elas atualizam a submissao para `FAILED`, geram log estruturado seguro e o
 checkout devolve a resposta normal do pedido confirmado.
 
+Depois desse commit, o processo preserva a sequencia existente de efeitos:
+Billing emite Invoice, Shipping calcula/despacha e somente entao o
+`NotificationGateway` tenta o aceite remoto. Billing e Shipping nao pertencem ao
+dominio de notificacao e seus erros mantem a semantica vigente: interrompem os
+efeitos seguintes, inclusive o dispatch. Como a submissao ja foi reservada, ela
+permanece `PENDING`, diagnosticavel e elegivel ao backoffice; nao ha dispatch ou
+retry automatico nessa situacao.
+
 O mesmo fluxo deve ser usado tanto para aprovacao sincrona do pagamento quanto
 para a aprovacao descoberta pelo reconciliador. A chamada HTTP nunca pode ficar
 dentro da transacao de Cart, Order, Payment ou journal.
@@ -263,10 +271,10 @@ semanticamente incorreto.
 ## Criterio de conclusao
 
 A decisao esta realizada quando um pagamento aprovado cria exatamente uma
-submissao duravel, o checkout permanece bem-sucedido diante de falha do
-Notification Service, o backoffice permite listar/retry/discard sem duplicar o
-payload remoto, e nenhum codigo de producao do Nexus depende do antigo pacote
-`notification`.
+submissao duravel, Billing e Shipping precedem o dispatch apos o commit, o
+checkout permanece bem-sucedido diante de falha do Notification Service, o
+backoffice permite listar/retry/discard sem duplicar o payload remoto, e nenhum
+codigo de producao do Nexus depende do antigo pacote `notification`.
 
 ## Referencias
 

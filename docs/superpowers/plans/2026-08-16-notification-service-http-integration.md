@@ -8,6 +8,8 @@
 
 **Tecnologias:** Kotlin, Java 21, Spring Boot 4, Spring Data JPA, Flyway, H2, PostgreSQL, `RestClient`, MockRestServiceServer, WireMock e Gradle Wrapper.
 
+**Spec:** `docs/superpowers/specs/2026-08-16-notification-service-http-integration-design.md`
+
 ## Restricoes globais
 
 - Respeitar `adapter -> application -> domain`; `domain/` e `application/` nao importam JPA, Hibernate ou Spring Data.
@@ -18,8 +20,22 @@
 - Retry reutiliza literalmente payload e `Idempotency-Key` persistidos; nao renderiza de novo.
 - Arquivos novos ou editados de documentacao ficam em portugues e ASCII.
 - Usar Gradle somente como `rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew ...`.
+- `CheckoutConfiguration` e o unico ponto de composicao Spring dos use cases de Checkout; nao criar uma segunda configuracao para o journal.
+- Preservar a sequencia aprovada apos o commit: Billing, Shipping e somente entao dispatch da notificacao. Erro de Billing ou Shipping conserva a interrupcao atual; erro do dispatch de notificacao nunca escapa do Checkout.
 
 ---
+
+## Reconciliacao com a estrutura atual
+
+Esta revisao foi feita contra `main` no commit `ec18716`. Alem do rename de
+`integration/checkout` para `checkout/`, o processo agora coordena Billing e
+Shipping depois da aprovacao. A reserva da submissao fica na transacao que aplica
+o pagamento; Billing, Shipping e o dispatch ficam fora dela e na ordem atual.
+
+O plano nao cria um segundo configuration para Checkout nem outro builder HTTP
+paralelo. Ele generaliza a configuracao hoje mantida pelo adapter de Payment para
+uma factory de infraestrutura reutilizavel, preservando HTTP/1.1 e timeouts
+finitos.
 
 ## Estrutura de arquivos
 
@@ -32,9 +48,10 @@
 | `checkout/application/usecase/NotificationSubmissionUseCase.kt` | Implementa `NotificationGateway` e o contrato do backoffice. |
 | `checkout/adapter/outbound/jpa/*NotificationSubmission*` | Entity, JPQL repository e adapter JPA. |
 | `checkout/adapter/outbound/notification/NotificationServiceHttpClient.kt` | ACL HTTP, Basic Auth e DTOs privados. |
-| `checkout/adapter/outbound/notification/NotificationSubmissionConfiguration.kt` | Composicao Spring do use case puro. |
+| `checkout/adapter/config/CheckoutConfiguration.kt` | Compoe os tres ports da mesma instancia do use case puro. |
+| `infra/http/ConfigurableRestClientFactory.kt` | Centraliza HTTP/1.1 e timeouts por servico, substituindo a configuracao hoje presa ao Payment. |
 | `checkout/adapter/inbound/http/backoffice/*` | Controller e DTOs do backoffice. |
-| `V11__replace_local_notification_context_with_submission_journal.sql` | Cria journal e remove a tabela local sem consumidores. |
+| `V12__replace_local_notification_context_with_submission_journal.sql` | Cria journal e remove a tabela local sem consumidores. |
 
 ### Tarefa 1: Definir modelo e portas sem framework
 
@@ -122,7 +139,7 @@ rtk git commit -m "feat: define notification submission journal"
 
 **Arquivos:**
 
-- Criar: `src/main/resources/db/migration/V11__replace_local_notification_context_with_submission_journal.sql`
+- Criar: `src/main/resources/db/migration/V12__replace_local_notification_context_with_submission_journal.sql`
 - Criar: `src/main/kotlin/com/nexus/shopping/checkout/adapter/outbound/jpa/NotificationSubmissionEntity.kt`
 - Criar: `src/main/kotlin/com/nexus/shopping/checkout/adapter/outbound/jpa/SpringDataNotificationSubmissionRepository.kt`
 - Criar: `src/main/kotlin/com/nexus/shopping/checkout/adapter/outbound/jpa/NotificationSubmissionJpaRepositoryAdapter.kt`
@@ -169,8 +186,9 @@ tecnico e a correlacao pelo ID e suficiente.
 O claim aceita somente `PENDING`, `FAILED` ou `IN_FLIGHT` com `leaseUntil < now`,
 incrementa tentativa e grava token/deadline. `markAccepted` e `markFailed` exigem
 ID e token, limpam lease e gravam resultado. `findPage` usa `PageRequest.of(page,
-size + 1)`, ordenacao `createdAt ASC, id ASC` e converte para `PageResult`, sem
-consulta de contagem.
+size)` com `Slice`, ordenacao `createdAt ASC, id ASC`; o Spring Data le a linha
+adicional internamente e o adapter converte para `PageResult`, sem consulta de
+contagem.
 
 - [ ] **Passo 4: Executar os testes para confirmar sucesso**
 
@@ -181,7 +199,7 @@ Esperado: PASS em H2.
 - [ ] **Passo 5: Commitar migration e persistencia**
 
 ```bash
-rtk git add src/main/resources/db/migration/V11__replace_local_notification_context_with_submission_journal.sql
+rtk git add src/main/resources/db/migration/V12__replace_local_notification_context_with_submission_journal.sql
 rtk git commit -m "db: add notification submission journal"
 rtk git add src/main/kotlin/com/nexus/shopping/checkout/adapter/outbound/jpa src/test/kotlin/com/nexus/shopping/checkout
 rtk git commit -m "feat: persist notification submissions"
@@ -192,13 +210,13 @@ rtk git commit -m "feat: persist notification submissions"
 **Arquivos:**
 
 - Criar: `src/main/kotlin/com/nexus/shopping/checkout/application/usecase/NotificationSubmissionUseCase.kt`
-- Criar: `src/main/kotlin/com/nexus/shopping/checkout/adapter/outbound/notification/NotificationSubmissionConfiguration.kt`
+- Modificar: `src/main/kotlin/com/nexus/shopping/checkout/adapter/config/CheckoutConfiguration.kt`
 - Testar: `src/test/kotlin/com/nexus/shopping/checkout/NotificationSubmissionUseCaseTest.kt`
 
 **Interfaces:**
 
 - Consome os repository/client ports das Tarefas 1 e 2.
-- Produz o bean que implementa `NotificationGateway` e `NotificationSubmissionBackofficeInputPort`.
+- Produz uma unica instancia que atende `NotificationGateway` e `NotificationSubmissionBackofficeInputPort`, composta por `CheckoutConfiguration`.
 
 - [ ] **Passo 1: Escrever testes do use case com fakes manuais**
 
@@ -228,7 +246,7 @@ Executar: `rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gra
 
 Esperado: `NotificationSubmissionUseCase` inexistente.
 
-- [ ] **Passo 3: Implementar use case puro e configuracao Spring**
+- [ ] **Passo 3: Implementar use case puro e compor no configuration existente**
 
 O use case nao importa Spring. `reserveOrderConfirmation` faz reserva idempotente.
 `dispatch` reclama submissao com UUID e lease de 30 segundos, chama
@@ -237,9 +255,12 @@ em `ACCEPTED` ou `FAILED`. Falhas esperadas sao sanitizadas e nao escapam para o
 Checkout. `retry` valida estado elegivel e chama `dispatch`; `discard(command)`
 exige razao de 1..500 caracteres e faz transicao terminal.
 
-`NotificationSubmissionConfiguration` fica no adapter e publica a mesma instancia
-do use case como `NotificationGateway` e como
-`NotificationSubmissionBackofficeInputPort`.
+Adicionar em `CheckoutConfiguration` tres beans: o bean concreto
+`NotificationSubmissionUseCase`, e dois beans de tipo que retornam essa mesma
+instancia como `NotificationGateway` e como
+`NotificationSubmissionBackofficeInputPort`. O use case continua sem anotacoes ou
+imports Spring; a configuracao recebe `NotificationSubmissionRepositoryPort` e
+`NotificationServiceClientPort` por injecao.
 
 - [ ] **Passo 4: Executar para confirmar sucesso**
 
@@ -250,7 +271,7 @@ Esperado: PASS.
 - [ ] **Passo 5: Commitar use case e configuracao**
 
 ```bash
-rtk git add src/main/kotlin/com/nexus/shopping/checkout/application/usecase/NotificationSubmissionUseCase.kt src/main/kotlin/com/nexus/shopping/checkout/adapter/outbound/notification/NotificationSubmissionConfiguration.kt src/test/kotlin/com/nexus/shopping/checkout/NotificationSubmissionUseCaseTest.kt
+rtk git add src/main/kotlin/com/nexus/shopping/checkout/application/usecase/NotificationSubmissionUseCase.kt src/main/kotlin/com/nexus/shopping/checkout/adapter/config/CheckoutConfiguration.kt src/test/kotlin/com/nexus/shopping/checkout/NotificationSubmissionUseCaseTest.kt
 rtk git commit -m "feat: add manual notification submission recovery"
 ```
 
@@ -260,8 +281,11 @@ rtk git commit -m "feat: add manual notification submission recovery"
 
 - Criar: `src/main/kotlin/com/nexus/shopping/checkout/adapter/outbound/notification/NotificationServiceHttpClient.kt`
 - Criar: `src/main/kotlin/com/nexus/shopping/infra/http/ConfigurableRestClientFactory.kt`
+- Remover: `src/main/kotlin/com/nexus/shopping/payment/adapter/outbound/provider/RestClientConfig.kt`
+- Modificar: `src/main/kotlin/com/nexus/shopping/payment/adapter/outbound/provider/PaymentServiceProviderGateway.kt`
 - Modificar: `src/main/resources/application.yml`
 - Testar: `src/test/kotlin/com/nexus/shopping/checkout/adapter/outbound/notification/NotificationServiceHttpClientTest.kt`
+- Testar: `src/test/kotlin/com/nexus/shopping/payment/adapter/outbound/provider/PaymentServiceProviderGatewayTest.kt`
 
 **Interfaces:**
 
@@ -289,11 +313,18 @@ Executar: `rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gra
 
 Esperado: client ausente.
 
-- [ ] **Passo 3: Implementar ACL e factory configuravel**
+- [ ] **Passo 3: Extrair a factory HTTP existente e implementar a ACL**
 
-`ConfigurableRestClientFactory` fica em `infra/http`, usa JDK `HttpClient` em
-HTTP/1.1 e cria um builder com timeouts recebidos. O Notification client recebe
-`base-url`, `username`, `password`, `connect-timeout` e `read-timeout` de
+Substituir `payment/.../RestClientConfig.kt` por
+`infra/http/ConfigurableRestClientFactory.kt`. A factory recebe `Duration` de
+conexao e leitura e devolve `RestClient.Builder` com JDK `HttpClient` em HTTP/1.1.
+Mover para ela o bean Jackson 2 `ObjectMapper` hoje declarado no arquivo removido,
+sem alterar o bean Jackson 3 do Spring Boot. Adaptar
+`PaymentServiceProviderGateway` para pedir `factory.builder` com seus atuais
+defaults de cinco segundos; preservar o comportamento e os testes do Payment.
+
+O Notification client pede outro builder a essa mesma factory, com `base-url`,
+`username`, `password`, `connect-timeout` e `read-timeout` de
 `nexus.notification-service`, com defaults `http://notification-service:8080`,
 `notification`, `notification`, `5s` e `5s`.
 
@@ -307,12 +338,12 @@ remoto; nunca incluem segredo ou dados da mensagem.
 
 Executar: `rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests '*NotificationServiceHttpClientTest' --tests '*PaymentServiceProviderGatewayTest'`
 
-Esperado: PASS; o novo factory nao muda o gateway de pagamento atual.
+Esperado: PASS; a extracao para a factory preserva o gateway de pagamento atual.
 
 - [ ] **Passo 5: Commitar ACL HTTP**
 
 ```bash
-rtk git add src/main/kotlin/com/nexus/shopping/checkout/adapter/outbound/notification src/main/kotlin/com/nexus/shopping/infra/http/ConfigurableRestClientFactory.kt src/main/resources/application.yml src/test/kotlin/com/nexus/shopping/checkout/adapter/outbound/notification
+rtk git add src/main/kotlin/com/nexus/shopping/checkout/adapter/outbound/notification src/main/kotlin/com/nexus/shopping/infra/http/ConfigurableRestClientFactory.kt src/main/kotlin/com/nexus/shopping/payment/adapter/outbound/provider src/main/resources/application.yml src/test/kotlin/com/nexus/shopping/checkout/adapter/outbound/notification src/test/kotlin/com/nexus/shopping/payment/adapter/outbound/provider/PaymentServiceProviderGatewayTest.kt
 rtk git commit -m "feat: call notification service over http"
 ```
 
@@ -322,24 +353,33 @@ rtk git commit -m "feat: call notification service over http"
 
 - Modificar: `src/main/kotlin/com/nexus/shopping/checkout/application/ExecuteCheckoutUseCase.kt`
 - Modificar: `src/main/kotlin/com/nexus/shopping/checkout/application/PaymentReconciliationUseCase.kt`
+- Modificar: `src/main/kotlin/com/nexus/shopping/checkout/adapter/config/CheckoutConfiguration.kt`
 - Modificar: `src/test/kotlin/com/nexus/shopping/checkout/ExecuteCheckoutUseCaseTest.kt`
 - Modificar: `src/test/kotlin/com/nexus/shopping/checkout/PaymentReconciliationUseCaseTest.kt`
 - Criar: `src/test/kotlin/com/nexus/shopping/checkout/NotificationSubmissionCheckoutIntegrationTest.kt`
 
 **Interfaces:**
 
-- Consome `NotificationGateway` e `TransactionPort`.
+- Consome `NotificationGateway`, `BillingGateway`, `ShippingGateway` e `TransactionPort`.
 - Produz exatamente uma submissao duravel para cada pedido que transicionou a aprovado, no checkout sincrono e na reconciliacao posterior.
 
 - [ ] **Passo 1: Escrever testes de ordem transacional que falham**
 
 ```kotlin
 @Test
-fun `checkout aprovado reserva notificacao na transacao e despacha apos commit`() {
+fun `checkout aprovado reserva notificacao na transacao e despacha apos Billing e Shipping`() {
     workflow.execute(approvedCheckout)
 
     assertEquals(
-        listOf("transaction:start", "order:apply", "notification:reserve", "transaction:commit", "notification:dispatch"),
+        listOf(
+            "transaction:start",
+            "order:apply",
+            "notification:reserve",
+            "transaction:commit",
+            "billing:invoice",
+            "shipping:process",
+            "notification:dispatch",
+        ),
         events,
     )
 }
@@ -349,6 +389,16 @@ fun `falha no dispatch nao muda resposta do checkout aprovado`() {
     notificationGateway.dispatchFailure = true
 
     assertEquals("CONFIRMED", workflow.execute(approvedCheckout).status)
+}
+
+@Test
+fun `falha em Billing conserva submissao pendente e impede dispatch`() {
+    billingGateway.failure = IllegalStateException("issuer unavailable")
+
+    assertFailsWith<IllegalStateException> { workflow.execute(approvedCheckout) }
+
+    assertEquals(NotificationSubmissionStatus.PENDING, repository.reserved.single().status)
+    assertEquals(0, notificationGateway.dispatches)
 }
 ```
 
@@ -362,25 +412,35 @@ Esperado: a reserva nao existe e a notificacao ainda e chamada diretamente apos 
 
 Em `ExecuteCheckoutUseCase`, envolver `orderPaymentResults.apply(...)` e
 `notifications.reserveOrderConfirmation(...)` na mesma `transaction.inTransaction`
-quando o pagamento for aprovado. Depois do retorno, chamar
-`notifications.dispatch(submission.id)` fora do bloco. Manter sem mudanca os
-caminhos `REQUESTED` e rejeitado.
+quando o pagamento for aprovado. Retornar do bloco tanto o pedido aplicado quanto
+a submissao reservada. Depois do commit, preservar a ordem atual:
+`billing.issueInvoice(CheckoutInvoiceCommand.from(order))`,
+`shipping.process(CheckoutShippingCommand.from(order))` e, por ultimo,
+`notifications.dispatch(submission.id)`. O dispatch absorve sua propria falha e
+nao muda a resposta confirmada do checkout. Falha de Billing ou Shipping permanece
+propagada, como definido pela spec desses contextos; nesse caso a submissao ja
+reservada permanece `PENDING` e nao ocorre dispatch automatico. Manter sem
+mudanca os caminhos `REQUESTED` e rejeitado.
 
-Em `PaymentReconciliationUseCase`, injetar `TransactionPort`, aplicar cada
-aprovacao e reservar dentro da mesma transacao, depois despachar apos commit.
-Continuar isolando erro de um outcome para que o lote prossiga.
+Em `PaymentReconciliationUseCase`, injetar `TransactionPort` e atualizar o bean
+em `CheckoutConfiguration`. Para outcome aprovado com `transitioned == true`,
+aplicar e reservar dentro da transacao, retornar o pedido e a submissao, e executar
+Billing, Shipping e dispatch depois do commit na mesma ordem. Para outcome
+rejeitado, manter a liberacao de estoque dentro da transacao que aplica o
+resultado. Continuar isolando erro de um outcome para que o lote prossiga.
 
 - [ ] **Passo 4: Executar testes unitarios e integracao H2**
 
 Executar: `rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests '*NotificationSubmissionCheckoutIntegrationTest' --tests '*ExecuteCheckoutUseCaseTest' --tests '*PaymentReconciliationUseCaseTest'`
 
-Esperado: PASS; replay cria uma unica submissao e falha remota deixa Order
-`CONFIRMED` com journal `FAILED`.
+Esperado: PASS; replay cria uma unica submissao, Billing precede Shipping e
+dispatch, falha remota deixa Order `CONFIRMED` com journal `FAILED`, e falha de
+Billing ou Shipping deixa o journal `PENDING` sem chamada HTTP.
 
 - [ ] **Passo 5: Commitar orquestracao atomica**
 
 ```bash
-rtk git add src/main/kotlin/com/nexus/shopping/checkout/application src/test/kotlin/com/nexus/shopping/checkout
+rtk git add src/main/kotlin/com/nexus/shopping/checkout/application src/main/kotlin/com/nexus/shopping/checkout/adapter/config/CheckoutConfiguration.kt src/test/kotlin/com/nexus/shopping/checkout
 rtk git commit -m "feat: journal notification submissions with approved orders"
 ```
 
@@ -457,6 +517,8 @@ rtk git commit -m "feat: add notification submission backoffice"
 - Modificar: `src/test/kotlin/com/nexus/shopping/PackageStructureArchitectureTest.kt`
 - Modificar: `README.md`
 - Modificar: `docs/agents/external-services.md`
+- Modificar: `docs/agents/monolith-baseline.md`
+- Modificar: `docs/decisions/2026-07-17-prd-commerce-bounded-contexts.md`
 - Modificar: `docker-compose.yml`
 - Modificar: `AGENTS.md`
 
@@ -477,8 +539,13 @@ fun `codigo de producao nao contem bounded context notification local`() {
 ```
 
 Estender o contrato de migration para verificar ausencia de `NOTIFICATIONS` e
-presenca de `NOTIFICATION_SUBMISSIONS`. Remover assertivas de DTO/excecao antigas
-somente depois de adicionar a assertiva de ausencia.
+presenca de `NOTIFICATION_SUBMISSIONS`. Em
+`PackageStructureArchitectureTest`, remover `notification` da lista de bounded
+contexts e dos input ports permitidos, remover as assertivas que carregam
+`NotificationValidationException`, `NotificationNotFoundException` e
+`NotificationResponse`, e retirar `notification` das listas de dependencias
+proibidas de Billing e Shipping. Adicionar antes uma assertiva de ausencia da
+classe antiga.
 
 - [ ] **Passo 2: Executar para confirmar a falha**
 
@@ -507,15 +574,20 @@ do inicio do servico, nunca do banco dele diretamente.
 
 Atualizar `docs/agents/external-services.md` para registrar o Notification Service
 como dono de runtime e o journal/backoffice como responsabilidade local. Atualizar
-`AGENTS.md` apenas onde ainda descreve Notification como contexto local e mantelo
-abaixo de 200 linhas.
+`docs/agents/monolith-baseline.md` para remover as rotas e os estados do contexto
+local. Atualizar o ADR de contextos para substituir o contexto local pelo servico
+externo e pelo journal tecnico do Checkout, preservando Billing -> Shipping ->
+Notification como sequencia do processo. Atualizar `AGENTS.md` apenas onde ainda
+descreve Notification como contexto local e mantelo abaixo de 200 linhas.
 
 - [ ] **Passo 4: Procurar referencias obsoletas e executar testes focados**
 
-Executar: `rtk rg -n 'com\.nexus\.shopping\.notification|/notifications|NotificationGatewayAdapter' src/main src/test README.md docs AGENTS.md`
+Executar: `rtk rg -n 'com\.nexus\.shopping\.notification|/notifications|NotificationGatewayAdapter' src/main src/test README.md docs/agents AGENTS.md`
 
-Esperado: nenhuma referencia ao contexto removido; ocorrencias de
-`notification-service` e `notification-submissions` sao permitidas.
+Esperado: nenhuma referencia ao contexto removido nos fontes, testes e guias
+operacionais atuais; ocorrencias de `notification-service` e
+`notification-submissions` sao permitidas. ADRs e planos historicos podem citar o
+contexto removido para registrar a decisao.
 
 Executar: `rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests '*PackageStructureArchitectureTest' --tests '*NotificationSubmissionMigrationContractTest'`
 
@@ -524,7 +596,7 @@ Esperado: PASS.
 - [ ] **Passo 5: Commitar remocao e docs**
 
 ```bash
-rtk git add src/main/kotlin/com/nexus/shopping/notification src/test/kotlin/com/nexus/shopping/notification src/main/kotlin/com/nexus/shopping/integration README.md docs/agents/external-services.md docker-compose.yml AGENTS.md src/test/kotlin/com/nexus/shopping/PackageStructureArchitectureTest.kt
+rtk git add src/main/kotlin/com/nexus/shopping/notification src/test/kotlin/com/nexus/shopping/notification README.md docs/agents/external-services.md docs/agents/monolith-baseline.md docs/decisions/2026-07-17-prd-commerce-bounded-contexts.md docker-compose.yml AGENTS.md src/test/kotlin/com/nexus/shopping/PackageStructureArchitectureTest.kt
 rtk git commit -m "refactor: remove local notification context"
 ```
 
@@ -542,15 +614,15 @@ rtk git commit -m "refactor: remove local notification context"
 
 Executar: `rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew test --tests '*NotificationSubmission*' --tests '*Checkout*' --tests '*PaymentReconciliationUseCaseTest' --tests '*PaymentServiceProviderGatewayTest'`
 
-Esperado: PASS. Nao enfraquecer nem ocultar falhas preexistentes de cache Redis.
+Esperado: PASS. O mapper do cache Redis foi isolado do mapper Jackson 2 usado
+pelos adapters HTTP; nao reintroduzir essa dependencia acidental.
 
 - [ ] **Passo 2: Executar validacao estatica e suite completa**
 
 Executar: `rtk env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew ktlintCheck test`
 
-Esperado: a integracao nova passa. Se continuarem as falhas preexistentes
-`ProductRedisCacheIntegrationTest`, registrar seus nomes e a serializacao Jackson
-como baseline, sem alterar suas assercoes.
+Esperado: PASS. Tratar qualquer falha, inclusive de cache Redis, como regressao
+da entrega e investigar antes de concluir.
 
 Executar: `rtk git diff --check`
 
@@ -562,17 +634,13 @@ Executar: `rtk docker compose config --quiet`
 
 Esperado: codigo de saida 0 e nenhuma variavel de Compose sem resolucao.
 
-- [ ] **Passo 4: Commitar somente correcoes reveladas pela verificacao**
-
-```bash
-rtk git add caminho/exato/corrigido
-rtk git commit -m "fix: complete notification service integration verification"
-```
-
-Nao criar este commit se a verificacao nao exigir correcao.
+Nao criar um commit adicional quando todas as verificacoes acima passarem. Se uma
+verificacao revelar defeito, corrigir a tarefa responsavel antes de repetir esta
+validacao; a correcao pertence ao commit daquela tarefa, nao a um passo generico
+de encerramento.
 
 ## Auto-revisao
 
-- Cobertura: Tarefas 1-2 entregam modelo, estados, lease, migration e pagina. Tarefas 3-5 entregam dispatch apos commit nos dois caminhos de aprovacao. Tarefa 4 cobre Basic Auth, idempotencia, timeout e classificacao de erros. Tarefa 6 entrega list/retry/discard. Tarefa 7 remove o contexto e atualiza runtime/docs. Tarefa 8 verifica a entrega.
+- Cobertura: Tarefas 1-2 entregam modelo, estados, lease, migration V12 e pagina. Tarefas 3-5 entregam dispatch apos commit nos dois caminhos de aprovacao; a Tarefa 5 preserva Billing -> Shipping -> Notification e a interrupcao de Billing/Shipping. Tarefa 4 cobre Basic Auth, idempotencia, timeout e classificacao de erros sem regredir o client de Payment. Tarefa 6 entrega list/retry/discard. Tarefa 7 remove o contexto e atualiza runtime/docs. Tarefa 8 verifica a entrega.
 - Campos pendentes: cada rota, estado, transicao, arquivo, comando e criterio de teste esta definido neste plano.
-- Consistencia: Checkout usa `NotificationGateway`; `NotificationSubmissionUseCase` o implementa; o mesmo use case implementa a porta inbound do backoffice; a ACL HTTP e o adapter JPA satisfazem as duas portas outbound.
+- Consistencia: Checkout usa `NotificationGateway`; `NotificationSubmissionUseCase` o implementa; o mesmo use case implementa a porta inbound do backoffice; `CheckoutConfiguration` expoe a mesma instancia sob os tres tipos necessarios; a ACL HTTP e o adapter JPA satisfazem as duas portas outbound.

@@ -36,10 +36,12 @@ workflow pede a confirmacao de notificacao por `NotificationGateway`, cuja
 implementacao combina o journal local com um client HTTP privado do adapter.
 
 ```text
-CheckoutWorkflow / PaymentReconciliation
+ExecuteCheckoutUseCase / PaymentReconciliationUseCase
   -> TransactionPort: aplicar aprovacao + reservar NotificationSubmission
   -> commit
-  -> NotificationGateway.ensureOrderConfirmation
+  -> Billing: emitir Invoice
+  -> Shipping: calcular e despachar
+  -> NotificationGateway.dispatch
        -> claim da submissao
        -> Notification Service HTTP POST
        -> ACCEPTED ou FAILED
@@ -54,6 +56,14 @@ O HTTP fica sempre apos o commit. A reserva do journal usa a mesma transacao que
 registra a transicao de pagamento aprovada; portanto uma aprovacao persistida nao
 perde sua intencao de notificacao se o processo cair antes da chamada remota.
 
+Billing e Shipping sao efeitos posteriores ja existentes e permanecem entre o
+commit e o dispatch. Assim, para uma aprovacao efetiva, a ordem e
+`Billing -> Shipping -> Notification`. A reserva ja existe se Billing ou Shipping
+falharem, mas o dispatch nao ocorre e a submissao fica `PENDING`; esses erros
+continuam interrompendo a sequencia conforme sua propria spec. Somente a falha da
+tentativa de notificacao e absorvida pelo `NotificationGateway`, marcada como
+`FAILED` e incapaz de alterar a resposta confirmada do checkout.
+
 ## Modelo e regras
 
 `NotificationSubmission` guarda o payload imutavel, a chave idempotente, a
@@ -61,7 +71,7 @@ correlacao de pedido/tentativa, estado, numero de tentativas, ultimo erro
 sanitizado, ID remoto e lease de envio. Estados validos: `PENDING`, `IN_FLIGHT`,
 `ACCEPTED`, `FAILED`, `DISCARDED`.
 
-- Reserva por pedido+tentaiva e idempotente.
+- Reserva por pedido+tentativa e idempotente.
 - Uma tentativa reclama somente `PENDING`, `FAILED` ou lease expirada.
 - A conclusao exige o mesmo token de lease.
 - Apenas `202` remoto resulta em `ACCEPTED`.
@@ -109,10 +119,13 @@ consistente com a ausencia atual de autenticacao na aplicacao.
    checkout aprovado em falha HTTP.
 3. Aplicar aprovacao e reservar submissao sao atomicos, no checkout sincrono e na
    reconciliacao de pagamentos.
-4. Retry usa o mesmo corpo/chave, respeita lease e nao reenvia `ACCEPTED` ou
+4. Depois do commit, Billing antecede Shipping e ambos antecedem o dispatch; uma
+   falha em Billing ou Shipping preserva a submissao `PENDING` e impede a chamada
+   HTTP nessa execucao.
+5. Retry usa o mesmo corpo/chave, respeita lease e nao reenvia `ACCEPTED` ou
    `DISCARDED`; discard exige justificativa e impede retry futuro.
-5. Backoffice lista apenas dados operacionais e segue a paginacao slice.
-6. Testes de arquitetura provam que os pacotes antigos `notification` nao existem
+6. Backoffice lista apenas dados operacionais e segue a paginacao slice.
+7. Testes de arquitetura provam que os pacotes antigos `notification` nao existem
    e que o dominio/aplicacao nao importam Spring, JPA ou tipos HTTP.
-7. Migrations permanecem portaveis entre PostgreSQL e H2; WireMock cobre a
+8. Migrations permanecem portaveis entre PostgreSQL e H2; WireMock cobre a
    integracao offline.
