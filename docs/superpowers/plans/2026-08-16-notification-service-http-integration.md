@@ -51,7 +51,8 @@ finitos.
 | `checkout/adapter/config/CheckoutConfiguration.kt` | Compoe os tres ports da mesma instancia do use case puro. |
 | `infra/http/ConfigurableRestClientFactory.kt` | Centraliza HTTP/1.1 e timeouts por servico, substituindo a configuracao hoje presa ao Payment. |
 | `checkout/adapter/inbound/http/backoffice/*` | Controller e DTOs do backoffice. |
-| `V12__replace_local_notification_context_with_submission_journal.sql` | Cria journal e remove a tabela local sem consumidores. |
+| `V12__create_notification_submission_journal.sql` | Cria o journal sem interromper o contexto local durante as tarefas intermediarias. |
+| `V13__drop_local_notifications_table.sql` | Remove a tabela local junto com o contexto na Tarefa 7. |
 
 ### Tarefa 1: Definir modelo e portas sem framework
 
@@ -139,7 +140,7 @@ rtk git commit -m "feat: define notification submission journal"
 
 **Arquivos:**
 
-- Criar: `src/main/resources/db/migration/V12__replace_local_notification_context_with_submission_journal.sql`
+- Criar: `src/main/resources/db/migration/V12__create_notification_submission_journal.sql`
 - Criar: `src/main/kotlin/com/nexus/shopping/checkout/adapter/outbound/jpa/NotificationSubmissionEntity.kt`
 - Criar: `src/main/kotlin/com/nexus/shopping/checkout/adapter/outbound/jpa/SpringDataNotificationSubmissionRepository.kt`
 - Criar: `src/main/kotlin/com/nexus/shopping/checkout/adapter/outbound/jpa/NotificationSubmissionJpaRepositoryAdapter.kt`
@@ -155,9 +156,9 @@ rtk git commit -m "feat: define notification submission journal"
 
 ```kotlin
 @Test
-fun `migration remove notifications legado e cria journal com constraints`() {
+fun `migration cria journal sem interromper notifications legado`() {
     flyway.migrate()
-    assertEquals(0, countRows(connection, "INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'NOTIFICATIONS'"))
+    assertEquals(1, countRows(connection, "INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'NOTIFICATIONS'"))
     assertEquals(1, countRows(connection, "INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'NOTIFICATION_SUBMISSIONS'"))
 }
 
@@ -177,7 +178,8 @@ Esperado: migration e classes ausentes.
 
 - [ ] **Passo 3: Implementar schema portavel e JPQL explicito**
 
-Criar `notification_submissions` antes de `DROP TABLE notifications`. A tabela tem
+Criar `notification_submissions` sem apagar `notifications`; a remocao da tabela
+legada ocorrera em V13 na Tarefa 7. A tabela nova tem
 `notification_key` unico, `status`, `order_id`, `attempt_reference`, payload
 imutavel, `attempt_count`, `last_error`, `notification_id`, lease e timestamps.
 Criar indice por `status, created_at`; nao criar FK para Order, pois o journal e
@@ -199,7 +201,7 @@ Esperado: PASS em H2.
 - [ ] **Passo 5: Commitar migration e persistencia**
 
 ```bash
-rtk git add src/main/resources/db/migration/V12__replace_local_notification_context_with_submission_journal.sql
+rtk git add src/main/resources/db/migration/V12__create_notification_submission_journal.sql
 rtk git commit -m "db: add notification submission journal"
 rtk git add src/main/kotlin/com/nexus/shopping/checkout/adapter/outbound/jpa src/test/kotlin/com/nexus/shopping/checkout
 rtk git commit -m "feat: persist notification submissions"
@@ -514,6 +516,7 @@ rtk git commit -m "feat: add notification submission backoffice"
 
 - Remover: `src/main/kotlin/com/nexus/shopping/notification/`
 - Remover: `src/test/kotlin/com/nexus/shopping/notification/`
+- Criar: `src/main/resources/db/migration/V13__drop_local_notifications_table.sql`
 - Modificar: `src/test/kotlin/com/nexus/shopping/PackageStructureArchitectureTest.kt`
 - Modificar: `README.md`
 - Modificar: `docs/agents/external-services.md`
@@ -538,8 +541,8 @@ fun `codigo de producao nao contem bounded context notification local`() {
 }
 ```
 
-Estender o contrato de migration para verificar ausencia de `NOTIFICATIONS` e
-presenca de `NOTIFICATION_SUBMISSIONS`. Em
+Estender o contrato de migration para verificar que V13 remove `NOTIFICATIONS` e
+preserva `NOTIFICATION_SUBMISSIONS`. Em
 `PackageStructureArchitectureTest`, remover `notification` da lista de bounded
 contexts e dos input ports permitidos, remover as assertivas que carregam
 `NotificationValidationException`, `NotificationNotFoundException` e
@@ -555,7 +558,8 @@ Esperado: a classe antiga ainda existe ate a remocao.
 
 - [ ] **Passo 3: Apagar contexto e aplicar topologia exata do Compose**
 
-Apagar as arvores de producao e teste locais, incluindo
+Apagar as arvores de producao e teste locais, criar V13 com
+`DROP TABLE notifications`, e remover o adapter
 `NotificationGatewayAdapter`. Atualizar fakes de Checkout para o novo
 `NotificationGateway`. Remover Notification do README, do mapa textual de contextos
 e da lista de endpoints.
@@ -596,7 +600,7 @@ Esperado: PASS.
 - [ ] **Passo 5: Commitar remocao e docs**
 
 ```bash
-rtk git add src/main/kotlin/com/nexus/shopping/notification src/test/kotlin/com/nexus/shopping/notification README.md docs/agents/external-services.md docs/agents/monolith-baseline.md docs/decisions/2026-07-17-prd-commerce-bounded-contexts.md docker-compose.yml AGENTS.md src/test/kotlin/com/nexus/shopping/PackageStructureArchitectureTest.kt
+rtk git add src/main/kotlin/com/nexus/shopping/notification src/test/kotlin/com/nexus/shopping/notification src/main/resources/db/migration/V13__drop_local_notifications_table.sql README.md docs/agents/external-services.md docs/agents/monolith-baseline.md docs/decisions/2026-07-17-prd-commerce-bounded-contexts.md docker-compose.yml AGENTS.md src/test/kotlin/com/nexus/shopping/PackageStructureArchitectureTest.kt
 rtk git commit -m "refactor: remove local notification context"
 ```
 
@@ -641,6 +645,6 @@ de encerramento.
 
 ## Auto-revisao
 
-- Cobertura: Tarefas 1-2 entregam modelo, estados, lease, migration V12 e pagina. Tarefas 3-5 entregam dispatch apos commit nos dois caminhos de aprovacao; a Tarefa 5 preserva Billing -> Shipping -> Notification e a interrupcao de Billing/Shipping. Tarefa 4 cobre Basic Auth, idempotencia, timeout e classificacao de erros sem regredir o client de Payment. Tarefa 6 entrega list/retry/discard. Tarefa 7 remove o contexto e atualiza runtime/docs. Tarefa 8 verifica a entrega.
+- Cobertura: Tarefas 1-2 entregam modelo, estados, lease, journal V12 e pagina; a Tarefa 7 remove a tabela legada em V13 junto com o contexto. Tarefas 3-5 entregam dispatch apos commit nos dois caminhos de aprovacao; a Tarefa 5 preserva Billing -> Shipping -> Notification e a interrupcao de Billing/Shipping. Tarefa 4 cobre Basic Auth, idempotencia, timeout e classificacao de erros sem regredir o client de Payment. Tarefa 6 entrega list/retry/discard. Tarefa 7 remove o contexto e atualiza runtime/docs. Tarefa 8 verifica a entrega.
 - Campos pendentes: cada rota, estado, transicao, arquivo, comando e criterio de teste esta definido neste plano.
 - Consistencia: Checkout usa `NotificationGateway`; `NotificationSubmissionUseCase` o implementa; o mesmo use case implementa a porta inbound do backoffice; `CheckoutConfiguration` expoe a mesma instancia sob os tres tipos necessarios; a ACL HTTP e o adapter JPA satisfazem as duas portas outbound.
