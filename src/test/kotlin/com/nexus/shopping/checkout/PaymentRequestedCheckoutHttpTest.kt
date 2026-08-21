@@ -51,7 +51,7 @@ class PaymentRequestedCheckoutHttpTest {
     private val httpClient = HttpClient.newHttpClient()
 
     @Test
-    fun `checkout responds WAITING_PAYMENT immediately then confirms once reconciliation observes an approved status`() {
+    fun `checkout responds WAITING_PAYMENT immediately then records a failed notification submission after approval`() {
         stubDispatch("provider-attempt-1")
         val port = environment.getRequiredProperty("local.server.port")
         val customerId = createCustomer(port)
@@ -67,7 +67,7 @@ class PaymentRequestedCheckoutHttpTest {
             "REQUESTED",
             scalar("SELECT status FROM payment_attempts WHERE reference_id = ?", "checkout:${order["id"].asLong()}"),
         )
-        assertEquals(0, count("SELECT COUNT(*) FROM notifications WHERE reference_id = ?", order["id"].asLong()))
+        assertEquals(0, count("SELECT COUNT(*) FROM notification_submissions WHERE order_id = ?", order["id"].asLong()))
 
         val replayWhileProcessing = checkout(port, customerId, idempotencyKey)
         assertEquals(202, replayWhileProcessing.statusCode())
@@ -79,7 +79,8 @@ class PaymentRequestedCheckoutHttpTest {
         val confirmedReplay = checkout(port, customerId, idempotencyKey)
         assertEquals(200, confirmedReplay.statusCode())
         assertEquals("CONFIRMED", mapper.readTree(confirmedReplay.body())["status"].asText())
-        assertEquals(1, count("SELECT COUNT(*) FROM notifications WHERE reference_id = ?", order["id"].asLong()))
+        assertEquals(1, count("SELECT COUNT(*) FROM notification_submissions WHERE order_id = ?", order["id"].asLong()))
+        assertEquals("FAILED", scalar("SELECT status FROM notification_submissions WHERE order_id = ?", order["id"].asLong()))
     }
 
     private fun stubDispatch(providerAttemptReference: String) {

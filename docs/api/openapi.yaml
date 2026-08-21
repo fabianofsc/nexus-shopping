@@ -39,7 +39,7 @@ tags:
   - name: Cart
   - name: Checkout
   - name: Orders
-  - name: Notifications
+  - name: Backoffice
 paths:
   /actuator/health:
     get:
@@ -504,58 +504,69 @@ paths:
           $ref: "#/components/responses/Problem"
         "409":
           $ref: "#/components/responses/Problem"
-  /notifications:
+  /backoffice/notification-submissions:
+    get:
+      tags: [Backoffice]
+      summary: Lista o journal local de submissao de notificacoes
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [PENDING, IN_FLIGHT, ACCEPTED, FAILED, DISCARDED]
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: Pagina de resumos do journal, sem PII ou payload de mensagem
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationSubmissionPage"
+        "400":
+          $ref: "#/components/responses/Problem"
+  /backoffice/notification-submissions/{submissionId}/retry:
     post:
-      tags: [Notifications]
-      summary: Envia uma notificacao (idempotente por notificationKey)
+      tags: [Backoffice]
+      summary: Tenta novamente uma submissao elegivel do journal
+      parameters:
+        - $ref: "#/components/parameters/NotificationSubmissionId"
+      responses:
+        "200":
+          description: Resumo atualizado da submissao
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationSubmission"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+  /backoffice/notification-submissions/{submissionId}/discard:
+    post:
+      tags: [Backoffice]
+      summary: Descarta definitivamente uma submissao elegivel do journal
+      parameters:
+        - $ref: "#/components/parameters/NotificationSubmissionId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SendNotificationRequest"
+              $ref: "#/components/schemas/DiscardNotificationSubmissionRequest"
       responses:
-        "201":
-          description: Notificacao criada
+        "200":
+          description: Resumo atualizado da submissao
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Notification"
+                $ref: "#/components/schemas/NotificationSubmission"
         "400":
           $ref: "#/components/responses/Problem"
-    get:
-      tags: [Notifications]
-      summary: Lista notificacoes (opcionalmente por customerId, paginado)
-      parameters:
-        - name: customerId
-          in: query
-          required: false
-          schema:
-            type: integer
-            format: int64
-        - $ref: "#/components/parameters/Page"
-        - $ref: "#/components/parameters/Size"
-      responses:
-        "200":
-          description: Slice paginado de notificacoes
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/NotificationPage"
-  /notifications/{id}:
-    get:
-      tags: [Notifications]
-      summary: Detalhe de uma notificacao
-      parameters:
-        - $ref: "#/components/parameters/Id"
-      responses:
-        "200":
-          description: Notificacao
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Notification"
         "404":
+          $ref: "#/components/responses/Problem"
+        "409":
           $ref: "#/components/responses/Problem"
 components:
   parameters:
@@ -582,6 +593,13 @@ components:
         format: int64
     OrderId:
       name: orderId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    NotificationSubmissionId:
+      name: submissionId
       in: path
       required: true
       schema:
@@ -892,35 +910,36 @@ components:
         totalAmount: { type: number, format: double }
     OrderPage:
       $ref: "#/components/schemas/Page"
-    Notification:
+    NotificationSubmission:
       type: object
-      required: [id, customerId, recipientEmail, type, channel, status, subject, body, createdAt]
+      description: Resumo operacional do journal local; nao contem destinatario nem payload da mensagem.
+      required: [id, orderId, notificationKey, status, attemptCount]
       properties:
         id: { type: integer, format: int64 }
-        customerId: { type: integer, format: int64 }
-        recipientEmail: { type: string }
-        type: { type: string, enum: [ORDER_CONFIRMED, ORDER_PAYMENT_FAILED, ORDER_CANCELLED] }
-        channel: { type: string, enum: [EMAIL] }
-        status: { type: string, enum: [PENDING, SENDING, SENT, FAILED] }
-        subject: { type: string }
-        body: { type: string }
-        referenceId: { type: integer, format: int64, nullable: true }
-        createdAt: { type: string, format: date-time }
-        sentAt: { type: string, format: date-time, nullable: true }
-    SendNotificationRequest:
-      type: object
-      required: [customerId, notificationKey, recipientEmail, type]
-      properties:
-        customerId: { type: integer, format: int64 }
+        orderId: { type: integer, format: int64 }
         notificationKey: { type: string }
-        recipientEmail: { type: string }
-        type: { type: string, enum: [ORDER_CONFIRMED, ORDER_PAYMENT_FAILED, ORDER_CANCELLED] }
-        referenceId: { type: integer, format: int64, nullable: true }
-        templateParams:
-          type: object
-          additionalProperties: { type: string }
-    NotificationPage:
-      $ref: "#/components/schemas/Page"
+        status: { type: string, enum: [PENDING, IN_FLIGHT, ACCEPTED, FAILED, DISCARDED] }
+        attemptCount: { type: integer, minimum: 0 }
+        lastError: { type: string, nullable: true }
+        notificationId: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time, nullable: true }
+        updatedAt: { type: string, format: date-time, nullable: true }
+    NotificationSubmissionPage:
+      type: object
+      required: [content, page, size, count, hasNext]
+      properties:
+        content:
+          type: array
+          items: { $ref: "#/components/schemas/NotificationSubmission" }
+        page: { type: integer }
+        size: { type: integer }
+        count: { type: integer }
+        hasNext: { type: boolean }
+    DiscardNotificationSubmissionRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 500 }
     Page:
       type: object
       required: [content, page, size, count, hasNext]
