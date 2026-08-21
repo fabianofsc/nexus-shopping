@@ -7,9 +7,17 @@ import com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices
 import org.springframework.stereotype.Service
 import kotlin.test.Test
 import kotlin.test.assertFalse
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class PackageStructureArchitectureTest {
+    @Test
+    fun `codigo de producao nao contem bounded context notification local`() {
+        assertFailsWith<ClassNotFoundException> {
+            Class.forName("com.nexus.shopping.notification.domain.Notification")
+        }
+    }
+
     @Test
     fun `checkout is an application process exposed through an input port`() {
         val inputPort =
@@ -55,15 +63,6 @@ class PackageStructureArchitectureTest {
                 forbiddenPackages = arrayOf("..checkout.."),
             )
         }
-        noClasses()
-            .that()
-            .resideInAPackage("..notification..")
-            .and()
-            .resideOutsideOfPackages("..checkout.adapter.outbound.notification..")
-            .should()
-            .dependOnClassesThat()
-            .resideInAnyPackage("..checkout..")
-            .check(productionClasses)
     }
 
     @Test
@@ -77,7 +76,6 @@ class PackageStructureArchitectureTest {
                     "..inventory..",
                     "..order..",
                     "..payment..",
-                    "..notification..",
                     "..billing..",
                     "..shipping..",
                     "..checkout.adapter..",
@@ -98,7 +96,6 @@ class PackageStructureArchitectureTest {
                     "..customer..",
                     "..order..",
                     "..payment..",
-                    "..notification..",
                     "..checkout..",
                 ),
         )
@@ -113,7 +110,6 @@ class PackageStructureArchitectureTest {
                     "..cart..",
                     "..customer..",
                     "..order..",
-                    "..notification..",
                     "..checkout..",
                 ),
         )
@@ -128,7 +124,6 @@ class PackageStructureArchitectureTest {
                 "..inventory..",
                 "..order..",
                 "..payment..",
-                "..notification..",
                 "..billing..",
                 "..shipping..",
                 "..checkout.adapter.outbound.acl..",
@@ -139,7 +134,6 @@ class PackageStructureArchitectureTest {
                 "..inventory.application.port.inbound..",
                 "..order.application.port.inbound..",
                 "..payment.application.port.inbound..",
-                "..notification.application.port.inbound..",
                 "..billing.application.port.inbound..",
                 "..shipping.application.port.inbound..",
             ).check(productionClasses)
@@ -152,7 +146,6 @@ class PackageStructureArchitectureTest {
                 "..cart..",
                 "..customer..",
                 "..inventory..",
-                "..notification..",
                 "..order..",
                 "..payment..",
                 "..shipping..",
@@ -210,17 +203,11 @@ class PackageStructureArchitectureTest {
             Class.forName("com.nexus.shopping.customer.application.exception.CustomerValidationException")
         val customerNotFoundException =
             Class.forName("com.nexus.shopping.customer.application.exception.CustomerNotFoundException")
-        val notificationValidationException =
-            Class.forName("com.nexus.shopping.notification.application.exception.NotificationValidationException")
-        val notificationNotFoundException =
-            Class.forName("com.nexus.shopping.notification.application.exception.NotificationNotFoundException")
 
         assertTrue(validationException.isAssignableFrom(productValidationException))
         assertTrue(notFoundException.isAssignableFrom(productNotFoundException))
         assertTrue(validationException.isAssignableFrom(customerValidationException))
         assertTrue(notFoundException.isAssignableFrom(customerNotFoundException))
-        assertTrue(validationException.isAssignableFrom(notificationValidationException))
-        assertTrue(notFoundException.isAssignableFrom(notificationNotFoundException))
     }
 
     @Test
@@ -237,7 +224,6 @@ class PackageStructureArchitectureTest {
 
         assertFalse(handlerSource.contains("com.nexus.shopping.product"))
         assertFalse(handlerSource.contains("com.nexus.shopping.customer"))
-        assertFalse(handlerSource.contains("com.nexus.shopping.notification"))
     }
 
     @Test
@@ -248,11 +234,6 @@ class PackageStructureArchitectureTest {
     @Test
     fun `customer http dto responses exist outside the domain package`() {
         Class.forName("com.nexus.shopping.customer.adapter.inbound.http.dto.CustomerResponse")
-    }
-
-    @Test
-    fun `notification http dto responses exist outside the domain package`() {
-        Class.forName("com.nexus.shopping.notification.adapter.inbound.http.dto.NotificationResponse")
     }
 
     @Test

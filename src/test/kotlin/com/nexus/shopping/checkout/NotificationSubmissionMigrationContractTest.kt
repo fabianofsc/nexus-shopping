@@ -8,7 +8,7 @@ import kotlin.test.assertEquals
 
 class NotificationSubmissionMigrationContractTest {
     @Test
-    fun `migration cria journal sem interromper notifications legado`() {
+    fun `migration remove notifications legado e preserva o journal`() {
         DriverManager.getConnection("jdbc:h2:mem:notification_submission_migration_contract;DB_CLOSE_DELAY=-1", "sa", "").use { connection ->
             Flyway
                 .configure()
@@ -18,7 +18,7 @@ class NotificationSubmissionMigrationContractTest {
                 .load()
                 .migrate()
 
-            assertEquals(1, countRows(connection, "INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'NOTIFICATIONS'"))
+            assertEquals(0, countRows(connection, "INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'NOTIFICATIONS'"))
             assertEquals(1, countRows(connection, "INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'NOTIFICATION_SUBMISSIONS'"))
         }
     }
