@@ -11,6 +11,7 @@ import com.nexus.shopping.checkout.application.model.CheckoutShippingAddressSnap
 import com.nexus.shopping.checkout.application.model.CheckoutShippingCommand
 import com.nexus.shopping.checkout.application.model.EnsureOrderConfirmationCommand
 import com.nexus.shopping.checkout.application.model.NotificationSubmission
+import com.nexus.shopping.checkout.application.model.NotificationSubmissionStatus
 import com.nexus.shopping.checkout.application.model.PaymentReconciliationOutcome
 import com.nexus.shopping.checkout.application.model.PaymentResultStatus
 import com.nexus.shopping.checkout.application.port.outbound.BillingGateway
@@ -147,6 +148,87 @@ class PaymentReconciliationUseCaseTest {
         assertEquals(0, notifications.size)
     }
 
+    @Test
+    fun `dispatch failure for a reconciled order records a failed submission`() {
+        val reserved = mutableListOf<NotificationSubmission>()
+        val dispatched = mutableListOf<NotificationSubmission>()
+        val useCase =
+            useCase(
+                outcomes = listOf(outcome(referenceId = "checkout:6", status = PaymentResultStatus.APPROVED)),
+                applyResults = mapOf("checkout:6" to appliedResult(orderId = 6L, status = "CONFIRMED", transitioned = true)),
+                notifications = mutableListOf(),
+                reserved = reserved,
+                dispatched = dispatched,
+                dispatchStatus = NotificationSubmissionStatus.FAILED,
+            )
+
+        useCase.reconcile()
+
+        assertEquals(NotificationSubmissionStatus.FAILED, dispatched.single().status)
+    }
+
+    @Test
+    fun `billing failure keeps its submission pending without dispatch and does not stop later outcomes`() {
+        val reserved = mutableListOf<NotificationSubmission>()
+        val dispatched = mutableListOf<NotificationSubmission>()
+        val releases = mutableListOf<Pair<String, List<CheckoutItemSnapshot>>>()
+        val useCase =
+            useCase(
+                outcomes =
+                    listOf(
+                        outcome(referenceId = "checkout:7", status = PaymentResultStatus.APPROVED),
+                        outcome(referenceId = "checkout:8", status = PaymentResultStatus.REJECTED),
+                    ),
+                applyResults =
+                    mapOf(
+                        "checkout:7" to appliedResult(orderId = 7L, status = "CONFIRMED", transitioned = true),
+                        "checkout:8" to appliedResult(orderId = 8L, status = "PAYMENT_FAILED", transitioned = true),
+                    ),
+                notifications = mutableListOf(),
+                reserved = reserved,
+                dispatched = dispatched,
+                releases = releases,
+                billingFailure = IllegalStateException("issuer unavailable"),
+            )
+
+        useCase.reconcile()
+
+        assertEquals(NotificationSubmissionStatus.PENDING, reserved.single().status)
+        assertEquals(emptyList(), dispatched)
+        assertEquals(listOf("checkout:8"), releases.map { it.first })
+    }
+
+    @Test
+    fun `shipping failure keeps its submission pending without dispatch and does not stop later outcomes`() {
+        val reserved = mutableListOf<NotificationSubmission>()
+        val dispatched = mutableListOf<NotificationSubmission>()
+        val releases = mutableListOf<Pair<String, List<CheckoutItemSnapshot>>>()
+        val useCase =
+            useCase(
+                outcomes =
+                    listOf(
+                        outcome(referenceId = "checkout:9", status = PaymentResultStatus.APPROVED),
+                        outcome(referenceId = "checkout:10", status = PaymentResultStatus.REJECTED),
+                    ),
+                applyResults =
+                    mapOf(
+                        "checkout:9" to appliedResult(orderId = 9L, status = "CONFIRMED", transitioned = true),
+                        "checkout:10" to appliedResult(orderId = 10L, status = "PAYMENT_FAILED", transitioned = true),
+                    ),
+                notifications = mutableListOf(),
+                reserved = reserved,
+                dispatched = dispatched,
+                releases = releases,
+                shippingFailure = IllegalStateException("carrier unavailable"),
+            )
+
+        useCase.reconcile()
+
+        assertEquals(NotificationSubmissionStatus.PENDING, reserved.single().status)
+        assertEquals(emptyList(), dispatched)
+        assertEquals(listOf("checkout:10"), releases.map { it.first })
+    }
+
     private fun useCase(
         outcomes: List<PaymentReconciliationOutcome>,
         applyResults: Map<String, AppliedOrderPaymentResult>,
@@ -155,12 +237,17 @@ class PaymentReconciliationUseCaseTest {
         invoices: MutableList<CheckoutInvoiceCommand> = mutableListOf(),
         shipments: MutableList<CheckoutShippingCommand> = mutableListOf(),
         events: MutableList<String> = mutableListOf(),
+        reserved: MutableList<NotificationSubmission> = mutableListOf(),
+        dispatched: MutableList<NotificationSubmission> = mutableListOf(),
+        dispatchStatus: NotificationSubmissionStatus = NotificationSubmissionStatus.ACCEPTED,
+        billingFailure: RuntimeException? = null,
+        shippingFailure: RuntimeException? = null,
     ) = PaymentReconciliationUseCase(
         reconciliation = FakePaymentReconciliationGateway(outcomes),
         orderPaymentResults = FakeOrderPaymentResultGateway(applyResults, events),
-        billing = RecordingBillingGateway(invoices, events),
-        shipping = RecordingShippingGateway(shipments, events),
-        notifications = RecordingNotificationGateway(notifications, events),
+        billing = RecordingBillingGateway(invoices, events, billingFailure),
+        shipping = RecordingShippingGateway(shipments, events, shippingFailure),
+        notifications = RecordingNotificationGateway(notifications, reserved, dispatched, events, dispatchStatus),
         inventory = RecordingInventoryGateway(releases),
         transaction =
             object : TransactionPort {
@@ -244,7 +331,10 @@ class PaymentReconciliationUseCaseTest {
 
     private class RecordingNotificationGateway(
         private val notifications: MutableList<EnsureOrderConfirmationCommand>,
+        private val reserved: MutableList<NotificationSubmission>,
+        private val dispatched: MutableList<NotificationSubmission>,
         private val events: MutableList<String>,
+        private val dispatchStatus: NotificationSubmissionStatus,
     ) : NotificationGateway {
         override fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand) {
             notifications += command
@@ -254,32 +344,38 @@ class PaymentReconciliationUseCaseTest {
         override fun reserveOrderConfirmation(command: EnsureOrderConfirmationCommand): NotificationSubmission {
             notifications += command
             events += "notification:reserve"
-            return NotificationSubmission.forOrderConfirmation(command).copy(id = 1L)
+            return NotificationSubmission.forOrderConfirmation(command).copy(id = 1L).also(reserved::add)
         }
 
         override fun dispatch(submissionId: Long): NotificationSubmission {
             events += "notification:dispatch"
-            return error("Not needed")
+            return requireNotNull(reserved.singleOrNull { it.id == submissionId })
+                .copy(status = dispatchStatus)
+                .also(dispatched::add)
         }
     }
 
     private class RecordingBillingGateway(
         private val invoices: MutableList<CheckoutInvoiceCommand>,
         private val events: MutableList<String>,
+        private val failure: RuntimeException?,
     ) : BillingGateway {
         override fun issueInvoice(command: CheckoutInvoiceCommand) {
             invoices += command
             events += "invoice"
+            failure?.let { throw it }
         }
     }
 
     private class RecordingShippingGateway(
         private val shipments: MutableList<CheckoutShippingCommand>,
         private val events: MutableList<String>,
+        private val failure: RuntimeException?,
     ) : ShippingGateway {
         override fun process(command: CheckoutShippingCommand) {
             shipments += command
             events += "shipping"
+            failure?.let { throw it }
         }
     }
 }

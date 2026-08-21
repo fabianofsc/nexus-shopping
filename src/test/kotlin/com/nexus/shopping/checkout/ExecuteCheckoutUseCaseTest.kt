@@ -16,6 +16,7 @@ import com.nexus.shopping.checkout.application.model.CreateCheckoutOrderCommand
 import com.nexus.shopping.checkout.application.model.EnsureOrderConfirmationCommand
 import com.nexus.shopping.checkout.application.model.FindCheckoutOrderReplayCommand
 import com.nexus.shopping.checkout.application.model.NotificationSubmission
+import com.nexus.shopping.checkout.application.model.NotificationSubmissionStatus
 import com.nexus.shopping.checkout.application.model.PaymentAuthorizationCommand
 import com.nexus.shopping.checkout.application.model.PaymentProcessingCommand
 import com.nexus.shopping.checkout.application.model.PaymentProcessingResult
@@ -272,7 +273,7 @@ class ExecuteCheckoutUseCaseTest {
                             events += "shipping"
                         }
                     },
-                notifications = recordingNotificationGateway(events),
+                notifications = RecordingNotificationGateway(events),
                 inventory = RecordingInventoryGateway(events),
                 transaction = recordingTransaction(events),
             )
@@ -298,11 +299,38 @@ class ExecuteCheckoutUseCaseTest {
     fun `billing failure leaves the reserved submission pending and does not dispatch`() {
         val events = mutableListOf<String>()
         val expectedFailure = IllegalStateException("issuer unavailable")
-        val checkout = approvedCheckout(events, billingFailure = expectedFailure)
+        val notifications = RecordingNotificationGateway(events)
+        val checkout = approvedCheckout(events, billingFailure = expectedFailure, notifications = notifications)
 
         assertSame(expectedFailure, assertFailsWith<IllegalStateException> { checkout.execute(command()) })
 
-        assertEquals(listOf("notification:reserve"), events.filter { it.startsWith("notification:") })
+        assertEquals(NotificationSubmissionStatus.PENDING, notifications.reserved.single().status)
+        assertEquals(emptyList(), notifications.dispatched)
+    }
+
+    @Test
+    fun `shipping failure leaves the reserved submission pending and does not dispatch`() {
+        val events = mutableListOf<String>()
+        val expectedFailure = IllegalStateException("carrier unavailable")
+        val notifications = RecordingNotificationGateway(events)
+        val checkout = approvedCheckout(events, shippingFailure = expectedFailure, notifications = notifications)
+
+        assertSame(expectedFailure, assertFailsWith<IllegalStateException> { checkout.execute(command()) })
+
+        assertEquals(NotificationSubmissionStatus.PENDING, notifications.reserved.single().status)
+        assertEquals(emptyList(), notifications.dispatched)
+    }
+
+    @Test
+    fun `dispatch failure preserves confirmed checkout and records failed submission`() {
+        val events = mutableListOf<String>()
+        val notifications = RecordingNotificationGateway(events, dispatchStatus = NotificationSubmissionStatus.FAILED)
+        val checkout = approvedCheckout(events, notifications = notifications)
+
+        val result = checkout.execute(command())
+
+        assertEquals("CONFIRMED", result.status)
+        assertEquals(NotificationSubmissionStatus.FAILED, notifications.dispatched.single().status)
     }
 
     private fun command() =
@@ -320,35 +348,34 @@ class ExecuteCheckoutUseCaseTest {
             }
         }
 
-    private fun recordingNotificationGateway(events: MutableList<String>) =
-        object : NotificationGateway {
-            override fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand) =
-                error("Legacy path not used")
+    private class RecordingNotificationGateway(
+        private val events: MutableList<String>,
+        private val dispatchStatus: NotificationSubmissionStatus = NotificationSubmissionStatus.ACCEPTED,
+    ) : NotificationGateway {
+        val reserved = mutableListOf<NotificationSubmission>()
+        val dispatched = mutableListOf<NotificationSubmission>()
 
-            override fun reserveOrderConfirmation(command: EnsureOrderConfirmationCommand): NotificationSubmission {
-                events += "notification:reserve"
-                return NotificationSubmission.forOrderConfirmation(command).copy(id = 42L)
-            }
+        override fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand) =
+            error("Legacy path not used")
 
-            override fun dispatch(submissionId: Long): NotificationSubmission {
-                events += "notification:dispatch"
-                return NotificationSubmission(
-                    id = submissionId,
-                    orderId = 1L,
-                    customerId = 10L,
-                    attemptReference = "pay-approved",
-                    recipientEmail = "ana@example.com",
-                    notificationKey = "order-confirmed:1:pay-approved",
-                    referenceId = "order:1",
-                    subject = "Pedido confirmado",
-                    body = "Confirmado",
-                )
-            }
+        override fun reserveOrderConfirmation(command: EnsureOrderConfirmationCommand): NotificationSubmission {
+            events += "notification:reserve"
+            return NotificationSubmission.forOrderConfirmation(command).copy(id = 42L).also(reserved::add)
         }
+
+        override fun dispatch(submissionId: Long): NotificationSubmission {
+            events += "notification:dispatch"
+            return requireNotNull(reserved.singleOrNull { it.id == submissionId })
+                .copy(status = dispatchStatus)
+                .also(dispatched::add)
+        }
+    }
 
     private fun approvedCheckout(
         events: MutableList<String>,
         billingFailure: RuntimeException? = null,
+        shippingFailure: RuntimeException? = null,
+        notifications: NotificationGateway = RecordingNotificationGateway(events),
     ) =
         ExecuteCheckoutUseCase(
             carts = RecordingCartGateway(events),
@@ -387,9 +414,10 @@ class ExecuteCheckoutUseCaseTest {
                 object : ShippingGateway {
                     override fun process(command: CheckoutShippingCommand) {
                         events += "shipping"
+                        shippingFailure?.let { throw it }
                     }
                 },
-            notifications = recordingNotificationGateway(events),
+            notifications = notifications,
             inventory = RecordingInventoryGateway(events),
             transaction = recordingTransaction(events),
         )
