@@ -141,8 +141,7 @@ class NotificationSubmissionBackofficeControllerTest {
                 ),
             ).setControllerAdvice(
                 ApiExceptionHandler(),
-            )
-            .build()
+            ).build()
 
     private fun acceptedSubmission(): NotificationSubmission =
         NotificationSubmission(

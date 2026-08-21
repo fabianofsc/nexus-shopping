@@ -9,10 +9,12 @@ import kotlin.test.assertEquals
 class NotificationSubmissionMigrationContractTest {
     @Test
     fun `migration remove notifications legado e preserva o journal`() {
-        DriverManager.getConnection("jdbc:h2:mem:notification_submission_migration_contract;DB_CLOSE_DELAY=-1", "sa", "").use { connection ->
+        val databaseUrl = "jdbc:h2:mem:notification_submission_migration_contract;DB_CLOSE_DELAY=-1"
+
+        DriverManager.getConnection(databaseUrl, "sa", "").use { connection ->
             Flyway
                 .configure()
-                .dataSource("jdbc:h2:mem:notification_submission_migration_contract;DB_CLOSE_DELAY=-1", "sa", "")
+                .dataSource(databaseUrl, "sa", "")
                 .locations("classpath:db/migration")
                 .placeholders(mapOf("productSeedCount" to "3"))
                 .load()

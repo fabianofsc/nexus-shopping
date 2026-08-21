@@ -355,8 +355,7 @@ class ExecuteCheckoutUseCaseTest {
         val reserved = mutableListOf<NotificationSubmission>()
         val dispatched = mutableListOf<NotificationSubmission>()
 
-        override fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand) =
-            error("Legacy path not used")
+        override fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand) = error("Legacy path not used")
 
         override fun reserveOrderConfirmation(command: EnsureOrderConfirmationCommand): NotificationSubmission {
             events += "notification:reserve"
@@ -376,51 +375,50 @@ class ExecuteCheckoutUseCaseTest {
         billingFailure: RuntimeException? = null,
         shippingFailure: RuntimeException? = null,
         notifications: NotificationGateway = RecordingNotificationGateway(events),
-    ) =
-        ExecuteCheckoutUseCase(
-            carts = RecordingCartGateway(events),
-            customers = RecordingCustomerGateway(events),
-            orders = RecordingOrderGateway(events),
-            paymentAuthorizationFingerprints =
-                object : PaymentAuthorizationFingerprintGateway {
-                    override fun fingerprint(command: PaymentAuthorizationCommand) = "fingerprint"
-                },
-            paymentValidation =
-                object : PaymentValidationGateway {
-                    override fun validate(command: PaymentValidationCommand) = Unit
-                },
-            payments =
-                object : PaymentProcessingGateway {
-                    override fun process(command: PaymentProcessingCommand) =
-                        PaymentProcessingResult("pay-approved", PaymentResultStatus.APPROVED, "provider-1", false)
-                },
-            orderPaymentResults =
-                object : OrderPaymentResultGateway {
-                    override fun apply(command: ApplyOrderPaymentResultCommand): CheckoutOrderSnapshot {
-                        events += "apply"
-                        return order(false).copy(status = "CONFIRMED", awaitingPayment = false)
-                    }
+    ) = ExecuteCheckoutUseCase(
+        carts = RecordingCartGateway(events),
+        customers = RecordingCustomerGateway(events),
+        orders = RecordingOrderGateway(events),
+        paymentAuthorizationFingerprints =
+            object : PaymentAuthorizationFingerprintGateway {
+                override fun fingerprint(command: PaymentAuthorizationCommand) = "fingerprint"
+            },
+        paymentValidation =
+            object : PaymentValidationGateway {
+                override fun validate(command: PaymentValidationCommand) = Unit
+            },
+        payments =
+            object : PaymentProcessingGateway {
+                override fun process(command: PaymentProcessingCommand) =
+                    PaymentProcessingResult("pay-approved", PaymentResultStatus.APPROVED, "provider-1", false)
+            },
+        orderPaymentResults =
+            object : OrderPaymentResultGateway {
+                override fun apply(command: ApplyOrderPaymentResultCommand): CheckoutOrderSnapshot {
+                    events += "apply"
+                    return order(false).copy(status = "CONFIRMED", awaitingPayment = false)
+                }
 
-                    override fun applyByOrderReference(command: ApplyOrderPaymentResultByReferenceCommand) = error("Not used")
-                },
-            billing =
-                object : BillingGateway {
-                    override fun issueInvoice(command: CheckoutInvoiceCommand) {
-                        events += "invoice"
-                        billingFailure?.let { throw it }
-                    }
-                },
-            shipping =
-                object : ShippingGateway {
-                    override fun process(command: CheckoutShippingCommand) {
-                        events += "shipping"
-                        shippingFailure?.let { throw it }
-                    }
-                },
-            notifications = notifications,
-            inventory = RecordingInventoryGateway(events),
-            transaction = recordingTransaction(events),
-        )
+                override fun applyByOrderReference(command: ApplyOrderPaymentResultByReferenceCommand) = error("Not used")
+            },
+        billing =
+            object : BillingGateway {
+                override fun issueInvoice(command: CheckoutInvoiceCommand) {
+                    events += "invoice"
+                    billingFailure?.let { throw it }
+                }
+            },
+        shipping =
+            object : ShippingGateway {
+                override fun process(command: CheckoutShippingCommand) {
+                    events += "shipping"
+                    shippingFailure?.let { throw it }
+                }
+            },
+        notifications = notifications,
+        inventory = RecordingInventoryGateway(events),
+        transaction = recordingTransaction(events),
+    )
 
     private fun workflow(
         carts: CheckoutCartGateway,

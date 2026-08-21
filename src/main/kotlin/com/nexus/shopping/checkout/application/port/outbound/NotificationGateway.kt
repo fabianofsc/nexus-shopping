@@ -7,8 +7,7 @@ interface NotificationGateway {
     fun reserveOrderConfirmation(command: EnsureOrderConfirmationCommand): NotificationSubmission =
         error("Notification submission journal is not configured.")
 
-    fun dispatch(submissionId: Long): NotificationSubmission =
-        error("Notification submission journal is not configured.")
+    fun dispatch(submissionId: Long): NotificationSubmission = error("Notification submission journal is not configured.")
 
     fun ensureOrderConfirmation(command: EnsureOrderConfirmationCommand)
 }

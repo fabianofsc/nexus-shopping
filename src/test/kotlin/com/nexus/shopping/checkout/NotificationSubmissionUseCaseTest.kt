@@ -216,16 +216,16 @@ class NotificationSubmissionUseCaseTest {
                 onClaimRejected?.invoke()
                 return null
             }
-            return current.copy(
-                status = NotificationSubmissionStatus.IN_FLIGHT,
-                attemptCount = current.attemptCount + 1,
-                sendingLeaseToken = sendingLeaseToken,
-                sendingLeaseUntil = sendingLeaseUntil,
-            )
-                .also {
-                submissions[submissionId] = it
-                attempts += it
-            }
+            return current
+                .copy(
+                    status = NotificationSubmissionStatus.IN_FLIGHT,
+                    attemptCount = current.attemptCount + 1,
+                    sendingLeaseToken = sendingLeaseToken,
+                    sendingLeaseUntil = sendingLeaseUntil,
+                ).also {
+                    submissions[submissionId] = it
+                    attempts += it
+                }
         }
 
         override fun markAccepted(
@@ -265,13 +265,13 @@ class NotificationSubmissionUseCaseTest {
             if (current.status !in setOf(NotificationSubmissionStatus.PENDING, NotificationSubmissionStatus.FAILED)) {
                 return null
             }
-            return current.copy(
-                status = NotificationSubmissionStatus.DISCARDED,
-                discardReason = reason,
-            )
-                .also {
-                submissions[submissionId] = it
-            }
+            return current
+                .copy(
+                    status = NotificationSubmissionStatus.DISCARDED,
+                    discardReason = reason,
+                ).also {
+                    submissions[submissionId] = it
+                }
         }
 
         override fun findPage(
@@ -313,14 +313,14 @@ class NotificationSubmissionUseCaseTest {
         ): NotificationSubmission? {
             val current = submissions[submissionId] ?: return null
             if (current.sendingLeaseToken != sendingLeaseToken) return null
-            return current.copy(
-                status = status,
-                notificationId = notificationId,
-                lastError = lastError,
-            )
-                .also {
-                submissions[submissionId] = it
-            }
+            return current
+                .copy(
+                    status = status,
+                    notificationId = notificationId,
+                    lastError = lastError,
+                ).also {
+                    submissions[submissionId] = it
+                }
         }
     }
 }

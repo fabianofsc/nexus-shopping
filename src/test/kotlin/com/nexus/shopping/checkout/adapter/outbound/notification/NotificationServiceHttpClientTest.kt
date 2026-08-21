@@ -37,13 +37,15 @@ class NotificationServiceHttpClientTest {
         wireMock.stubFor(
             post(urlEqualTo("/v1/notifications"))
                 .withBasicAuth("notification", "notification")
-                .withHeader("Idempotency-Key", com.github.tomakehurst.wiremock.client.WireMock.equalTo("order-confirmed:42:attempt-1"))
-                .withRequestBody(
+                .withHeader(
+                    "Idempotency-Key",
+                    com.github.tomakehurst.wiremock.client.WireMock
+                        .equalTo("order-confirmed:42:attempt-1"),
+                ).withRequestBody(
                     equalToJson(
                         """{"channel":"EMAIL","recipient":{"email":"cliente@example.com"},"subject":"Pedido 42 confirmado","body":"Seu pedido 42 foi confirmado.","reference_id":"order:42","callback_id":"order:42","callback_name":"order_confirmed"}""",
                     ),
-                )
-                .willReturn(aResponse().withStatus(202).withBody("""{"notification_id":"ntf_1"}""")),
+                ).willReturn(aResponse().withStatus(202).withBody("""{"notification_id":"ntf_1"}""")),
         )
 
         val accepted = client().accept(submission())
