@@ -52,6 +52,12 @@ nexus:
   payment-service:
     base-url: ${NEXUS_PAYMENT_SERVICE_BASE_URL:http://localhost:8081}
     polling-interval: ${NEXUS_PAYMENT_SERVICE_POLLING_INTERVAL:2000}
+  notification-service:
+    base-url: ${NEXUS_NOTIFICATION_SERVICE_BASE_URL:http://notification-service:8080}
+    username: ${NEXUS_NOTIFICATION_SERVICE_USERNAME:notification}
+    password: ${NEXUS_NOTIFICATION_SERVICE_PASSWORD:notification}
+    connect-timeout: ${NEXUS_NOTIFICATION_SERVICE_CONNECT_TIMEOUT:5s}
+    read-timeout: ${NEXUS_NOTIFICATION_SERVICE_READ_TIMEOUT:5s}
   cache:
     product:
       ttl: 10m

@@ -2,6 +2,7 @@ package com.nexus.shopping.payment.adapter.outbound.provider
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.nexus.shopping.infra.http.ConfigurableRestClientFactory
 import com.nexus.shopping.payment.application.exception.PaymentProviderGatewayException
 import com.nexus.shopping.payment.application.port.outbound.PaymentProviderGateway
 import com.nexus.shopping.payment.application.port.outbound.ProviderProcessingRequest
@@ -9,23 +10,35 @@ import com.nexus.shopping.payment.application.port.outbound.ProviderProcessingRe
 import com.nexus.shopping.payment.application.port.outbound.ProviderStatusResult
 import com.nexus.shopping.payment.domain.PaymentProvider
 import com.nexus.shopping.payment.domain.PaymentStatus
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientResponseException
 import org.springframework.web.client.body
+import java.time.Duration
 
 @Component
-class PaymentServiceProviderGateway(
-    restClientBuilder: RestClient.Builder,
-    @Value("\${nexus.payment-service.base-url}")
-    baseUrl: String,
+class PaymentServiceProviderGateway private constructor(
+    private val restClient: RestClient,
     private val errorMapper: ObjectMapper,
 ) : PaymentProviderGateway {
-    override val provider = PaymentProvider.PAYMENT_SERVICE
+    @Autowired
+    constructor(
+        factory: ConfigurableRestClientFactory,
+        @Value("\${nexus.payment-service.base-url}")
+        baseUrl: String,
+        errorMapper: ObjectMapper,
+    ) : this(factory.builder(CONNECT_TIMEOUT, READ_TIMEOUT).baseUrl(baseUrl).build(), errorMapper)
 
-    private val restClient = restClientBuilder.baseUrl(baseUrl).build()
+    internal constructor(
+        restClientBuilder: RestClient.Builder,
+        baseUrl: String,
+        errorMapper: ObjectMapper,
+    ) : this(restClientBuilder.baseUrl(baseUrl).build(), errorMapper)
+
+    override val provider = PaymentProvider.PAYMENT_SERVICE
 
     override fun process(request: ProviderProcessingRequest): ProviderProcessingResult {
         val response =
@@ -92,6 +105,11 @@ class PaymentServiceProviderGateway(
             "REJECTED" -> PaymentStatus.REJECTED
             else -> PaymentStatus.REQUESTED
         }
+
+    private companion object {
+        val CONNECT_TIMEOUT: Duration = Duration.ofSeconds(5)
+        val READ_TIMEOUT: Duration = Duration.ofSeconds(5)
+    }
 }
 
 private data class DispatchRequestBody(

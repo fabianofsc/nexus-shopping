@@ -49,12 +49,21 @@ class PackageStructureArchitectureTest {
 
     @Test
     fun `bounded contexts do not depend on Checkout`() {
-        listOf("product", "customer", "cart", "inventory", "order", "payment", "notification", "billing", "shipping").forEach { context ->
+        listOf("product", "customer", "cart", "inventory", "order", "payment", "billing", "shipping").forEach { context ->
             assertNoDependencies(
                 sourcePackage = "..$context..",
                 forbiddenPackages = arrayOf("..checkout.."),
             )
         }
+        noClasses()
+            .that()
+            .resideInAPackage("..notification..")
+            .and()
+            .resideOutsideOfPackages("..checkout.adapter.outbound.notification..")
+            .should()
+            .dependOnClassesThat()
+            .resideInAnyPackage("..checkout..")
+            .check(productionClasses)
     }
 
     @Test
