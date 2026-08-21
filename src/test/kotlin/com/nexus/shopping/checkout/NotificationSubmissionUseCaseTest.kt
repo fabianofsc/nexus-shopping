@@ -9,6 +9,8 @@ import com.nexus.shopping.checkout.application.port.outbound.NotificationService
 import com.nexus.shopping.checkout.application.port.outbound.NotificationServiceUnavailableException
 import com.nexus.shopping.checkout.application.port.outbound.NotificationSubmissionRepositoryPort
 import com.nexus.shopping.checkout.application.usecase.NotificationSubmissionUseCase
+import com.nexus.shopping.platform.application.exception.ConflictException
+import com.nexus.shopping.platform.application.exception.NotFoundException
 import com.nexus.shopping.platform.domain.PageResult
 import java.time.Instant
 import kotlin.test.Test
@@ -80,14 +82,14 @@ class NotificationSubmissionUseCaseTest {
 
     @Test
     fun `dispatch de submissao ausente falha com validacao`() {
-        assertFailsWith<CheckoutValidationException> { useCase.dispatch(999) }
+        assertFailsWith<NotFoundException> { useCase.dispatch(999) }
     }
 
     @Test
     fun `retry rejeita submissao terminal`() {
         val accepted = repository.save(pending(status = NotificationSubmissionStatus.ACCEPTED))
 
-        assertFailsWith<CheckoutValidationException> { useCase.retry(requireNotNull(accepted.id)) }
+        assertFailsWith<ConflictException> { useCase.retry(requireNotNull(accepted.id)) }
         assertEquals(emptyList(), client.accepted)
     }
 
@@ -109,8 +111,30 @@ class NotificationSubmissionUseCaseTest {
             )
 
         assertEquals(NotificationSubmissionStatus.ACCEPTED, useCase.retry(requireNotNull(expired.id)).status)
-        assertFailsWith<CheckoutValidationException> { useCase.retry(requireNotNull(active.id)) }
+        assertFailsWith<ConflictException> { useCase.retry(requireNotNull(active.id)) }
         assertEquals(listOf(expired.notificationKey), client.accepted.map { it.notificationKey })
+    }
+
+    @Test
+    fun `list rejeita pagina fora dos limites antes de consultar o repositorio`() {
+        assertFailsWith<CheckoutValidationException> { useCase.list(null, -1, 50) }
+        assertFailsWith<CheckoutValidationException> { useCase.list(null, 0, 0) }
+        assertFailsWith<CheckoutValidationException> { useCase.list(null, 0, 501) }
+        assertEquals(0, repository.findPageCalls)
+    }
+
+    @Test
+    fun `retry de submissao inexistente retorna nao encontrado`() {
+        assertFailsWith<NotFoundException> { useCase.retry(999) }
+    }
+
+    @Test
+    fun `discard de submissao terminal retorna conflito`() {
+        val accepted = repository.save(pending(status = NotificationSubmissionStatus.ACCEPTED))
+
+        assertFailsWith<ConflictException> {
+            useCase.discard(DiscardNotificationSubmissionCommand(requireNotNull(accepted.id), "operador confirmou cancelamento"))
+        }
     }
 
     @Test
@@ -130,7 +154,6 @@ class NotificationSubmissionUseCaseTest {
             )
 
         assertEquals(NotificationSubmissionStatus.DISCARDED, result.status)
-        assertEquals("operador confirmou cancelamento", result.discardReason)
     }
 
     private fun pending(
@@ -166,6 +189,7 @@ class NotificationSubmissionUseCaseTest {
         val attempts = mutableListOf<NotificationSubmission>()
         var claimAvailable = true
         var onClaimRejected: (() -> Unit)? = null
+        var findPageCalls = 0
         private var nextId = 1L
 
         fun save(submission: NotificationSubmission): NotificationSubmission {
@@ -254,14 +278,16 @@ class NotificationSubmissionUseCaseTest {
             status: NotificationSubmissionStatus?,
             page: Int,
             size: Int,
-        ): PageResult<NotificationSubmission> =
-            PageResult(
+        ): PageResult<NotificationSubmission> {
+            findPageCalls += 1
+            return PageResult(
                 submissions.values.filter { status == null || it.status == status },
                 page,
                 size,
                 submissions.size,
                 false,
             )
+        }
 
         fun acceptByOtherWorker(submissionId: Long) {
             val current = requireNotNull(submissions[submissionId])

@@ -7,11 +7,12 @@ import java.time.Instant
 
 data class NotificationSubmissionBackofficeResponse(
     val id: Long,
+    val orderId: Long,
+    val notificationKey: String,
     val status: String,
     val attemptCount: Int,
     val lastError: String?,
     val notificationId: String?,
-    val discardReason: String?,
     val createdAt: Instant?,
     val updatedAt: Instant?,
 )
@@ -19,11 +20,12 @@ data class NotificationSubmissionBackofficeResponse(
 fun NotificationSubmissionSummary.toResponse(): NotificationSubmissionBackofficeResponse =
     NotificationSubmissionBackofficeResponse(
         id = id,
+        orderId = orderId,
+        notificationKey = notificationKey,
         status = status.name,
         attemptCount = attemptCount,
         lastError = lastError,
         notificationId = notificationId,
-        discardReason = discardReason,
         createdAt = createdAt,
         updatedAt = updatedAt,
     )

@@ -66,11 +66,12 @@ enum class NotificationSubmissionStatus {
 
 data class NotificationSubmissionSummary(
     val id: Long,
+    val orderId: Long,
+    val notificationKey: String,
     val status: NotificationSubmissionStatus,
     val attemptCount: Int,
     val lastError: String?,
     val notificationId: String?,
-    val discardReason: String?,
     val createdAt: Instant?,
     val updatedAt: Instant?,
 )

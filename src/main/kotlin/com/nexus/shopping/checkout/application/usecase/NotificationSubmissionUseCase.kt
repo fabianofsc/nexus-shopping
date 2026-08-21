@@ -12,6 +12,8 @@ import com.nexus.shopping.checkout.application.port.outbound.NotificationService
 import com.nexus.shopping.checkout.application.port.outbound.NotificationServiceRejectedException
 import com.nexus.shopping.checkout.application.port.outbound.NotificationServiceUnavailableException
 import com.nexus.shopping.checkout.application.port.outbound.NotificationSubmissionRepositoryPort
+import com.nexus.shopping.platform.application.exception.ConflictException
+import com.nexus.shopping.platform.application.exception.NotFoundException
 import com.nexus.shopping.platform.domain.PageResult
 import java.time.Instant
 import java.util.UUID
@@ -19,9 +21,8 @@ import java.util.UUID
 class NotificationSubmissionUseCase(
     private val repository: NotificationSubmissionRepositoryPort,
     private val client: NotificationServiceClientPort,
-) :
-        NotificationGateway,
-        NotificationSubmissionBackofficeInputPort {
+) : NotificationGateway,
+    NotificationSubmissionBackofficeInputPort {
     override fun reserveOrderConfirmation(command: EnsureOrderConfirmationCommand): NotificationSubmission =
         repository.reserve(NotificationSubmission.forOrderConfirmation(command))
 
@@ -50,22 +51,38 @@ class NotificationSubmissionUseCase(
         dispatch(requireNotNull(reserveOrderConfirmation(command).id))
     }
 
-    override fun list(status: NotificationSubmissionStatus?, page: Int, size: Int): PageResult<NotificationSubmissionSummary> =
-        repository.findPage(status, page, size).toSummaryPage()
+    override fun list(
+        status: NotificationSubmissionStatus?,
+        page: Int,
+        size: Int,
+    ): PageResult<NotificationSubmissionSummary> {
+        if (page < 0) {
+            throw CheckoutValidationException("page must be greater than or equal to zero.")
+        }
+        if (size !in 1..500) {
+            throw CheckoutValidationException("size must be between 1 and 500.")
+        }
+        return repository.findPage(status, page, size).toSummaryPage()
+    }
 
     override fun retry(submissionId: Long): NotificationSubmissionSummary {
         val submission = repository.findById(submissionId) ?: throw submissionNotFound(submissionId)
         if (!submission.isRetryable()) {
-            throw CheckoutValidationException("notification submission $submissionId cannot be retried.")
+            throw ConflictException("notification submission $submissionId cannot be retried.")
         }
         return dispatch(submissionId).toSummary()
     }
 
     override fun discard(command: DiscardNotificationSubmissionCommand): NotificationSubmissionSummary {
         val submission = repository.findById(command.submissionId) ?: throw submissionNotFound(command.submissionId)
-        submission.discard(command.reason)
+        if (command.reason.trim().length !in 1..500) {
+            throw CheckoutValidationException("discard reason must contain between 1 and 500 characters.")
+        }
+        if (!submission.isDiscardable()) {
+            throw ConflictException("notification submission ${command.submissionId} cannot be discarded.")
+        }
         return repository.discard(command.submissionId, command.reason, Instant.now())?.toSummary()
-            ?: throw CheckoutValidationException("notification submission ${command.submissionId} cannot be discarded.")
+            ?: throw ConflictException("notification submission ${command.submissionId} cannot be discarded.")
     }
 
     private fun currentSubmission(
@@ -73,17 +90,18 @@ class NotificationSubmissionUseCase(
         claimed: NotificationSubmission,
     ): NotificationSubmission = repository.findById(submissionId) ?: claimed
 
-    private fun submissionNotFound(submissionId: Long): CheckoutValidationException =
-        CheckoutValidationException("notification submission $submissionId was not found.")
+    private fun submissionNotFound(submissionId: Long): NotFoundException =
+        NotFoundException("notification submission $submissionId was not found.")
 
     private fun NotificationSubmission.toSummary(): NotificationSubmissionSummary =
         NotificationSubmissionSummary(
             id = requireNotNull(id),
+            orderId = orderId,
+            notificationKey = notificationKey,
             status = status,
             attemptCount = attemptCount,
             lastError = lastError,
             notificationId = notificationId,
-            discardReason = discardReason,
             createdAt = createdAt,
             updatedAt = updatedAt,
         )
@@ -91,6 +109,9 @@ class NotificationSubmissionUseCase(
     private fun NotificationSubmission.isRetryable(): Boolean =
         status in setOf(NotificationSubmissionStatus.PENDING, NotificationSubmissionStatus.FAILED) ||
             (status == NotificationSubmissionStatus.IN_FLIGHT && sendingLeaseUntil?.isBefore(Instant.now()) == true)
+
+    private fun NotificationSubmission.isDiscardable(): Boolean =
+        status in setOf(NotificationSubmissionStatus.PENDING, NotificationSubmissionStatus.FAILED)
 
     private fun PageResult<NotificationSubmission>.toSummaryPage(): PageResult<NotificationSubmissionSummary> =
         PageResult(content.map { it.toSummary() }, page, size, count, hasNext)
