@@ -6,12 +6,12 @@ DummyPay e Notification Service estao implementados como servicos Go em
 repositorios independentes. Na arvore local atual, ficam respectivamente em
 `../dummy-pay` e `../notification-service`.
 
-DummyPay ainda nao esta integrado ao runtime deste repositorio; e falado
+DummyPay ainda nao esta integrado diretamente ao runtime deste repositorio; e falado
 exclusivamente pelo Payment Service. O Nexus **ja** consome o Payment Service
 (`nexus-payment-service`) real via HTTP/ACL para processar pagamentos — o
-adapter simulado local foi removido. Notification Service segue nao
-integrado; o Nexus continua com Notification local ate essa etapa futura.
-Nenhuma dependencia de codigo, submodulo ou acesso cruzado a banco foi
+adapter simulado local foi removido. O Nexus tambem consome o Notification
+Service por HTTP/ACL no Checkout; o contexto local Notification foi removido.
+Nenhuma dependencia de codigo, submodulo, tabela ou acesso cruzado a banco foi
 introduzida em nenhum dos dois casos.
 
 ## Topologia alvo
@@ -37,8 +37,8 @@ dominio do Nexus.
   distintos, sem acesso entre eles.
 - Integracoes usam HTTP/JSON e autenticacao tecnica. Nao compartilhar entities,
   DTOs internos, bibliotecas de dominio ou tabelas.
-- No Nexus, a comunicacao futura deve passar por ports e adapters/ACL. O dominio
-  de Order nao conhece HTTP, DummyPay ou Notification Service.
+- No Nexus, a comunicacao passa por ports e adapters/ACL. O dominio de Order nao
+  conhece HTTP, DummyPay ou Notification Service.
 - Chaves de idempotencia e identificadores de referencia sao valores opacos
   definidos pelo chamador. Reenvios devem preservar a mesma chave.
 - Os READMEs e ADRs dos repositorios dos servicos sao a fonte de verdade de seus
@@ -80,9 +80,12 @@ referencias sao opacas e servem somente para correlacao. A criacao responde
 consultar o resultado posterior.
 
 O servico processa a entrega por worker interno e lease, logo `202` nao
-significa `SENT`. Uma futura integracao do Nexus deve registrar a notificacao
-de forma idempotente e considerar a consulta de status ou eventos futuros como
-parte da reconciliacao, sem interpretar regras internas do servico.
+significa `SENT`. O Checkout registra a intencao imutavel em
+`notification_submissions`, com payload e `Idempotency-Key` persistidos, antes
+de chamar o servico. A reserva ocorre com a aprovacao do pedido; apos o commit,
+Billing e Shipping executam antes do dispatch. Falhas remotas ficam no journal e
+podem ser recuperadas ou descartadas pelo backoffice interno, sem expor dados da
+mensagem na listagem.
 
 ## Sequencia de evolucao
 
@@ -91,5 +94,6 @@ parte da reconciliacao, sem interpretar regras internas do servico.
    idempotencia, webhooks, timeout e reconciliacao.
 3. ~~Refatorar o Nexus para substituir o provider de Payment local pelo adapter
    HTTP do Payment Service, preservando o contrato de checkout.~~ Feito.
-4. Extrair o consumo de notificacao para o Notification Service por adapter/ACL
-   proprio, sem acoplamento ao dominio de notificacao generico.
+4. ~~Extrair o consumo de notificacao para o Notification Service por adapter/ACL
+   proprio, sem acoplamento ao dominio de notificacao generico.~~ Feito com o
+   journal tecnico do Checkout e o backoffice de recuperacao.

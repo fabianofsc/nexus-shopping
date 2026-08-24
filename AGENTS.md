@@ -9,7 +9,7 @@
 
 - Backend REST API educacional: catalogo de produtos com evolucao incremental de performance e arquitetura.
 - Stack: Kotlin, Java 21, Gradle Wrapper, Spring Boot 4, Actuator, Flyway, PostgreSQL, Spring Data JPA, WireMock (testes de integracao HTTP).
-- Dependencia obrigatoria de runtime: `nexus-payment-service` (imagem `fabianofsc/nexus-payment-service:latest`), unico provider de pagamento.
+- Dependencias obrigatorias de runtime: `nexus-payment-service` (imagem `fabianofsc/nexus-payment-service:latest`), unico provider de pagamento, e `notification-service`, dono da entrega de notificacoes.
 - Docker Hub: `fabianofsc/nexus-shopping` com tags `baseline`, `indexes`, `pagination`, `latest`.
 
 ## Architecture
@@ -46,7 +46,7 @@ Decisoes fixas:
 env GRADLE_USER_HOME=/Users/fabiano/Developer/nexus-shopping/.gradle-local ./gradlew build
 ```
 
-- Docker Compose: `docker compose up -d postgres` para so o banco; `docker compose up -d` sobe tambem `nexus-payment-service` + `dummy-pay` (imagens publicadas, sem clone extra).
+- Docker Compose: `docker compose up -d postgres` para so o banco; `docker compose up -d` sobe tambem `nexus-payment-service`, `dummy-pay`, `notification-service` e seu PostgreSQL. Notification Service e construido de `../notification-service`.
 - Busca de arquivos/texto com `rg` / `rg --files`.
 - Guardrail de lint pre-push (`make install-hooks`, uma vez por clone): bloqueia `git push` se `ktlintCheck` falhar. Bypass pontual: `git push --no-verify`.
 - Nao commitar outputs de build nem relatorios HTML do JMeter em `build/`.
@@ -75,7 +75,7 @@ Branches atuais:
 - Migrations: `src/main/resources/db/migration`.
 - Tabelas: `brands`, `categories`, `products`. Seed: `PRODUCT_SEED_COUNT` (default `1000`; usar `10000000` explicitamente nas aulas de performance).
 - Manter migrations portaveis entre PostgreSQL e H2 salvo instrucao explicita do usuario.
-- Bases criadas antes da extracao de Payment **nao validam mais** (V9 mudou de checksum, V10 mudou de nome, a V11 antiga saiu): recriar com `docker compose down -v`.
+- Bases criadas antes das extracoes de Payment e Notification **nao validam mais** (V9 mudou de checksum, V10 mudou de nome, a V11 antiga saiu e V13 remove `notifications`): recriar com `docker compose down -v`.
 - Evitar tipos/funcoes exclusivos do PostgreSQL em migrations usadas por testes.
 - Indexes atuais:
 

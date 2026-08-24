@@ -52,7 +52,7 @@ class PaymentCheckoutHttpTest {
     private val httpClient = HttpClient.newHttpClient()
 
     @Test
-    fun `approved payment confirms Order and sends Notification`() {
+    fun `approved payment confirms Order and records failed notification submission`() {
         stubDispatch("provider-attempt-1")
         val port = environment.getRequiredProperty("local.server.port")
         val customerId = createCustomer(port)
@@ -68,11 +68,11 @@ class PaymentCheckoutHttpTest {
         val order = getOrder(port, customerId, orderId)
         assertEquals("CONFIRMED", order["status"].asText())
         assertEquals("APPROVED", scalar("SELECT status FROM payment_attempts WHERE reference_id = ?", "checkout:$orderId"))
-        assertEquals("SENT", scalar("SELECT status FROM notifications WHERE reference_id = ?", orderId))
+        assertEquals("FAILED", scalar("SELECT status FROM notification_submissions WHERE order_id = ?", orderId))
     }
 
     @Test
-    fun `rejected payment fails Order without creating Notification`() {
+    fun `rejected payment fails Order without creating notification submission`() {
         stubDispatch("provider-attempt-2")
         val port = environment.getRequiredProperty("local.server.port")
         val customerId = createCustomer(port)
@@ -88,11 +88,11 @@ class PaymentCheckoutHttpTest {
         val order = getOrder(port, customerId, orderId)
         assertEquals("PAYMENT_FAILED", order["status"].asText())
         assertEquals("REJECTED", scalar("SELECT status FROM payment_attempts WHERE reference_id = ?", "checkout:$orderId"))
-        assertEquals(0, count("SELECT COUNT(*) FROM notifications WHERE reference_id = ?", orderId))
+        assertEquals(0, count("SELECT COUNT(*) FROM notification_submissions WHERE order_id = ?", orderId))
     }
 
     @Test
-    fun `checkout replay reconciles terminal result without a second provider dispatch or Notification`() {
+    fun `checkout replay reconciles terminal result without a second provider dispatch or notification submission`() {
         stubDispatch("provider-attempt-3")
         val port = environment.getRequiredProperty("local.server.port")
         val customerId = createCustomer(port)
@@ -113,7 +113,7 @@ class PaymentCheckoutHttpTest {
         assertEquals(orderId, replayedOrder["id"].asLong())
         assertEquals("CONFIRMED", replayedOrder["status"].asText())
         wireMock.verify(1, postRequestedFor(urlEqualTo("/v1/payments")))
-        assertEquals(1, count("SELECT COUNT(*) FROM notifications WHERE reference_id = ?", orderId))
+        assertEquals(1, count("SELECT COUNT(*) FROM notification_submissions WHERE order_id = ?", orderId))
     }
 
     @Test

@@ -2,7 +2,6 @@ package com.nexus.shopping.order
 
 import com.nexus.shopping.checkout.adapter.inbound.scheduler.PaymentReconciliationScheduler
 import com.nexus.shopping.checkout.adapter.outbound.acl.CartCheckoutGatewayAdapter
-import com.nexus.shopping.checkout.adapter.outbound.acl.NotificationGatewayAdapter
 import com.nexus.shopping.checkout.adapter.outbound.acl.OrderCreationGatewayAdapter
 import com.nexus.shopping.checkout.adapter.outbound.acl.OrderPaymentResultGatewayAdapter
 import com.nexus.shopping.checkout.adapter.outbound.acl.PaymentAuthorizationFingerprintGatewayAdapter
@@ -77,7 +76,6 @@ class OrderCheckoutBoundaryTest {
         val aclAdapters =
             listOf(
                 CartCheckoutGatewayAdapter::class.java,
-                NotificationGatewayAdapter::class.java,
                 OrderCreationGatewayAdapter::class.java,
                 OrderPaymentResultGatewayAdapter::class.java,
                 PaymentAuthorizationFingerprintGatewayAdapter::class.java,

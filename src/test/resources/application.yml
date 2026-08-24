@@ -13,6 +13,12 @@ nexus:
   payment-service:
     base-url: http://localhost:8081
     polling-interval: 600000
+  notification-service:
+    base-url: http://localhost:8082
+    username: notification
+    password: notification
+    connect-timeout: 5s
+    read-timeout: 5s
   cache:
     redis:
       enabled: false

@@ -14,6 +14,7 @@ x-app: &app-base
     SPRING_DATA_REDIS_HOST: redis
     SPRING_DATA_REDIS_PORT: 6379
     NEXUS_PAYMENT_SERVICE_BASE_URL: ${NEXUS_PAYMENT_SERVICE_BASE_URL:-http://nexus-payment-service:8081}
+    NEXUS_NOTIFICATION_SERVICE_BASE_URL: ${NEXUS_NOTIFICATION_SERVICE_BASE_URL:-http://notification-service:8080}
   expose:
     - "8080"
   depends_on:
@@ -22,6 +23,8 @@ x-app: &app-base
     redis:
       condition: service_healthy
     nexus-payment-service:
+      condition: service_started
+    notification-service:
       condition: service_started
   networks:
     - backend
@@ -159,6 +162,37 @@ services:
     networks:
       - backend
 
+  notification-service:
+    build:
+      context: ../notification-service
+    environment:
+      DATABASE_URL: postgres://notification_usr:notification_pwd@notification-postgres:5432/notification_db?sslmode=disable
+      PORT: "8080"
+      BASIC_AUTH_USERNAME: notification
+      BASIC_AUTH_PASSWORD: notification
+    depends_on:
+      notification-postgres:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+
+  notification-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: notification_db
+      POSTGRES_USER: notification_usr
+      POSTGRES_PASSWORD: notification_pwd
+    volumes:
+      - notification-pgdata:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification_usr -d notification_db"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
 networks:
   backend:
     driver: bridge
@@ -167,3 +201,4 @@ volumes:
   postgres-data:
   nexus-payment-pgdata:
   dummypay-pgdata:
+  notification-pgdata:

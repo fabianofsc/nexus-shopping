@@ -6,8 +6,9 @@ distribuidos. E a referencia para replicar o mesmo comportamento em Node/TypeScr
 Java ou Python.
 
 > **Onde o baseline ja saiu do monolito.** O contexto Payment **ja foi extraido** para o
-> servico `nexus-payment-service` (que por sua vez fala com o PSP DummyPay). No Nexus ele
-> sobrevive como ACL: ports + adapter HTTP. Isso torna o pagamento **assincrono** e muda o
+> servico `nexus-payment-service` (que por sua vez fala com o PSP DummyPay). Notification
+> tambem ja foi extraido para `notification-service`; no Nexus restou o journal tecnico do
+> Checkout e a ACL HTTP. Isso torna o pagamento **assincrono** e muda o
 > contrato do checkout — leia a secao "Estados do pedido e pagamento" antes de replicar.
 
 O contrato HTTP canonico e o [`docs/api/openapi.yaml`](../../docs/api/openapi.yaml);
@@ -26,7 +27,7 @@ servico extraido):
 | Cart | Intencao temporaria de compra | Cart, CartItem, ProductSummary |
 | Order | Compromisso comercial (snapshot historico) | Order, CustomerSnapshot, ShippingAddressSnapshot, OrderItemSnapshot |
 | Payment | ACL para o `nexus-payment-service` (abstrai o PSP) | PaymentAttempt, `provider_attempt_reference` |
-| Notification | Comunicar eventos ao cliente | Notification |
+| Checkout | Journal tecnico e recuperacao de submissao | NotificationSubmission, backoffice interno |
 | Inventory | Disponibilidade e baixa de estoque | StockMovement, products.inventory_quantity |
 | Billing | Emitir documentos comerciais | Invoice futura; neste baseline apenas registra a emissao |
 | Shipping | Calcular frete e despachar remessa | Shipment futura; neste baseline apenas registra os efeitos |
@@ -46,7 +47,8 @@ Regras de fronteira:
 Na `main`, a reconciliacao aplica o pagamento aprovado ao pedido e, somente se
 a transicao for efetiva, chama Billing para registrar a emissao da Invoice e
 depois Shipping para registrar o calculo do frete e o despacho. A confirmacao
-por Notification continua sendo a etapa seguinte do processo.
+e entao submetida ao `notification-service`; indisponibilidade remota nao muda
+o pedido confirmado e fica registrada no journal para recuperacao manual.
 
 Os adapters de Billing e Shipping apenas registram esses efeitos no baseline.
 Nao ha Invoice ou Shipment persistidos, migration, endpoint, integracao fiscal,
@@ -69,7 +71,7 @@ Order:  WAITING_PAYMENT -> PAYMENT_PROCESSING -> CONFIRMED
 - Cancelamento so e permitido a partir de `WAITING_PAYMENT`.
 - `PaymentAttempt`: `REQUESTED -> APPROVED | REJECTED`, com a transicao acontecendo fora
   do request do checkout.
-- `Notification`: `PENDING -> SENDING -> SENT | FAILED`.
+- `NotificationSubmission`: `PENDING -> IN_FLIGHT -> ACCEPTED | FAILED | DISCARDED`.
 
 ## Idempotencia e replay
 
@@ -89,7 +91,7 @@ Requisitos: Java 21, Docker, Gradle Wrapper.
 
 ```bash
 docker compose down -v   # bases do baseline antigo nao validam mais (V9/V10/V11 mudaram)
-docker compose up -d     # postgres, redis, nexus-payment-service, dummypay
+docker compose up -d     # postgres, redis, payment, dummypay e notification-service
 ./gradlew bootRun
 ```
 
@@ -141,9 +143,9 @@ POST   /customers/{customerId}/cart/checkout   (+ Idempotency-Key)
 GET    /customers/{customerId}/orders
 GET    /customers/{customerId}/orders/{orderId}
 POST   /customers/{customerId}/orders/{orderId}/cancel
-POST   /notifications
-GET    /notifications?customerId=&page=&size=
-GET    /notifications/{id}
+GET    /backoffice/notification-submissions
+POST   /backoffice/notification-submissions/{id}/retry
+POST   /backoffice/notification-submissions/{id}/discard
 ```
 
 Detalhes e schemas em [`docs/api/openapi.yaml`](../../docs/api/openapi.yaml).
@@ -158,8 +160,8 @@ Ordem recomendada para os alunos implementarem, escolhendo a stack que dominam:
 1. ~~**Extrair Payment** como servico (o DummyPay ja existe; Payment vira o servico que o
    consome). O Nexus chama por HTTP/ACL; retry e reconciliation entram aqui.~~ **Feito** —
    ver `docs/agents/external-services.md`.
-2. **Event-driven**: introduzir um broker; `Notification` vira o primeiro consumidor
-   assincrono (outbox para garantir entrega).
+2. **Event-driven**: introduzir um broker; o journal de Notification pode evoluir
+   para outbox, preservando entrega assincrona.
 3. **API Gateway** + propagacao de identidade (Auth).
 4. **Observabilidade distribuida**: tracing e logs centralizados.
 5. **Saga/compensacao** para o checkout entre servicos.
